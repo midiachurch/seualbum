@@ -22,6 +22,7 @@ const NAV_ITEMS: { href: string; label: string; module: ModuleKey }[] = [
   { href: '/admin/vitrine/portfolio', label: 'Portfólio', module: 'vitrine' },
   { href: '/admin/vitrine/paginas', label: 'Páginas do site', module: 'vitrine' },
   { href: '/admin/catalogo', label: 'Catálogo de álbuns', module: 'vitrine' },
+  { href: '/admin/catalogo/adicionais', label: 'Adicionais (upsell)', module: 'vitrine' },
 ]
 
 /**

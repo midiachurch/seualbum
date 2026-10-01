@@ -7,22 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { salvarCatalogoEstudio } from '@/lib/actions/catalogo-estudio'
 import { cn, formatBRL } from '@/lib/utils'
+import { lerPreco, precoParaTexto as paraTexto } from '@/lib/preco'
 import type { ItemCatalogoEstudio } from '@/lib/supabase/queries'
 
 type Rascunho = { oferecer: boolean; preco: string }
-
-/** "350", "350,5", "1.350,00", "350.00" → número; vazio → null (usa o sugerido). */
-function lerPreco(texto: string): number | null | 'invalido' {
-  const t = texto.trim()
-  if (t === '') return null
-  const normal = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t
-  if (!/^\d+(\.\d{1,2})?$/.test(normal)) return 'invalido'
-  return Number(normal)
-}
-
-function paraTexto(v: number | null) {
-  return v === null ? '' : v.toFixed(2).replace('.', ',')
-}
 
 /**
  * Catálogo do estúdio (Upsell B2B2C, 0026): o fotógrafo escolhe o que oferece

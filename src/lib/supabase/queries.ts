@@ -1289,6 +1289,53 @@ export async function getCatalogoDoEstudio(): Promise<ItemCatalogoEstudio[]> {
   })
 }
 
+export type AdicionalAdmin = {
+  id: string
+  slug: string
+  nome: string
+  descricao: string | null
+  imagemUrl: string | null
+  custo: number
+  sugerido: number
+  ativo: boolean
+  ordem: number
+  /** Unidades em faturas (itens confirmados). */
+  vendidos: number
+  /** Estúdios que desligaram o item para os clientes deles. */
+  estudiosSemOferta: number
+}
+
+/** Catálogo completo de adicionais (inclusive inativos) para a gestão no admin. */
+export async function getAdicionaisAdmin(): Promise<AdicionalAdmin[]> {
+  if (isDemoMode()) return []
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const [{ data: itens, error }, { data: vendas }, { data: desligados }] = await Promise.all([
+    supabase.from('adicionais').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true }),
+    supabase.from('fatura_itens').select('adicional_id, quantidade').eq('tipo', 'adicional').eq('situacao', 'confirmado'),
+    supabase.from('adicionais_estudio').select('adicional_id').eq('oferecer_ao_cliente', false),
+  ])
+  if (error) {
+    console.error('[getAdicionaisAdmin]', error.message)
+    return []
+  }
+  return ((itens ?? []) as AdicionalRow[]).map((a) => ({
+    id: a.id,
+    slug: a.slug,
+    nome: a.nome,
+    descricao: a.descricao,
+    imagemUrl: a.imagem_url,
+    custo: Number(a.preco_custo),
+    sugerido: Number(a.preco_sugerido),
+    ativo: a.ativo,
+    ordem: a.ordem,
+    vendidos: ((vendas ?? []) as { adicional_id: string | null; quantidade: number }[])
+      .filter((v) => v.adicional_id === a.id)
+      .reduce((soma, v) => soma + v.quantidade, 0),
+    estudiosSemOferta: ((desligados ?? []) as { adicional_id: string }[]).filter((d) => d.adicional_id === a.id).length,
+  }))
+}
+
 /** Adicionais confirmados de cada projeto, para a lista de produção da gráfica. */
 export async function getAdicionaisDeProducao(projetoIds: string[]): Promise<Map<string, { descricao: string; quantidade: number }[]>> {
   const mapa = new Map<string, { descricao: string; quantidade: number }[]>()
