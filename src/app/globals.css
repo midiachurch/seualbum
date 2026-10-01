@@ -1,0 +1,291 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 20% 12%;
+
+    --primary: 224 71% 20%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 20% 12%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 71% 20%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Títulos em Poppins em toda a aplicação — mesma família do site. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-poppins), Helvetica, Arial, sans-serif;
+  }
+}
+
+@layer utilities {
+  /* Marca do site-piloto: Poppins nos títulos, Open Sans no corpo — em toda a
+     aplicação (o `body` já usa Open Sans; esta classe segue válida nos layouts). */
+  .font-marketing {
+    font-family: var(--font-open-sans), Helvetica, Arial, sans-serif;
+  }
+
+  /* Hierarquia tipográfica da landing page — pesos e tamanhos extraídos
+     literalmente de site-piloto/css/style.css (h1-h6, p, p.lead, .large, .bold). */
+  .text-overline {
+    font-family: var(--font-open-sans), Helvetica, Arial, sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* Hero: equivalente ao h2.bold real do index01 (30px, weight 600) — não ao
+     `.large`, que não é usado em nenhuma página real de referência. */
+  .text-display-xl {
+    font-family: var(--font-poppins), Helvetica, Arial, sans-serif;
+    font-weight: 600;
+    font-size: clamp(1.625rem, 1.5rem + 0.6vw, 1.875rem);
+    line-height: 1.4;
+  }
+
+  /* Títulos de seção: equivalente a h1 (36px desktop / 28px mobile, weight 300). */
+  .text-display-l {
+    font-family: var(--font-poppins), Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    font-size: clamp(1.75rem, 1.55rem + 1vw, 2.25rem);
+    line-height: 1.4;
+  }
+
+  /* Título de bloco imagem+texto (elements-textimage.html): equivalente a h3 (22px desktop / 20px mobile, weight 300). */
+  .text-title {
+    font-family: var(--font-poppins), Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    font-size: clamp(1.25rem, 1.15rem + 0.5vw, 1.375rem);
+    line-height: 1.4;
+  }
+
+  /* Nome do plano etc.: equivalente a h5.uppercase (14px, weight 300, versalete). */
+  .text-heading {
+    font-family: var(--font-poppins), Helvetica, Arial, sans-serif;
+    font-weight: 300;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Equivalente a p.lead (16px, weight 400, line-height 28px). */
+  .text-subheading {
+    font-family: var(--font-open-sans), Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.75rem;
+  }
+
+  /* Equivalente a p (14px, weight 400, line-height 1.7). */
+  .text-body {
+    font-family: var(--font-open-sans), Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .text-caption {
+    font-family: var(--font-open-sans), Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  /* Botão do site-piloto: cantos retos, versalete, borda 2px, 10px (.btn de elements-buttons.html). */
+  .btn-marketing {
+    font-family: var(--font-open-sans), Helvetica, Arial, sans-serif;
+    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    font-size: 0.625rem;
+  }
+
+  .animate-page-in {
+    animation: page-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .animate-drop-in {
+    animation: drop-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .animate-select-in {
+    animation: select-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes select-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slider-thin {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  width: 100%;
+  border-radius: 9999px;
+  background: hsl(var(--border));
+}
+
+.slider-thin::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  cursor: pointer;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slider-thin::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider-thin::-moz-range-thumb {
+  height: 12px;
+  width: 12px;
+  border: none;
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+  cursor: pointer;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slider-thin::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.slider-thin::-moz-range-track {
+  height: 2px;
+  border-radius: 9999px;
+  background: hsl(var(--border));
+}
+
+/**
+ * Tipografia de leitura para HTML gerado por editor (CMS de páginas, corpo
+ * dos e-mails simulados) — escrita à mão em vez de instalar
+ * @tailwindcss/typography, seguindo a convenção do projeto de não adicionar
+ * dependência por uma única tela. Unidades em `em` de propósito: o tamanho
+ * base é herdado do elemento pai (text-base na leitura pública, text-sm no
+ * histórico de comunicação do admin), então o mesmo bloco de CSS serve os
+ * dois contextos.
+ */
+.prose-outbox {
+  line-height: 1.7;
+}
+
+.prose-outbox > * + * {
+  margin-top: 1em;
+}
+
+.prose-outbox h2 {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.prose-outbox h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.prose-outbox p {
+  color: inherit;
+}
+
+.prose-outbox a {
+  color: #171717;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-outbox ul {
+  list-style: disc;
+  padding-left: 1.25em;
+}
+
+.prose-outbox ul > li + li {
+  margin-top: 0.4em;
+}
+
+.prose-outbox strong {
+  font-weight: 600;
+}
+
+/* Quem pediu "reduzir movimento" no sistema não recebe transições, animações
+   nem rolagem suave (as rolagens em JS usam `rolagemSuave()` de lib/utils). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
