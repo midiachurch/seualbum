@@ -257,6 +257,91 @@ export type ProvaComentarioRow = {
   created_at: string
 }
 
+export type StatusAlbum =
+  | 'rascunho'
+  | 'em_edicao'
+  | 'enviado_aprovacao'
+  | 'alteracoes_solicitadas'
+  | 'em_revisao'
+  | 'aprovado'
+  | 'finalizado'
+  | 'em_producao'
+
+/** Organização da biblioteca de um álbum (0027). */
+export type BibliotecaAlbum = {
+  pastas?: { id: string; nome: string }[]
+  fotos?: Record<string, { pasta?: string | null; favorita?: boolean; prioridade?: 'principal' | 'secundaria' | 'complementar' | null }>
+}
+
+/** Versões leves de uma foto (paths em `albuns_fotos`) + medidas feitas no navegador. */
+export type DerivadoFoto = { mini: string; preview: string; largura: number; altura: number; estouro: number | null; fx: number; fy: number }
+
+export type AlbumLayoutVersaoRow = {
+  id: string
+  layout_id: string
+  documento: unknown
+  tipo: 'auto' | 'manual' | 'restauracao' | 'aprovacao' | 'publicacao'
+  rotulo: string | null
+  criado_por: string | null
+  created_at: string
+}
+
+export type AlbumAprovacaoRow = {
+  id: string
+  layout_id: string
+  numero: number
+  token: string
+  laminas: { path: string; largura: number; altura: number; rotulo: string }[]
+  status: 'aguardando' | 'aprovado' | 'alteracoes' | 'cancelado'
+  mensagem_cliente: string | null
+  decidido_por_nome: string | null
+  decidido_em: string | null
+  criado_por: string | null
+  created_at: string
+}
+
+export type AlbumAprovacaoComentarioRow = {
+  id: string
+  aprovacao_id: string
+  lamina_indice: number
+  x: number | null
+  y: number | null
+  texto: string
+  autor_nome: string
+  origem: 'cliente' | 'equipe'
+  resolvido: boolean
+  created_at: string
+}
+
+/** Documento do editor de álbum (migration 0027). `projeto_id` null = álbum avulso. */
+export type AlbumLayoutRow = {
+  id: string
+  projeto_id: string | null
+  nome: string
+  cliente_nome: string | null
+  tipo: string | null
+  modelo: string | null
+  fotos_estimadas: number | null
+  status: StatusAlbum
+  arquivado: boolean
+  biblioteca: BibliotecaAlbum
+  derivados: Record<string, DerivadoFoto>
+  formato: string
+  orientacao: 'quadrado' | 'horizontal' | 'vertical'
+  sangria_mm: number
+  margem_segura_mm: number
+  documento: unknown
+  /** Só álbuns independentes: fotos no bucket `albuns_fotos`. */
+  fotos: { id: string; path: string; nome: string; largura: number | null; altura: number | null }[]
+  /** Calculada no banco: quantidade de lâminas do documento. */
+  laminas_qtd: number
+  miniatura: string | null
+  revisao: number
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+
 /** Lâmina (página/imagem) de uma versão da prova — migration 0018. */
 export type VersaoLaminaRow = {
   id: string
@@ -534,6 +619,32 @@ export type Database = {
         Update: Partial<ProjetoAtividadeRow>
         Relationships: []
       }
+      album_layouts: {
+        Row: AlbumLayoutRow
+        Insert: Pick<AlbumLayoutRow, 'nome' | 'formato' | 'orientacao'> &
+          Partial<Omit<AlbumLayoutRow, 'id' | 'created_at' | 'updated_at' | 'revisao' | 'laminas_qtd'>>
+        Update: Partial<Omit<AlbumLayoutRow, 'id' | 'created_at' | 'revisao' | 'laminas_qtd'>>
+        Relationships: []
+      }
+      album_layout_versoes: {
+        Row: AlbumLayoutVersaoRow
+        Insert: Pick<AlbumLayoutVersaoRow, 'layout_id' | 'documento'> & Partial<Omit<AlbumLayoutVersaoRow, 'id' | 'created_at'>>
+        Update: Partial<Pick<AlbumLayoutVersaoRow, 'rotulo'>>
+        Relationships: []
+      }
+      album_aprovacoes: {
+        Row: AlbumAprovacaoRow
+        Insert: Pick<AlbumAprovacaoRow, 'layout_id' | 'numero' | 'laminas'> & Partial<Pick<AlbumAprovacaoRow, 'id' | 'status' | 'criado_por'>>
+        Update: Partial<Pick<AlbumAprovacaoRow, 'status'>>
+        Relationships: []
+      }
+      album_aprovacao_comentarios: {
+        Row: AlbumAprovacaoComentarioRow
+        Insert: Pick<AlbumAprovacaoComentarioRow, 'aprovacao_id' | 'lamina_indice' | 'texto' | 'autor_nome'> &
+          Partial<Pick<AlbumAprovacaoComentarioRow, 'x' | 'y' | 'origem'>>
+        Update: Partial<Pick<AlbumAprovacaoComentarioRow, 'resolvido'>>
+        Relationships: []
+      }
       versoes_laminas: {
         Row: VersaoLaminaRow
         Insert: Pick<VersaoLaminaRow, 'versao_id' | 'ordem' | 'storage_path'> &
@@ -636,6 +747,15 @@ export type Database = {
     }
     Views: Record<never, never>
     Functions: {
+      /** Grava o documento do editor se a revisão bater; null = conflito (0027). */
+      salvar_album_layout: { Args: { p_id: string; p_documento: unknown; p_revisao: number }; Returns: number | null }
+      /** Link de aprovação sem login (0027): tudo exige o token. */
+      album_aprovacao_publica: { Args: { p_token: string }; Returns: unknown }
+      album_aprovacao_comentar: {
+        Args: { p_token: string; p_lamina: number; p_x: number | null; p_y: number | null; p_texto: string; p_autor: string }
+        Returns: string
+      }
+      album_aprovacao_decidir: { Args: { p_token: string; p_decisao: 'aprovado' | 'alteracoes'; p_autor: string; p_mensagem: string | null }; Returns: string }
       is_admin: { Args: Record<string, never>; Returns: boolean }
       is_equipe: { Args: Record<string, never>; Returns: boolean }
       is_gestor_ou_admin: { Args: Record<string, never>; Returns: boolean }

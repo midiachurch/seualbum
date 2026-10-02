@@ -62,6 +62,15 @@ pedidos, prova, catálogo, orçamentos), área do cliente final (`/cliente`),
 esteira do admin (design, produção, gráfica, CRM de retenção), pagamento via
 Stripe Checkout e upsell de adicionais na aprovação da prova (0026).
 
-Pendente: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+Smart Album (editor de diagramação, migration 0027): `/admin/albuns` lista os
+álbuns avulsos e os de projeto; o editor (`/admin/albuns/[id]` e
+`/admin/projetos/[id]/editor`) tem canvas de lâmina aberta com sangria, dobra
+e área segura, fotos/textos/formas, Smart Layout, modelos de álbum,
+preenchimento automático, verificação de impressão, histórico de versões e
+visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entra
+na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
+exportação em ZIP. A lógica fica em `src/lib/album/`.
+
+Pendente: aplicar a migration 0027 no remoto, teste ponta a ponta do fluxo de adicionais e deploy na Vercel
 (URLs de produção do Auth, do webhook do Stripe e de
 `private.app_config.webhook_status_url`).

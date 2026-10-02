@@ -36,6 +36,13 @@ import {
   type TeamMember,
 } from '@/types/platform'
 import type {
+  AlbumAprovacaoComentarioRow,
+  AlbumAprovacaoRow,
+  AlbumLayoutRow,
+  AlbumLayoutVersaoRow,
+  BibliotecaAlbum,
+  DerivadoFoto,
+  StatusAlbum,
   AprovacaoRow,
   BannerRow,
   ClienteRow,
@@ -531,8 +538,8 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 async function assinarArquivos(
   supabase: NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>,
   arquivos: { bucket: string; path: string }[],
+  EXPIRACAO_SEGUNDOS = 60 * 60,
 ): Promise<Map<string, string>> {
-  const EXPIRACAO_SEGUNDOS = 60 * 60
   const LOTE = 500
   const assinadas = new Map<string, string>() // `${bucket}:${path}` → url
   if (arquivos.length === 0) return assinadas
@@ -1464,4 +1471,366 @@ export async function getOrcamentoPublico(hash: string): Promise<OrcamentoPublic
     console.error('[getOrcamentoPublico]', error)
     return null
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Editor de álbum (migration 0027)                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Uma sessão de diagramação dura horas: o link das fotos precisa durar junto. */
+const EXPIRACAO_EDITOR_SEGUNDOS = 8 * 60 * 60
+
+/** Projeto nestes status já foi aprovado: a diagramação fica travada (0027). */
+export const STATUS_PROJETO_TRAVADO = ['aprovado_aguardando_pagamento', 'aprovado', 'enviado', 'finalizado', 'arquivado']
+
+export type FotoDoEditor = {
+  id: string
+  url: string
+  nome: string
+  largura: number | null
+  altura: number | null
+  grupo?: string
+  capturadaEm?: string | null
+  favorita?: boolean
+  obrigatoria?: boolean
+  estouro?: number | null
+  /** Versões leves (miniatura para listas, prévia para o canvas); o `url` é o original. */
+  urlMini?: string | null
+  urlPreview?: string | null
+  fx?: number | null
+  fy?: number | null
+  pasta?: string | null
+  prioridade?: 'principal' | 'secundaria' | 'complementar' | null
+  /** Já tem versões leves salvas (não precisa gerar de novo). */
+  temDerivados?: boolean
+}
+
+export type AlbumParaEditor = {
+  id: string
+  nome: string
+  clienteNome: string | null
+  tipo: string | null
+  modelo: string | null
+  status: StatusAlbum
+  pastas: { id: string; nome: string }[]
+  formato: string
+  orientacao: AlbumLayoutRow['orientacao']
+  sangriaMm: number
+  margemSeguraMm: number
+  documento: unknown
+  revisao: number
+  fotos: FotoDoEditor[]
+  /** Álbum de projeto: publica versão na esteira. Avulso: link de aprovação e ZIP. */
+  projeto: { id: string; numero: number; nome: string; laminasInclusas: number | null; status: string } | null
+  /** Aprovado/finalizado (ou projeto aprovado): só leitura. */
+  travado: boolean
+  atualizadoEm: string
+}
+
+export type AlbumResumo = {
+  id: string
+  nome: string
+  clienteNome: string | null
+  formato: string
+  orientacao: AlbumLayoutRow['orientacao']
+  laminas: number
+  fotos: number
+  status: StatusAlbum
+  arquivado: boolean
+  miniatura: string | null
+  projeto: { id: string; numero: number; nome: string; status: string } | null
+  criadoEm: string
+  atualizadoEm: string
+}
+
+export type VersaoDoAlbum = { id: string; tipo: AlbumLayoutVersaoRow['tipo']; rotulo: string | null; criadoEm: string; laminas: number }
+
+export type AprovacaoDoAlbum = {
+  id: string
+  numero: number
+  token: string
+  status: AlbumAprovacaoRow['status']
+  laminas: AlbumAprovacaoRow['laminas']
+  mensagemCliente: string | null
+  decididoPorNome: string | null
+  decididoEm: string | null
+  criadoEm: string
+  comentarios: { id: string; laminaIndice: number; x: number | null; y: number | null; texto: string; autor: string; origem: 'cliente' | 'equipe'; resolvido: boolean; criadoEm: string }[]
+}
+
+function nomeDoArquivo(path: string) {
+  return path.split('/').pop()?.replace(/^[0-9a-f-]{36}-/, '').replace(/^\d{13}-/, '') ?? path
+}
+
+/** Fotos de um projeto prontas para o editor (links assinados longos). */
+async function fotosDoProjetoParaEditor(
+  supabase: NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>,
+  projetoId: string,
+): Promise<FotoDoEditor[]> {
+  const { data, error } = await supabase.from('fotos').select('*').eq('projeto_id', projetoId).order('created_at', { ascending: true })
+  if (error) {
+    console.error('[fotosDoProjetoParaEditor]', error.message)
+    return []
+  }
+  const linhas = (data ?? []) as FotoRow[]
+  const bucketDe = (f: FotoRow) => f.bucket ?? 'projetos_fotos'
+  const urls = await assinarArquivos(
+    supabase,
+    linhas.map((f) => ({ bucket: bucketDe(f), path: f.storage_path })),
+    EXPIRACAO_EDITOR_SEGUNDOS,
+  )
+  return linhas.map((f) => ({
+    id: f.id,
+    url: urls.get(`${bucketDe(f)}:${f.storage_path}`) ?? f.url ?? '',
+    nome: nomeDoArquivo(f.storage_path),
+    largura: null,
+    altura: null,
+    grupo: f.grupo ?? undefined,
+    capturadaEm: f.capturada_em,
+    favorita: f.favorita,
+    obrigatoria: f.obrigatoria,
+  }))
+}
+
+async function fotosAvulsasParaEditor(
+  supabase: NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>,
+  fotos: AlbumLayoutRow['fotos'],
+): Promise<FotoDoEditor[]> {
+  const urls = await assinarArquivos(
+    supabase,
+    fotos.map((f) => ({ bucket: 'albuns_fotos', path: f.path })),
+    EXPIRACAO_EDITOR_SEGUNDOS,
+  )
+  return fotos.map((f) => ({
+    id: f.id,
+    url: urls.get(`albuns_fotos:${f.path}`) ?? '',
+    nome: f.nome,
+    largura: f.largura,
+    altura: f.altura,
+  }))
+}
+
+/**
+ * Junta às fotos o que o editor já sabe delas: versões leves (assinadas),
+ * medidas (dimensões, estouro, foco) e a organização da biblioteca.
+ */
+async function completarFotos(
+  supabase: NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>,
+  fotos: FotoDoEditor[],
+  derivados: Record<string, DerivadoFoto>,
+  biblioteca: BibliotecaAlbum,
+): Promise<FotoDoEditor[]> {
+  const paths = fotos.flatMap((f) => {
+    const d = derivados[f.id]
+    return d ? [d.mini, d.preview] : []
+  })
+  const urls = await assinarArquivos(supabase, paths.map((path) => ({ bucket: 'albuns_fotos', path })), EXPIRACAO_EDITOR_SEGUNDOS)
+  return fotos.map((f) => {
+    const d = derivados[f.id]
+    const meta = biblioteca.fotos?.[f.id]
+    return {
+      ...f,
+      largura: d?.largura ?? f.largura,
+      altura: d?.altura ?? f.altura,
+      estouro: d ? d.estouro : f.estouro,
+      fx: d?.fx ?? null,
+      fy: d?.fy ?? null,
+      urlMini: d ? (urls.get(`albuns_fotos:${d.mini}`) ?? null) : null,
+      urlPreview: d ? (urls.get(`albuns_fotos:${d.preview}`) ?? null) : null,
+      temDerivados: Boolean(d),
+      favorita: meta?.favorita ?? f.favorita,
+      prioridade: meta?.prioridade ?? null,
+      pasta: meta?.pasta ?? null,
+    }
+  })
+}
+
+/** Fotos atuais do álbum (depois de um upload no editor). */
+export async function getFotosDoEditor(layoutId: string): Promise<FotoDoEditor[]> {
+  if (isDemoMode()) return []
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const { data } = await supabase
+    .from('album_layouts')
+    .select('projeto_id, fotos, derivados, biblioteca')
+    .eq('id', layoutId)
+    .maybeSingle<Pick<AlbumLayoutRow, 'projeto_id' | 'fotos' | 'derivados' | 'biblioteca'>>()
+  if (!data) return []
+  const base = data.projeto_id ? await fotosDoProjetoParaEditor(supabase, data.projeto_id) : await fotosAvulsasParaEditor(supabase, data.fotos ?? [])
+  return completarFotos(supabase, base, data.derivados ?? {}, data.biblioteca ?? {})
+}
+
+export async function getAlbumParaEditor(id: string): Promise<AlbumParaEditor | null> {
+  if (isDemoMode()) return null
+  const { supabase } = await requireUser()
+  if (!supabase) return null
+  const { data, error } = await supabase.from('album_layouts').select('*').eq('id', id).maybeSingle<AlbumLayoutRow>()
+  if (error || !data) {
+    if (error) console.error('[getAlbumParaEditor]', error.message)
+    return null
+  }
+
+  let projeto: AlbumParaEditor['projeto'] = null
+  let fotos: FotoDoEditor[]
+  if (data.projeto_id) {
+    const { data: p } = await supabase
+      .from('projetos')
+      .select('id, numero, nome, status, laminas_inclusas')
+      .eq('id', data.projeto_id)
+      .maybeSingle<Pick<ProjetoRow, 'id' | 'numero' | 'nome' | 'status'> & { laminas_inclusas: number | null }>()
+    if (!p) return null
+    projeto = { id: p.id, numero: Number(p.numero), nome: p.nome, status: p.status, laminasInclusas: p.laminas_inclusas ?? null }
+    fotos = await fotosDoProjetoParaEditor(supabase, data.projeto_id)
+  } else {
+    fotos = await fotosAvulsasParaEditor(supabase, data.fotos ?? [])
+  }
+  fotos = await completarFotos(supabase, fotos, data.derivados ?? {}, data.biblioteca ?? {})
+
+  return {
+    id: data.id,
+    nome: data.nome,
+    clienteNome: data.cliente_nome,
+    tipo: data.tipo,
+    modelo: data.modelo,
+    status: data.status,
+    pastas: data.biblioteca?.pastas ?? [],
+    formato: data.formato,
+    orientacao: data.orientacao,
+    sangriaMm: Number(data.sangria_mm),
+    margemSeguraMm: Number(data.margem_segura_mm),
+    documento: data.documento,
+    revisao: data.revisao,
+    fotos,
+    projeto,
+    travado: ['aprovado', 'finalizado', 'em_producao'].includes(data.status) || (projeto !== null && STATUS_PROJETO_TRAVADO.includes(projeto.status)),
+    atualizadoEm: data.updated_at,
+  }
+}
+
+/** Id do documento de diagramação de um projeto, se já existir. */
+export async function getLayoutIdDoProjeto(projetoId: string): Promise<string | null> {
+  if (isDemoMode()) return null
+  const { supabase } = await requireUser()
+  if (!supabase) return null
+  const { data } = await supabase.from('album_layouts').select('id').eq('projeto_id', projetoId).maybeSingle<{ id: string }>()
+  return data?.id ?? null
+}
+
+/** Todos os álbuns (avulsos e de projeto) para a tela inicial do editor. */
+export async function getAlbuns(): Promise<AlbumResumo[]> {
+  if (isDemoMode()) return []
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('album_layouts')
+    .select('id, nome, cliente_nome, formato, orientacao, laminas_qtd, status, arquivado, miniatura, projeto_id, fotos, created_at, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(500)
+  if (error) {
+    console.error('[getAlbuns]', error.message)
+    return []
+  }
+  type Linha = Pick<
+    AlbumLayoutRow,
+    'id' | 'nome' | 'cliente_nome' | 'formato' | 'orientacao' | 'laminas_qtd' | 'status' | 'arquivado' | 'miniatura' | 'projeto_id' | 'fotos' | 'created_at' | 'updated_at'
+  >
+  const linhas = (data ?? []) as Linha[]
+  const ids = linhas.map((l) => l.projeto_id).filter((x): x is string => Boolean(x))
+  const projetos = new Map<string, { id: string; numero: number; nome: string; status: string }>()
+  const fotosPorProjeto = new Map<string, number>()
+  if (ids.length > 0) {
+    const [{ data: ps }, { data: fs }] = await Promise.all([
+      supabase.from('projetos').select('id, numero, nome, status').in('id', ids),
+      supabase.from('fotos').select('projeto_id').in('projeto_id', ids),
+    ])
+    for (const p of (ps ?? []) as { id: string; numero: number; nome: string; status: string }[]) projetos.set(p.id, { ...p, numero: Number(p.numero) })
+    for (const f of (fs ?? []) as { projeto_id: string }[]) fotosPorProjeto.set(f.projeto_id, (fotosPorProjeto.get(f.projeto_id) ?? 0) + 1)
+  }
+  return linhas.map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    clienteNome: l.cliente_nome,
+    formato: l.formato,
+    orientacao: l.orientacao,
+    laminas: l.laminas_qtd ?? 0,
+    fotos: l.projeto_id ? (fotosPorProjeto.get(l.projeto_id) ?? 0) : Array.isArray(l.fotos) ? l.fotos.length : 0,
+    status: l.status,
+    arquivado: l.arquivado,
+    miniatura: l.miniatura,
+    projeto: l.projeto_id ? (projetos.get(l.projeto_id) ?? null) : null,
+    criadoEm: l.created_at,
+    atualizadoEm: l.updated_at,
+  }))
+}
+
+export async function getVersoesDoAlbum(layoutId: string): Promise<VersaoDoAlbum[]> {
+  if (isDemoMode()) return []
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('album_layout_versoes')
+    .select('id, tipo, rotulo, created_at, documento')
+    .eq('layout_id', layoutId)
+    .order('created_at', { ascending: false })
+    .limit(60)
+  if (error) {
+    console.error('[getVersoesDoAlbum]', error.message)
+    return []
+  }
+  return ((data ?? []) as Pick<AlbumLayoutVersaoRow, 'id' | 'tipo' | 'rotulo' | 'created_at' | 'documento'>[]).map((v) => {
+    const laminas = (v.documento as { laminas?: unknown[] } | null)?.laminas
+    return { id: v.id, tipo: v.tipo, rotulo: v.rotulo, criadoEm: v.created_at, laminas: Array.isArray(laminas) ? laminas.length : 0 }
+  })
+}
+
+export async function getAprovacoesDoAlbum(layoutId: string): Promise<AprovacaoDoAlbum[]> {
+  if (isDemoMode()) return []
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('album_aprovacoes')
+    .select('*')
+    .eq('layout_id', layoutId)
+    .order('numero', { ascending: false })
+  if (error) {
+    console.error('[getAprovacoesDoAlbum]', error.message)
+    return []
+  }
+  const aprovacoes = (data ?? []) as AlbumAprovacaoRow[]
+  const comentarios = new Map<string, AprovacaoDoAlbum['comentarios']>()
+  if (aprovacoes.length > 0) {
+    const { data: cs } = await supabase
+      .from('album_aprovacao_comentarios')
+      .select('*')
+      .in('aprovacao_id', aprovacoes.map((a) => a.id))
+      .order('created_at', { ascending: true })
+    for (const c of (cs ?? []) as AlbumAprovacaoComentarioRow[]) {
+      comentarios.set(c.aprovacao_id, [
+        ...(comentarios.get(c.aprovacao_id) ?? []),
+        {
+          id: c.id,
+          laminaIndice: c.lamina_indice,
+          x: c.x === null ? null : Number(c.x),
+          y: c.y === null ? null : Number(c.y),
+          texto: c.texto,
+          autor: c.autor_nome,
+          origem: c.origem,
+          resolvido: c.resolvido,
+          criadoEm: c.created_at,
+        },
+      ])
+    }
+  }
+  return aprovacoes.map((a) => ({
+    id: a.id,
+    numero: a.numero,
+    token: a.token,
+    status: a.status,
+    laminas: a.laminas,
+    mensagemCliente: a.mensagem_cliente,
+    decididoPorNome: a.decidido_por_nome,
+    decididoEm: a.decidido_em,
+    criadoEm: a.created_at,
+    comentarios: comentarios.get(a.id) ?? [],
+  }))
 }

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Check, Eye, FileText, Layers, Plus, Sparkles } from 'lucide-react'
+import { Check, Eye, FileText, Layers, PenTool, Plus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -96,9 +96,15 @@ export function DesignVersionsPanel({
           />
         ) : (
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="brand" onClick={() => setAdding(true)}>
+            <Button size="sm" variant="brand" asChild>
+              <Link href={`/admin/projetos/${projetoId}/editor`}>
+                <PenTool className="h-4 w-4" aria-hidden />
+                Diagramar no editor
+              </Link>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" aria-hidden />
-              Nova versão
+              Subir lâminas prontas
             </Button>
             <Button size="sm" variant="outline" onClick={handleSmartLayout} disabled={gerandoSmartLayout || photos.length === 0}>
               <Sparkles className="h-4 w-4" aria-hidden />

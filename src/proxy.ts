@@ -16,12 +16,17 @@ const AREAS: { prefixo: string; casa: ReturnType<typeof areaDoPapel> }[] = [
   { prefixo: '/cliente', casa: '/cliente' },
 ]
 /**
- * Dentro do /admin, o designer só abre a própria fila e a produção de um
- * projeto (fotos/briefing/versões e a prova com os pins). O resto — dashboard
+ * Dentro do /admin, o designer só abre a própria fila, a produção de um
+ * projeto (fotos/briefing/versões, a prova com os pins e o editor) e os
+ * álbuns avulsos do editor. O resto — dashboard
  * financeiro, clientes, fotógrafos, pedidos, equipe, vitrine — é barrado aqui,
  * antes de renderizar (as páginas e a RLS da 0021 também barram).
  */
-const ROTAS_DO_DESIGNER = [/^\/admin\/design(\/|$)/, /^\/admin\/projetos\/(?!novo(\/|$))[^/]+(\/prova)?\/?$/]
+const ROTAS_DO_DESIGNER = [
+  /^\/admin\/design(\/|$)/,
+  /^\/admin\/albuns(\/|$)/,
+  /^\/admin\/projetos\/(?!novo(\/|$))[^/]+(\/(prova|editor))?\/?$/,
+]
 
 /** Rotas de autenticação — inacessíveis para quem já está logado. */
 const AUTH_PREFIXES = ['/auth/login', '/auth/register']

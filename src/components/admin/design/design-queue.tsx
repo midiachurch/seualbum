@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Eye, FolderOpen, Layers, MapPin, Upload, UserRound } from 'lucide-react'
+import { CheckCircle2, Eye, FolderOpen, Layers, MapPin, PenTool, Upload, UserRound } from 'lucide-react'
 import { Modal } from '@/components/ui/modal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SlaBadge } from '@/components/admin/production/sla-badge'
@@ -257,6 +257,15 @@ function Cartao({ cartao: c, podeSubir, onSubir }: { cartao: CartaoDesign; podeS
             <Upload className="h-4 w-4" aria-hidden />
             Subir nova versão
           </button>
+        ) : null}
+        {podeSubir ? (
+          <Link
+            href={`/admin/projetos/${c.id}/editor`}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#171717] px-3 text-sm font-semibold hover:bg-[#F5F5F5]"
+          >
+            <PenTool className="h-4 w-4" aria-hidden />
+            Diagramar no editor
+          </Link>
         ) : null}
         <div className="grid grid-cols-2 gap-2">
           {temLaminas ? (

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 const NAV_ITEMS: { href: string; label: string; module: ModuleKey }[] = [
   { href: '/admin', label: 'Dashboard', module: 'dashboard' },
   { href: '/admin/design', label: 'Fila de design', module: 'design' },
+  { href: '/admin/albuns', label: 'Álbuns (editor)', module: 'design' },
   { href: '/admin/producao', label: 'Produção', module: 'projetos' },
   { href: '/admin/producao/grafica', label: 'Fila de expedição', module: 'projetos' },
   { href: '/admin/projetos', label: 'Projetos', module: 'projetos' },
