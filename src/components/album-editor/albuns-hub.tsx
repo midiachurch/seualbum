@@ -69,7 +69,7 @@ const CHAVE_ULTIMO = 'seualbum:ultimo-album'
  * avulsos são criados aqui; os de projeto nascem ao abrir o editor pela fila
  * de design ou pela página do projeto.
  */
-export function AlbunsHub({ albuns, podeEditar }: { albuns: AlbumResumo[]; podeEditar: boolean }) {
+export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: AlbumResumo[]; podeEditar: boolean; semTabelas?: boolean }) {
   const router = useRouter()
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [busca, setBusca] = useState('')
@@ -172,6 +172,14 @@ export function AlbunsHub({ albuns, podeEditar }: { albuns: AlbumResumo[]; podeE
           </Button>
         ) : null}
       </div>
+
+      {semTabelas ? (
+        <p role="alert" className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          O editor ainda não está ativo neste banco: aplique a migration 0027 (supabase/migrations/0027_album_layouts.sql) no SQL Editor do Supabase. Até lá, não
+          dá para criar nem abrir álbuns.
+        </p>
+      ) : null}
 
       {continuar ? (
         <button type="button" onClick={() => abrir(continuar)} className="flex w-full items-center gap-3 rounded-2xl border bg-secondary/40 p-3 text-left hover:bg-secondary">

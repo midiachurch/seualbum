@@ -42,6 +42,13 @@ function normalizarFormato(v: unknown) {
   return m ? `${m[1].replace(',', '.')}x${m[2].replace(',', '.')}` : ''
 }
 
+/** A migration 0027 ainda não foi aplicada (tabela do editor inexistente). */
+function semTabelasDoEditor(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) return false
+  return error.code === '42P01' || error.code === 'PGRST205' || /album_layouts|schema cache/i.test(error.message ?? '')
+}
+const ERRO_SEM_TABELAS = 'O banco ainda não tem as tabelas do editor: aplique a migration 0027 (supabase/migrations/0027_album_layouts.sql) no SQL Editor do Supabase.'
+
 type FotoDoProjetoBruta = { id: string; storage_path: string; bucket: string | null }
 
 /** Todas as fotos do projeto (paginado: um projeto pode passar de 1000 fotos). */
@@ -103,6 +110,7 @@ export async function criarAlbumAvulso(input: {
     .single<{ id: string }>()
   if (error || !data) {
     console.error('[criarAlbumAvulso]', error?.message)
+    if (semTabelasDoEditor(error)) return { ok: false, erro: ERRO_SEM_TABELAS }
     return { ok: false, erro: 'Não foi possível criar o álbum.' }
   }
   revalidatePath('/admin/albuns')
@@ -110,14 +118,23 @@ export async function criarAlbumAvulso(input: {
 }
 
 /** Abre a diagramação de um projeto: cria o documento na primeira vez (formato do projeto). */
-export async function criarLayoutDoProjeto(projetoId: string): Promise<Resultado<{ id: string }>> {
+/**
+ * Projeto sem formato definido: devolve `precisaFormato` e a tela pergunta
+ * ali mesmo (formato + orientação). A escolha vale para o álbum e é gravada
+ * também no projeto quando quem abre pode editá-lo (senão, só no álbum).
+ */
+export async function criarLayoutDoProjeto(
+  projetoId: string,
+  escolha?: { formato: string; orientacao: AlbumOrientationValue },
+): Promise<Resultado<{ id: string }> | { ok: false; erro: string; precisaFormato: true }> {
   const demo = indisponivel()
   if (demo) return demo
   if (!UUID_RE.test(projetoId)) return { ok: false, erro: 'Projeto inválido.' }
   const { supabase, user } = await requireEdicaoDeProducao()
   if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
 
-  const { data: existente } = await supabase.from('album_layouts').select('id').eq('projeto_id', projetoId).maybeSingle<{ id: string }>()
+  const { data: existente, error: erroLeitura } = await supabase.from('album_layouts').select('id').eq('projeto_id', projetoId).maybeSingle<{ id: string }>()
+  if (semTabelasDoEditor(erroLeitura)) return { ok: false, erro: ERRO_SEM_TABELAS }
   if (existente) return { ok: true, id: existente.id }
 
   const { data: projeto } = await supabase
@@ -126,10 +143,18 @@ export async function criarLayoutDoProjeto(projetoId: string): Promise<Resultado
     .eq('id', projetoId)
     .maybeSingle<{ nome: string; album_config: Partial<AlbumConfig> | null; laminas_inclusas: number | null }>()
   if (!projeto) return { ok: false, erro: 'Projeto não encontrado.' }
-  const formato = normalizarFormato(projeto.album_config?.formato)
-  const orientacao = projeto.album_config?.orientacao ?? 'quadrado'
+  let formato = normalizarFormato(projeto.album_config?.formato)
+  let orientacao: AlbumOrientationValue = projeto.album_config?.orientacao ?? 'quadrado'
   if (!laminaEmCm({ formato, orientacao })) {
-    return { ok: false, erro: 'Defina o formato do álbum no projeto (ex.: 30x30) antes de abrir o editor.' }
+    if (!escolha) return { ok: false, precisaFormato: true, erro: 'Este projeto ainda não tem o formato do álbum.' }
+    formato = normalizarFormato(escolha.formato)
+    orientacao = ORIENTACOES.includes(escolha.orientacao) ? escolha.orientacao : 'quadrado'
+    if (!laminaEmCm({ formato, orientacao })) return { ok: false, precisaFormato: true, erro: 'Formato inválido (ex.: 30x30).' }
+    // Grava no projeto também (a prova e a gráfica usam); sem permissão, fica só no álbum.
+    await supabase
+      .from('projetos')
+      .update({ album_config: { ...(projeto.album_config ?? {}), formato, orientacao } })
+      .eq('id', projetoId)
   }
 
   const { data, error } = await supabase
@@ -150,6 +175,7 @@ export async function criarLayoutDoProjeto(projetoId: string): Promise<Resultado
     const { data: corrida } = await supabase.from('album_layouts').select('id').eq('projeto_id', projetoId).maybeSingle<{ id: string }>()
     if (corrida) return { ok: true, id: corrida.id }
     console.error('[criarLayoutDoProjeto]', error?.message)
+    if (semTabelasDoEditor(error)) return { ok: false, erro: ERRO_SEM_TABELAS }
     return { ok: false, erro: 'Não foi possível abrir o editor deste projeto.' }
   }
   return { ok: true, id: data.id }

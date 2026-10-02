@@ -1736,6 +1736,15 @@ export async function getLayoutIdDoProjeto(projetoId: string): Promise<string | 
   return data?.id ?? null
 }
 
+/** true = a migration 0027 ainda não foi aplicada (o editor não tem onde gravar). */
+export async function editorSemTabelas(): Promise<boolean> {
+  if (isDemoMode()) return false
+  const { supabase } = await requireUser()
+  if (!supabase) return false
+  const { error } = await supabase.from('album_layouts').select('id').limit(1)
+  return Boolean(error && (error.code === '42P01' || error.code === 'PGRST205' || /album_layouts|schema cache/i.test(error.message)))
+}
+
 /** Todos os álbuns (avulsos e de projeto) para a tela inicial do editor. */
 export async function getAlbuns(): Promise<AlbumResumo[]> {
   if (isDemoMode()) return []
