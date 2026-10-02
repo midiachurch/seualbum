@@ -4,10 +4,10 @@ import { useMemo, useRef, useState } from 'react'
 import { Check, FolderPlus, LayoutGrid, Plus, Search, Star, Trash2, UploadCloud } from 'lucide-react'
 import { MIME_FOTO, urlParaMiniatura } from '@/components/album-editor/tipos'
 import { createClient } from '@/lib/supabase/client'
-import { listarFotosDoEditor, registrarFotosAlbum, salvarDerivados } from '@/lib/actions/album-editor'
+import { listarFotosDoEditor, registrarFotosAlbum } from '@/lib/actions/album-editor'
 import { registerFoto } from '@/lib/actions/projetos'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
-import { gerarDerivados } from '@/lib/album/derivados'
+import { gerarDerivados, registrarDerivados } from '@/lib/album/derivados'
 import type { FotoDoEditor } from '@/lib/supabase/queries'
 import type { DerivadoFoto } from '@/types/database'
 import { cn } from '@/lib/utils'
@@ -227,7 +227,7 @@ export function PainelFotos({
         const r = await registrarFotosAlbum(albumId, prontas)
         if (!r.ok) setErro(r.erro)
         else {
-          if (Object.keys(derivados).length > 0) await salvarDerivados(albumId, derivados)
+          if (Object.keys(derivados).length > 0) await registrarDerivados(albumId, derivados)
           const { data } = await supabase.storage.from('albuns_fotos').createSignedUrls(prontas.map((p) => p.path), EXPIRACAO_SEGUNDOS)
           const url = new Map((data ?? []).map((d) => [d.path, d.signedUrl]))
           onFotosNovas(

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { LADO_MINI, LADO_PREVIEW, medirEstouro, medirFoco, reduzirParaJpg } from '@/lib/album/ajustes'
+import { salvarDerivados } from '@/lib/actions/album-editor'
 import type { DerivadoFoto } from '@/types/database'
 
 /**
@@ -12,6 +13,19 @@ import type { DerivadoFoto } from '@/types/database'
  */
 
 export type DerivadoGerado = DerivadoFoto & { urlMini: string; urlPreview: string }
+
+let filaDeRegistro: Promise<unknown> = Promise.resolve()
+
+/**
+ * `salvarDerivados` lê o JSON, junta e grava: duas chamadas ao mesmo tempo
+ * (os dois trabalhadores em segundo plano, ou eles e o upload do painel)
+ * perderiam as entradas uma da outra. Aqui elas saem uma de cada vez.
+ */
+export function registrarDerivados(albumId: string, novos: Record<string, DerivadoFoto>) {
+  const tarefa = filaDeRegistro.then(() => salvarDerivados(albumId, novos))
+  filaDeRegistro = tarefa.catch(() => undefined)
+  return tarefa
+}
 
 async function medir(fonte: HTMLImageElement | ImageBitmap) {
   const largura = 'naturalWidth' in fonte ? fonte.naturalWidth : fonte.width

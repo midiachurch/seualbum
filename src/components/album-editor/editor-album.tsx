@@ -91,7 +91,7 @@ import { medirEstouro, medirFoco } from '@/lib/album/ajustes'
 import { alturaDoTexto } from '@/lib/album/texto'
 import { registrarFamilias } from '@/lib/album/fontes'
 import { carregarImagem, miniaturaDataUrl } from '@/lib/album/exportar'
-import { carregarOriginal, gerarDerivados } from '@/lib/album/derivados'
+import { carregarOriginal, gerarDerivados, registrarDerivados } from '@/lib/album/derivados'
 import {
   atualizarDadosAlbum,
   atualizarMiniatura,
@@ -100,7 +100,6 @@ import {
   removerFotoAlbum,
   resolverComentarioAlbum,
   salvarBiblioteca,
-  salvarDerivados,
   salvarDocumentoAlbum,
 } from '@/lib/actions/album-editor'
 import type { AlbumParaEditor, AprovacaoDoAlbum, FotoDoEditor } from '@/lib/supabase/queries'
@@ -281,7 +280,10 @@ export function EditorAlbum({
   const salvar = useCallback(async (): Promise<boolean> => {
     if (parado.current) return false
     if (travadoRef.current) return docRef.current === salvoRef.current
-    if (emVoo.current) await emVoo.current
+    // `while`, não `if`: duas chamadas esperando o mesmo salvamento acordariam
+    // juntas e mandariam a mesma revisão — a segunda viraria um falso conflito.
+    while (emVoo.current) await emVoo.current
+    if (parado.current) return false
     const alvo = docRef.current
     if (alvo === salvoRef.current) return true
     setEstado('salvando')
@@ -309,7 +311,7 @@ export function EditorAlbum({
     })()
     emVoo.current = tarefa
     const ok = await tarefa
-    emVoo.current = null
+    if (emVoo.current === tarefa) emVoo.current = null
     return ok
   }, [album.id])
 
@@ -410,7 +412,7 @@ export function EditorAlbum({
       if (chaves.length === 0) return
       const envio = Object.fromEntries(chaves.map((k) => [k, lote[k]]))
       chaves.forEach((k) => delete lote[k])
-      await salvarDerivados(album.id, envio)
+      await registrarDerivados(album.id, envio)
     }
     const trabalhar = async () => {
       while (fila.length > 0 && !cancelado) {

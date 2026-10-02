@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getVersoesDoAlbum, requireEdicaoDeProducao, type AprovacaoDoAlbum, type FotoDoEditor, type VersaoDoAlbum } from '@/lib/supabase/queries'
+import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getVersoesDoAlbum, lerTodasAsLinhas, requireEdicaoDeProducao, type AprovacaoDoAlbum, type FotoDoEditor, type VersaoDoAlbum } from '@/lib/supabase/queries'
 import { isDemoMode } from '@/lib/demo-mode'
 import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } from '@/lib/album/documento'
 import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
@@ -33,6 +33,25 @@ const texto = (v: unknown, max: number) => {
   return t ? t.slice(0, max) : null
 }
 
+/**
+ * "30 x 40", "20,5X30", "30×30" → "30x40" / "20.5x30" / "30x30": o mesmo que
+ * `laminaEmCm` aceita, no formato que o CHECK da 0027 exige. '' se inválido.
+ */
+function normalizarFormato(v: unknown) {
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*$/i.exec(String(v ?? ''))
+  return m ? `${m[1].replace(',', '.')}x${m[2].replace(',', '.')}` : ''
+}
+
+type FotoDoProjetoBruta = { id: string; storage_path: string; bucket: string | null }
+
+/** Todas as fotos do projeto (paginado: um projeto pode passar de 1000 fotos). */
+async function fotosDoProjeto(supabase: NonNullable<Awaited<ReturnType<typeof requireEdicaoDeProducao>>['supabase']>, projetoId: string) {
+  const { data } = await lerTodasAsLinhas<FotoDoProjetoBruta>((de, ate) =>
+    supabase.from('fotos').select('id, storage_path, bucket').eq('projeto_id', projetoId).order('id').range(de, ate),
+  )
+  return data
+}
+
 function revalidarAlbum(id: string, projetoId?: string | null) {
   revalidatePath('/admin/albuns')
   revalidatePath(`/admin/albuns/${id}`)
@@ -58,7 +77,7 @@ export async function criarAlbumAvulso(input: {
 
   const nome = String(input?.nome ?? '').trim()
   if (nome.length < 2 || nome.length > 120) return { ok: false, erro: 'O nome precisa ter entre 2 e 120 caracteres.' }
-  const formato = String(input?.formato ?? '').trim().toLowerCase().replace('×', 'x')
+  const formato = normalizarFormato(input?.formato)
   if (!ORIENTACOES.includes(input?.orientacao)) return { ok: false, erro: 'Orientação inválida.' }
   const g = geometria({ formato, orientacao: input.orientacao, sangriaMm: 3, margemSeguraMm: 5 })
   if (!g) return { ok: false, erro: 'Formato inválido (ex.: 30x30).' }
@@ -107,7 +126,7 @@ export async function criarLayoutDoProjeto(projetoId: string): Promise<Resultado
     .eq('id', projetoId)
     .maybeSingle<{ nome: string; album_config: Partial<AlbumConfig> | null; laminas_inclusas: number | null }>()
   if (!projeto) return { ok: false, erro: 'Projeto não encontrado.' }
-  const formato = projeto.album_config?.formato ?? ''
+  const formato = normalizarFormato(projeto.album_config?.formato)
   const orientacao = projeto.album_config?.orientacao ?? 'quadrado'
   if (!laminaEmCm({ formato, orientacao })) {
     return { ok: false, erro: 'Defina o formato do álbum no projeto (ex.: 30x30) antes de abrir o editor.' }
@@ -318,9 +337,7 @@ export async function renovarLinksDasFotos(id: string): Promise<Resultado<{ urls
   if (!album) return { ok: false, erro: 'Álbum não encontrado.' }
 
   const pares: { id: string; bucket: string; path: string }[] = album.projeto_id
-    ? ((await supabase.from('fotos').select('id, storage_path, bucket').eq('projeto_id', album.projeto_id)).data ?? []).map(
-        (f: { id: string; storage_path: string; bucket: string | null }) => ({ id: f.id, bucket: f.bucket ?? 'projetos_fotos', path: f.storage_path }),
-      )
+    ? (await fotosDoProjeto(supabase, album.projeto_id)).map((f) => ({ id: f.id, bucket: f.bucket ?? 'projetos_fotos', path: f.storage_path }))
     : album.fotos.map((f) => ({ id: f.id, bucket: 'albuns_fotos', path: f.path }))
 
   const urls: Record<string, string> = {}
@@ -420,16 +437,14 @@ export async function duplicarAlbum(id: string): Promise<Resultado<{ id: string 
 
   // Fotos: cada uma copiada para `{novo}/…`, mantendo o mesmo id (o documento continua válido).
   const fontes: { id: string; bucket: string; path: string; nome: string; largura: number | null; altura: number | null }[] = origem.projeto_id
-    ? ((await supabase.from('fotos').select('id, storage_path, bucket').eq('projeto_id', origem.projeto_id)).data ?? []).map(
-        (f: { id: string; storage_path: string; bucket: string | null }) => ({
-          id: f.id,
-          bucket: f.bucket ?? 'projetos_fotos',
-          path: f.storage_path,
-          nome: f.storage_path.split('/').pop() ?? 'foto',
-          largura: null,
-          altura: null,
-        }),
-      )
+    ? (await fotosDoProjeto(supabase, origem.projeto_id)).map((f) => ({
+        id: f.id,
+        bucket: f.bucket ?? 'projetos_fotos',
+        path: f.storage_path,
+        nome: f.storage_path.split('/').pop() ?? 'foto',
+        largura: null,
+        altura: null,
+      }))
     : origem.fotos.map((f) => ({ id: f.id, bucket: 'albuns_fotos', path: f.path, nome: f.nome, largura: f.largura, altura: f.altura }))
 
   const copiadas: AlbumLayoutRow['fotos'] = []
@@ -491,7 +506,10 @@ export async function criarAprovacao(
     .eq('id', id)
     .maybeSingle<Pick<AlbumLayoutRow, 'projeto_id' | 'documento' | 'status'>>()
   if (!album || album.projeto_id) return { ok: false, erro: 'O link de aprovação é para álbuns avulsos — projetos usam a prova.' }
-  if (album.status === 'finalizado') return { ok: false, erro: 'Álbum finalizado.' }
+  // Aprovado/finalizado/em produção estão travados (0027): reabrir antes de mandar outra rodada.
+  if (album.status === 'aprovado' || album.status === 'finalizado' || album.status === 'em_producao') {
+    return { ok: false, erro: 'Este álbum já foi aprovado. Reabra-o (ou crie uma nova versão) antes de enviar outra rodada.' }
+  }
 
   const pasta = `${id}/aprovacoes/${aprovacaoId}`
   const { data: noStorage } = await supabase.storage.from('albuns_fotos').list(pasta, { limit: 250 })
@@ -513,7 +531,6 @@ export async function criarAprovacao(
     .maybeSingle<{ numero: number }>()
   const numero = (ultima?.numero ?? 0) + 1
 
-  await supabase.from('album_aprovacoes').update({ status: 'cancelado' }).eq('layout_id', id).eq('status', 'aguardando')
   const { data: criada, error } = await supabase
     .from('album_aprovacoes')
     .insert({ id: aprovacaoId, layout_id: id, numero, laminas: limpas, criado_por: user.id })
@@ -523,6 +540,8 @@ export async function criarAprovacao(
     console.error('[criarAprovacao]', error?.message)
     return { ok: false, erro: 'Não foi possível criar o link de aprovação.' }
   }
+  // Só depois do link novo existir: se a criação falhar, o link anterior continua valendo.
+  await supabase.from('album_aprovacoes').update({ status: 'cancelado' }).eq('layout_id', id).eq('status', 'aguardando').neq('id', aprovacaoId)
   await supabase.from('album_layouts').update({ status: 'enviado_aprovacao' }).eq('id', id)
   await supabase
     .from('album_layout_versoes')

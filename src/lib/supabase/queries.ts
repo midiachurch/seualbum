@@ -1480,6 +1480,24 @@ export async function getOrcamentoPublico(hash: string): Promise<OrcamentoPublic
 /** Uma sessão de diagramação dura horas: o link das fotos precisa durar junto. */
 const EXPIRACAO_EDITOR_SEGUNDOS = 8 * 60 * 60
 
+/**
+ * Lê todas as linhas de uma consulta em páginas: o PostgREST corta cada
+ * resposta em 1000 linhas (max_rows), e um projeto pode ter milhares de fotos.
+ */
+export async function lerTodasAsLinhas<T>(
+  pagina: (de: number, ate: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const TAMANHO = 1000
+  const linhas: T[] = []
+  for (let de = 0; ; de += TAMANHO) {
+    const { data, error } = await pagina(de, de + TAMANHO - 1)
+    if (error) return { data: linhas, error }
+    linhas.push(...((data ?? []) as T[]))
+    if (!data || data.length < TAMANHO) break
+  }
+  return { data: linhas, error: null }
+}
+
 /** Projeto nestes status já foi aprovado: a diagramação fica travada (0027). */
 export const STATUS_PROJETO_TRAVADO = ['aprovado_aguardando_pagamento', 'aprovado', 'enviado', 'finalizado', 'arquivado']
 
@@ -1567,12 +1585,14 @@ async function fotosDoProjetoParaEditor(
   supabase: NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>,
   projetoId: string,
 ): Promise<FotoDoEditor[]> {
-  const { data, error } = await supabase.from('fotos').select('*').eq('projeto_id', projetoId).order('created_at', { ascending: true })
+  const { data, error } = await lerTodasAsLinhas<FotoRow>((de, ate) =>
+    supabase.from('fotos').select('*').eq('projeto_id', projetoId).order('created_at', { ascending: true }).order('id', { ascending: true }).range(de, ate),
+  )
   if (error) {
     console.error('[fotosDoProjetoParaEditor]', error.message)
     return []
   }
-  const linhas = (data ?? []) as FotoRow[]
+  const linhas = data
   const bucketDe = (f: FotoRow) => f.bucket ?? 'projetos_fotos'
   const urls = await assinarArquivos(
     supabase,
@@ -1741,7 +1761,7 @@ export async function getAlbuns(): Promise<AlbumResumo[]> {
   if (ids.length > 0) {
     const [{ data: ps }, { data: fs }] = await Promise.all([
       supabase.from('projetos').select('id, numero, nome, status').in('id', ids),
-      supabase.from('fotos').select('projeto_id').in('projeto_id', ids),
+      lerTodasAsLinhas<{ projeto_id: string }>((de, ate) => supabase.from('fotos').select('projeto_id').in('projeto_id', ids).order('id').range(de, ate)),
     ])
     for (const p of (ps ?? []) as { id: string; numero: number; nome: string; status: string }[]) projetos.set(p.id, { ...p, numero: Number(p.numero) })
     for (const f of (fs ?? []) as { projeto_id: string }[]) fotosPorProjeto.set(f.projeto_id, (fotosPorProjeto.get(f.projeto_id) ?? 0) + 1)
