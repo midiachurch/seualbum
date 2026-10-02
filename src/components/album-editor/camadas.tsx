@@ -207,6 +207,7 @@ export function InspetorLamina({
       <div className="space-y-1 text-xs text-white/40">
         <p>Shift+clique: seleção múltipla · Ctrl+C / Ctrl+V / Ctrl+D</p>
         <p>Arraste uma foto sobre outra para trocar as duas</p>
+        <p>Selecione uma foto: a alça azul entre ela e a vizinha redimensiona as duas</p>
         <p>Ctrl+Z desfaz · Delete apaga · setas movem 1 mm (Shift: 10)</p>
         <p>Ctrl + rodinha: zoom · Ctrl+0: ajustar à tela</p>
       </div>

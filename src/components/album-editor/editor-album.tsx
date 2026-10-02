@@ -48,7 +48,7 @@ import { PainelLayouts, type PedidoPreenchimento } from '@/components/album-edit
 import { PainelModelos } from '@/components/album-editor/painel-modelos'
 import { PainelConfiguracoes, PainelElementos, PainelFundos, PainelPaginas, PainelTextos } from '@/components/album-editor/paineis-simples'
 import { FitaLaminas } from '@/components/album-editor/fita-laminas'
-import { InspetorForma, InspetorQuadro, InspetorTexto, type DirecaoOrdem } from '@/components/album-editor/inspetor'
+import { InspetorForma, InspetorMultiplo, InspetorQuadro, InspetorTexto, type CaixaSelecionada, type DirecaoOrdem } from '@/components/album-editor/inspetor'
 import { BarraAlinhamento, InspetorLamina, PainelCamadas, type Alinhamento } from '@/components/album-editor/camadas'
 import { Publicar } from '@/components/album-editor/publicar'
 import { Visualizacao } from '@/components/album-editor/visualizacao'
@@ -544,6 +544,8 @@ export function EditorAlbum({
       alterarNaLamina((l) => ({ ...l, formas: l.formas.map((f) => (f.id === id ? { ...f, ...patch } : f)) }), rotulo, grupo),
     [alterarNaLamina],
   )
+  // Transformar vários selecionados de uma vez dispara um evento por elemento: viram um passo só.
+  const grupoDoMovimento = (patch: object) => (selecionados.length > 1 && ('w' in patch || 'rotacao' in patch) ? `transformar-${selecionados.map((s) => s.id).join()}` : undefined)
   const rotuloDoMovimento = (patch: object) =>
     'rotacao' in patch ? 'Girado o elemento' : 'w' in patch ? 'Redimensionado o elemento' : 'recorte' in patch ? 'Ajustado o enquadramento' : 'Alterada posição'
 
@@ -1356,10 +1358,14 @@ export function EditorAlbum({
             somenteLeitura={travado}
             onZoom={setZoom}
             onSelecionar={selecionar}
-            onAlterarQuadro={(id, patch) => alterarQuadro(id, patch, rotuloDoMovimento(patch))}
-            onAlterarTexto={(id, patch) => alterarTexto(id, patch, rotuloDoMovimento(patch))}
-            onAlterarForma={(id, patch) => alterarForma(id, patch, rotuloDoMovimento(patch))}
+            onAlterarQuadro={(id, patch) => alterarQuadro(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
+            onAlterarTexto={(id, patch) => alterarTexto(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
+            onAlterarForma={(id, patch) => alterarForma(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
             onMoverVarios={moverVarios}
+            onAjustarQuadros={(patches) => {
+              const m = new Map(patches.map((p) => [p.id, p.patch]))
+              alterarNaLamina((l) => ({ ...l, quadros: l.quadros.map((q) => (m.has(q.id) ? { ...q, ...m.get(q.id) } : q)) }), 'Ajustada a divisória entre fotos')
+            }}
             onTrocarFotos={trocarFotos}
             onSoltarFoto={soltarFoto}
             onDimensoes={aoDescobrirDimensoes}
@@ -1523,6 +1529,32 @@ export function EditorAlbum({
                 onSelecionar={(s, aditivo) => selecionar(s, aditivo)}
                 onAlternar={alternarCamada}
                 onMover={(s, d) => mudarOrdem(d, s)}
+              />
+            ) : selecionados.length > 1 && !travado ? (
+              <InspetorMultiplo
+                itens={selecionados
+                  .map((s): CaixaSelecionada | null => {
+                    const c = caixaDe(s)
+                    return c ? { id: s.id, tipo: s.tipo, x: c.x, y: c.y, w: c.w, h: c.h } : null
+                  })
+                  .filter((x): x is CaixaSelecionada => Boolean(x))}
+                onAlterarVarios={(patches, rotulo) => {
+                  const m = new Map(patches.map((p) => [p.id, p.patch]))
+                  alterarNaLamina(
+                    (l) => ({
+                      ...l,
+                      quadros: l.quadros.map((q) => (m.has(q.id) ? { ...q, ...m.get(q.id) } : q)),
+                      textos: l.textos.map((t) => {
+                        const p = m.get(t.id)
+                        return p ? { ...t, x: p.x ?? t.x, y: p.y ?? t.y, w: p.w ?? t.w } : t
+                      }),
+                      formas: l.formas.map((f) => (m.has(f.id) ? { ...f, ...m.get(f.id) } : f)),
+                    }),
+                    rotulo,
+                  )
+                }}
+                onExcluir={excluirSelecionados}
+                onDuplicar={duplicarSelecionados}
               />
             ) : quadroSel ? (
               <InspetorQuadro

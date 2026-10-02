@@ -9,6 +9,7 @@ import { familiaDe } from '@/lib/album/fontes'
 import { tamanhoEmMm } from '@/lib/album/texto'
 import { ornamentoPorId } from '@/lib/album/ornamentos'
 import { LADO_TEXTURA_MM, ladrilhoDeTextura } from '@/lib/album/texturas'
+import { aplicarDivisoria, encontrarDivisorias } from '@/lib/album/divisorias'
 import {
   ajustesNeutros,
   dpiBaixo,
@@ -352,6 +353,7 @@ export function CanvasLamina({
   onAlterarTexto,
   onAlterarForma,
   onMoverVarios,
+  onAjustarQuadros,
   onTrocarFotos,
   onSoltarFoto,
   onDimensoes,
@@ -373,6 +375,8 @@ export function CanvasLamina({
   onAlterarTexto: (id: string, patch: Partial<TextoDoc>) => void
   onAlterarForma: (id: string, patch: Partial<FormaDoc>) => void
   onMoverVarios: (deslocamentos: { sel: Selecao; dx: number; dy: number }[]) => void
+  /** Divisória arrastada: vários quadros mudam juntos (um passo de desfazer). */
+  onAjustarQuadros: (patches: { id: string; patch: Partial<Quadro> }[]) => void
   onTrocarFotos: (a: string, b: string) => void
   onSoltarFoto: (fotoId: string, xMm: number, yMm: number, quadroAlvo: string | null) => void
   onDimensoes: (fotoId: string, w: number, h: number) => void
@@ -386,6 +390,11 @@ export function CanvasLamina({
   const [linhasSnap, setLinhasSnap] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] })
   const [soltando, setSoltando] = useState(false)
   const [alvoTroca, setAlvoTroca] = useState<string | null>(null)
+  // Prévia ao vivo da divisória sendo arrastada (o commit é no fim do arraste).
+  const [previaDivisoria, setPreviaDivisoria] = useState<Map<string, Partial<Quadro>> | null>(null)
+  const quadrosNaTela = previaDivisoria
+    ? lamina.quadros.map((q) => (previaDivisoria.has(q.id) ? { ...q, ...previaDivisoria.get(q.id) } : q))
+    : lamina.quadros
 
   useLayoutEffect(() => {
     const el = caixaRef.current
@@ -558,6 +567,14 @@ export function CanvasLamina({
     w: g.paginaW - 2 * g.margem,
     h: g.laminaH - 2 * g.margem,
   }))
+  // Divisórias só das fotos selecionadas (sem poluir a lâmina inteira).
+  const divisorias = useMemo(() => {
+    if (somenteLeitura || recortando) return []
+    const ids = new Set(selecionados.filter((x) => x.tipo === 'quadro').map((x) => x.id))
+    if (ids.size === 0) return []
+    return encontrarDivisorias(lamina.quadros).filter((d) => d.antes.some((id) => ids.has(id)) || d.depois.some((id) => ids.has(id)))
+  }, [lamina.quadros, selecionados, somenteLeitura, recortando])
+
   const fotoFundo = lamina.fundoImagem ? fotos.get(lamina.fundoImagem.fotoId) : undefined
   const urlFundo = fotoFundo ? (fotoFundo.urlPreview ?? fotoFundo.url) : undefined
   const gr = lamina.fundoGradiente
@@ -652,7 +669,7 @@ export function CanvasLamina({
                 .map((f) => (
                   <FormaNoCanvas key={f.id} forma={f} {...comum(f.id, 'forma')} onAlterar={(p) => onAlterarForma(f.id, p)} />
                 ))}
-              {lamina.quadros.map((q) => (
+              {quadrosNaTela.map((q) => (
                 <QuadroNoCanvas
                   key={q.id}
                   quadro={q}
@@ -672,6 +689,54 @@ export function CanvasLamina({
               {lamina.textos.map((t) => (
                 <TextoNoCanvas key={t.id} texto={t} {...comum(t.id, 'texto')} onAlterar={(p) => onAlterarTexto(t.id, p)} />
               ))}
+              {divisorias.map((d, i) => {
+                const meio = (d.bordaAntes + d.bordaDepois) / 2
+                const largura = Math.max(d.bordaDepois - d.bordaAntes, 7 / escala)
+                const vertical = d.eixo === 'v'
+                const x0 = vertical ? meio - largura / 2 : d.inicio
+                const y0 = vertical ? d.inicio : meio - largura / 2
+                return (
+                  <Rect
+                    key={`div-${i}-${d.eixo}-${d.bordaAntes.toFixed(1)}`}
+                    x={x0}
+                    y={y0}
+                    width={vertical ? largura : d.fim - d.inicio}
+                    height={vertical ? d.fim - d.inicio : largura}
+                    fill="rgba(56,189,248,0.45)"
+                    stroke="#0EA5E9"
+                    strokeWidth={traco}
+                    cornerRadius={largura / 2}
+                    draggable
+                    onMouseEnter={(e) => {
+                      const c = e.target.getStage()?.container()
+                      if (c) c.style.cursor = vertical ? 'ew-resize' : 'ns-resize'
+                    }}
+                    onMouseLeave={(e) => {
+                      const c = e.target.getStage()?.container()
+                      if (c) c.style.cursor = ''
+                    }}
+                    onMouseDown={(e) => {
+                      e.cancelBubble = true
+                    }}
+                    onDragMove={(e) => {
+                      const no = e.target
+                      // Só no eixo da divisória.
+                      if (vertical) no.y(y0)
+                      else no.x(x0)
+                      const delta = vertical ? no.x() - x0 : no.y() - y0
+                      setPreviaDivisoria(new Map(aplicarDivisoria(d, lamina.quadros, delta).map((p) => [p.id, p.patch])))
+                    }}
+                    onDragEnd={(e) => {
+                      const no = e.target
+                      const delta = vertical ? no.x() - x0 : no.y() - y0
+                      no.position({ x: x0, y: y0 })
+                      setPreviaDivisoria(null)
+                      const patches = aplicarDivisoria(d, lamina.quadros, delta)
+                      if (patches.length > 0 && Math.abs(delta) > 0.05) onAjustarQuadros(patches)
+                    }}
+                  />
+                )
+              })}
               {alvoQuadro ? (
                 <Rect x={alvoQuadro.x} y={alvoQuadro.y} width={alvoQuadro.w} height={alvoQuadro.h} stroke="#22C55E" strokeWidth={3 * traco} dash={[8 * traco, 4 * traco]} listening={false} />
               ) : null}

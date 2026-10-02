@@ -3,6 +3,8 @@ import { geometria, type FotoEditor, type Geometria } from '@/lib/album/document
 import {
   documentoDoModelo,
   ESTILOS,
+  GRADES_POR_PAGINA,
+  gradesDePagina,
   layoutsVazios,
   MODELOS_DE_ALBUM,
   preencherAutomaticamente,
@@ -40,12 +42,12 @@ function quadrosDentro(g: Geometria, qs: { x: number; y: number; w: number; h: n
   return qs.every((q) => [q.x, q.y, q.w, q.h].every(Number.isFinite) && q.w > 0 && q.h > 0 && q.x >= -s && q.y >= -s && q.x + q.w <= g.laminaW + s && q.y + q.h <= g.laminaH + s)
 }
 
-describe('Smart Layout — todos os formatos × 1 a 12 fotos × tipos de foto', () => {
+describe('Smart Layout — todos os formatos × 1 a 16 fotos × tipos de foto', () => {
   for (const [f, o] of FORMATOS) {
     for (const tipo of ['mista', 'vertical', 'panoramica', 'sem-dimensao'] as const) {
       it(`${f} ${o} · ${tipo}`, () => {
         const g = geo(f, o)
-        for (let n = 1; n <= 12; n++) {
+        for (let n = 1; n <= 16; n++) {
           const fs = fotos(n, tipo)
           const vs = variantesDeLayout(fs, g)
           expect(vs.length, `${n} fotos`).toBeGreaterThan(0)
@@ -63,10 +65,10 @@ describe('Smart Layout — todos os formatos × 1 a 12 fotos × tipos de foto', 
     }
   }
 
-  it('0 ou mais de 12 fotos: sem sugestões (não quebra)', () => {
+  it('0 ou mais de 16 fotos: sem sugestões (não quebra)', () => {
     const g = geo('30x30', 'quadrado')
     expect(variantesDeLayout([], g)).toEqual([])
-    expect(variantesDeLayout(fotos(13), g)).toEqual([])
+    expect(variantesDeLayout(fotos(17), g)).toEqual([])
   })
 
   it('estilos diferentes também produzem sugestões válidas', () => {
@@ -108,19 +110,19 @@ describe('Preenchimento automático — cenários de borda', () => {
     expect(d.laminas.flatMap((l) => l.quadros)).toHaveLength(1)
   })
 
-  it('120 fotos em 30 lâminas: usa todas, sem repetir, no máximo 12 por lâmina', () => {
+  it('120 fotos em 30 lâminas: usa todas, sem repetir, no máximo 16 por lâmina', () => {
     const d = preencherAutomaticamente(fotos(120), 30, g, true)
     const ids = d.laminas.flatMap((l) => l.quadros.map((q) => q.fotoId))
     expect(d.laminas).toHaveLength(31)
     expect(d.primeiraEhCapa).toBe(true)
     expect(ids).toHaveLength(120)
     expect(new Set(ids).size).toBe(120)
-    expect(Math.max(...d.laminas.map((l) => l.quadros.length))).toBeLessThanOrEqual(12)
+    expect(Math.max(...d.laminas.map((l) => l.quadros.length))).toBeLessThanOrEqual(16)
   })
 
-  it('500 fotos em 10 lâminas: limita a 12 por lâmina sem travar', () => {
+  it('500 fotos em 10 lâminas: limita a 16 por lâmina sem travar', () => {
     const d = preencherAutomaticamente(fotos(500), 10, g, false)
-    expect(Math.max(...d.laminas.map((l) => l.quadros.length))).toBeLessThanOrEqual(12)
+    expect(Math.max(...d.laminas.map((l) => l.quadros.length))).toBeLessThanOrEqual(16)
   })
 
   it('cada estilo distribui todas as fotos', () => {
@@ -156,5 +158,36 @@ describe('Modelos de álbum — todos os modelos × formatos', () => {
     const d = documentoDoModelo(MODELOS_DE_ALBUM[0], 10, g)
     const r = preencherQuadrosVazios(d, fotos(3))
     expect(r.laminas.flatMap((l) => l.quadros).filter((q) => q.fotoId)).toHaveLength(3)
+  })
+})
+
+describe('Grades de página — cada uma é válida', () => {
+  for (let n = 1; n <= 8; n++) {
+    it(`${n} foto(s): ${GRADES_POR_PAGINA[n]} grades, células dentro da página e sem sobreposição`, () => {
+      const grades = gradesDePagina(n)
+      expect(grades.length).toBeGreaterThanOrEqual(4)
+      for (const g of grades) {
+        expect(g).toHaveLength(n)
+        for (const [x, y, w, h] of g) {
+          expect(x).toBeGreaterThanOrEqual(-1e-9)
+          expect(y).toBeGreaterThanOrEqual(-1e-9)
+          expect(x + w).toBeLessThanOrEqual(1 + 1e-9)
+          expect(y + h).toBeLessThanOrEqual(1 + 1e-9)
+          expect(w > 0 && h > 0).toBe(true)
+        }
+        for (let i = 0; i < g.length; i++)
+          for (let j = i + 1; j < g.length; j++) {
+            const [ax, ay, aw, ah] = g[i]
+            const [bx, by, bw, bh] = g[j]
+            const sobrepoe = Math.min(ax + aw, bx + bw) - Math.max(ax, bx) > 1e-6 && Math.min(ay + ah, by + bh) - Math.max(ay, by) > 1e-6
+            expect(sobrepoe, `grade de ${n}: células ${i} e ${j} se sobrepõem`).toBe(false)
+          }
+      }
+    })
+  }
+
+  it('de 8 a 16 fotos há pelo menos 10 composições por quantidade', () => {
+    const g = geo('30x30', 'quadrado')
+    for (let n = 8; n <= 16; n++) expect(variantesDeLayout(fotos(n), g, 10_000).length, `${n} fotos`).toBeGreaterThanOrEqual(10)
   })
 })

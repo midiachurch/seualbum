@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   AlignCenter,
   AlignLeft,
@@ -99,14 +99,41 @@ function PosicaoTamanho({
   comAltura?: boolean
   onAlterar: (p: { x?: number; y?: number; w?: number; h?: number; rotacao?: number; opacidade?: number }) => void
 }) {
+  const [proporcional, setProporcional] = useState(false)
+  const razao = e.h !== undefined && e.w > 0 ? e.h / e.w : 1
   return (
     <Secao titulo="Posição, tamanho e rotação">
       <div className="grid grid-cols-2 gap-2">
         <Numero rotulo="X (mm)" valor={e.x} onMudar={(x) => onAlterar({ x })} />
         <Numero rotulo="Y (mm)" valor={e.y} onMudar={(y) => onAlterar({ y })} />
-        <Numero rotulo="Largura" valor={e.w} onMudar={(w) => onAlterar({ w: Math.max(1, w) })} />
-        {comAltura && e.h !== undefined ? <Numero rotulo="Altura" valor={e.h} onMudar={(h) => onAlterar({ h: Math.max(0.1, h) })} /> : null}
+        <Numero
+          rotulo="Largura"
+          valor={e.w}
+          onMudar={(w) => {
+            const nw = Math.max(1, w)
+            // Proporcional: cresce/encolhe em torno do centro, mantendo a forma.
+            if (proporcional && comAltura && e.h !== undefined) onAlterar({ w: nw, h: nw * razao, x: e.x + (e.w - nw) / 2, y: e.y + (e.h - nw * razao) / 2 })
+            else onAlterar({ w: nw })
+          }}
+        />
+        {comAltura && e.h !== undefined ? (
+          <Numero
+            rotulo="Altura"
+            valor={e.h}
+            onMudar={(h) => {
+              const nh = Math.max(0.1, h)
+              if (proporcional) onAlterar({ h: nh, w: nh / razao, x: e.x + (e.w - nh / razao) / 2, y: e.y + (e.h! - nh) / 2 })
+              else onAlterar({ h: nh })
+            }}
+          />
+        ) : null}
       </div>
+      {comAltura ? (
+        <label className="flex items-center gap-2 text-[11px] text-white/70">
+          <input type="checkbox" checked={proporcional} onChange={(ev) => setProporcional(ev.target.checked)} className="accent-white" />
+          Manter proporção (no canvas: segure Shift ao puxar o canto)
+        </label>
+      ) : null}
       <Faixa rotulo="Rotação" valor={e.rotacao} min={-180} max={180} sufixo="°" onMudar={(rotacao) => onAlterar({ rotacao })} />
       <Faixa rotulo="Opacidade" valor={Math.round(e.opacidade * 100)} min={0} max={100} sufixo="%" onMudar={(v) => onAlterar({ opacidade: v / 100 })} />
     </Secao>
@@ -480,6 +507,124 @@ export function InspetorForma({
       </Secao>
       <PosicaoTamanho e={f} comAltura={f.forma !== 'linha'} onAlterar={onAlterar} />
       <Ordem onOrdem={onOrdem} onExcluir={onExcluir} onDuplicar={onDuplicar} rotuloExcluir="Excluir elemento" />
+    </div>
+  )
+}
+
+/* --------------------------- vários selecionados --------------------------- */
+
+export type CaixaSelecionada = { id: string; tipo: 'quadro' | 'texto' | 'forma'; x: number; y: number; w: number; h: number }
+
+/**
+ * Vários elementos selecionados: igualar tamanhos (pelo último clicado) e
+ * escalar todos juntos — cada um em torno do próprio centro. Alinhar e
+ * distribuir ficam na barra acima.
+ */
+export function InspetorMultiplo({
+  itens,
+  onAlterarVarios,
+  onExcluir,
+  onDuplicar,
+}: {
+  itens: CaixaSelecionada[]
+  onAlterarVarios: (patches: { id: string; tipo: CaixaSelecionada['tipo']; patch: { x?: number; y?: number; w?: number; h?: number } }[], rotulo: string) => void
+  onExcluir: () => void
+  onDuplicar: () => void
+}) {
+  const [escala, setEscala] = useState('100')
+  const ref = itens[itens.length - 1]
+  const comAltura = (i: CaixaSelecionada) => i.tipo !== 'texto'
+  const igualar = (modo: 'largura' | 'altura' | 'tamanho') =>
+    onAlterarVarios(
+      itens.map((i) => {
+        const w = modo === 'altura' ? i.w : ref.w
+        const h = modo === 'largura' || !comAltura(i) ? i.h : ref.h
+        return { id: i.id, tipo: i.tipo, patch: { w, ...(comAltura(i) ? { h } : {}), x: i.x + (i.w - w) / 2, y: i.y + (i.h - h) / 2 } }
+      }),
+      modo === 'tamanho' ? 'Igualado o tamanho' : modo === 'largura' ? 'Igualada a largura' : 'Igualada a altura',
+    )
+  const aplicarEscala = () => {
+    const f = Number(escala.replace(',', '.')) / 100
+    if (!(f > 0.05 && f < 20)) return
+    onAlterarVarios(
+      itens.map((i) => {
+        const w = Math.max(5, i.w * f)
+        const h = comAltura(i) ? Math.max(1, i.h * f) : i.h
+        return { id: i.id, tipo: i.tipo, patch: { w, ...(comAltura(i) ? { h } : {}), x: i.x + (i.w - w) / 2, y: i.y + (i.h - h) / 2 } }
+      }),
+      `Escalados ${itens.length} elementos (${Math.round(f * 100)}%)`,
+    )
+    setEscala('100')
+  }
+  return (
+    <div className="space-y-5 p-4 text-sm">
+      <Secao titulo={`${itens.length} elementos selecionados`}>
+        <p className="text-xs text-white/60">Arraste qualquer um para mover todos. Os cantos redimensionam e giram o conjunto. Shift+clique tira ou põe na seleção.</p>
+      </Secao>
+      <Secao titulo="Igualar ao último selecionado">
+        <div className="grid grid-cols-3 gap-2">
+          <button type="button" className={BOTAO} onClick={() => igualar('largura')}>
+            Largura
+          </button>
+          <button type="button" className={BOTAO} onClick={() => igualar('altura')}>
+            Altura
+          </button>
+          <button type="button" className={BOTAO} onClick={() => igualar('tamanho')}>
+            Tamanho
+          </button>
+        </div>
+        <p className="text-[11px] text-white/50">
+          Referência: {Math.round(ref.w)} × {Math.round(ref.h)} mm
+        </p>
+      </Secao>
+      <Secao titulo="Escalar todos">
+        <div className="flex items-end gap-2">
+          <label className="block flex-1 text-[11px] text-white/60">
+            Escala (%)
+            <input
+              inputMode="decimal"
+              value={escala}
+              onChange={(e) => setEscala(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && aplicarEscala()}
+              className="mt-0.5 block w-full rounded-md border border-white/20 bg-white/5 px-2 py-1 text-sm tabular-nums text-white"
+            />
+          </label>
+          <button type="button" onClick={aplicarEscala} className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-[#171717]">
+            Aplicar
+          </button>
+        </div>
+        <div className="grid grid-cols-4 gap-1">
+          {[90, 95, 105, 110].map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => {
+                setEscala(String(v))
+                const f = v / 100
+                onAlterarVarios(
+                  itens.map((i) => {
+                    const w = Math.max(5, i.w * f)
+                    const h = comAltura(i) ? Math.max(1, i.h * f) : i.h
+                    return { id: i.id, tipo: i.tipo, patch: { w, ...(comAltura(i) ? { h } : {}), x: i.x + (i.w - w) / 2, y: i.y + (i.h - h) / 2 } }
+                  }),
+                  `Escalados ${itens.length} elementos (${v}%)`,
+                )
+              }}
+              className="rounded bg-white/10 py-1 text-[11px] hover:bg-white/20"
+            >
+              {v}%
+            </button>
+          ))}
+        </div>
+      </Secao>
+      <section className="space-y-2">
+        <button type="button" className={BOTAO} onClick={onDuplicar}>
+          <Copy className="h-4 w-4" aria-hidden /> Duplicar seleção (Ctrl+D)
+        </button>
+        <button type="button" className={cn(BOTAO, 'text-red-300')} onClick={onExcluir}>
+          <Trash2 className="h-4 w-4" aria-hidden /> Excluir seleção
+        </button>
+      </section>
     </div>
   )
 }

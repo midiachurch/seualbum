@@ -15,36 +15,124 @@ import type { Photo } from '@/types/platform'
 type Ret = [x: number, y: number, w: number, h: number]
 
 const T3 = 1 / 3
-const MODELOS_DE_PAGINA: Record<number, Ret[][]> = {
-  1: [[[0, 0, 1, 1]], [[0.12, 0.12, 0.76, 0.76]]],
+
+/** Grade regular de colunas × linhas numa área (0–1). */
+function grade(colunas: number, linhas: number, area: Ret = [0, 0, 1, 1]): Ret[] {
+  const [ax, ay, aw, ah] = area
+  return Array.from({ length: colunas * linhas }, (_, i) => {
+    const c = i % colunas
+    const l = Math.floor(i / colunas)
+    return [ax + (c * aw) / colunas, ay + (l * ah) / linhas, aw / colunas, ah / linhas] as Ret
+  })
+}
+
+/**
+ * Grades-base de UMA página, por quantidade de fotos. Cada base também gera
+ * as versões espelhadas (horizontal e vertical) — ver `MODELOS_DE_PAGINA`.
+ */
+const BASES_DE_PAGINA: Record<number, Ret[][]> = {
+  1: [
+    [[0, 0, 1, 1]],
+    [[0.12, 0.12, 0.76, 0.76]],
+    [[0.2, 0.08, 0.6, 0.84]],
+    [[0.06, 0.22, 0.88, 0.56]],
+    [[0, 0, 1, 0.7]],
+  ],
   2: [
-    [[0, 0, 0.5, 1], [0.5, 0, 0.5, 1]],
-    [[0, 0, 1, 0.5], [0, 0.5, 1, 0.5]],
+    grade(2, 1),
+    grade(1, 2),
     [[0, 0, 0.62, 1], [0.62, 0, 0.38, 1]],
     [[0, 0, 1, 0.62], [0, 0.62, 1, 0.38]],
+    [[0.04, 0.22, 0.44, 0.56], [0.52, 0.22, 0.44, 0.56]],
+    // Diagonal: uma grande no alto e uma menor no canto oposto.
+    [[0, 0, 0.66, 0.66], [0.66, 0.66, 0.34, 0.34]],
   ],
   3: [
     [[0, 0, 0.6, 1], [0.6, 0, 0.4, 0.5], [0.6, 0.5, 0.4, 0.5]],
-    [[0, 0, T3, 1], [T3, 0, T3, 1], [2 * T3, 0, T3, 1]],
+    grade(3, 1),
+    grade(1, 3),
     [[0, 0, 1, 0.55], [0, 0.55, 0.5, 0.45], [0.5, 0.55, 0.5, 0.45]],
     [[0, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0, 0.5, 1]],
+    [[0, 0, 1, 0.4], [0, 0.4, 1, 0.3], [0, 0.7, 1, 0.3]],
   ],
   4: [
-    [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]],
-    [[0, 0, 1, 0.64], [0, 0.64, T3, 0.36], [T3, 0.64, T3, 0.36], [2 * T3, 0.64, T3, 0.36]],
-    [[0, 0, 0.6, 1], [0.6, 0, 0.4, T3], [0.6, T3, 0.4, T3], [0.6, 2 * T3, 0.4, T3]],
+    grade(2, 2),
+    grade(4, 1),
+    grade(1, 4),
+    [[0, 0, 1, 0.64], ...grade(3, 1, [0, 0.64, 1, 0.36])],
+    [[0, 0, 0.6, 1], ...grade(1, 3, [0.6, 0, 0.4, 1])],
+    [[0, 0, 0.6, 0.5], [0.6, 0, 0.4, 0.5], [0, 0.5, 0.4, 0.5], [0.4, 0.5, 0.6, 0.5]],
+    [[0, 0, 0.5, 1], [0.5, 0, 0.5, 0.5], ...grade(2, 1, [0.5, 0.5, 0.5, 0.5])],
   ],
   5: [
-    [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, T3, 0.5], [T3, 0.5, T3, 0.5], [2 * T3, 0.5, T3, 0.5]],
+    [...grade(2, 1, [0, 0, 1, 0.5]), ...grade(3, 1, [0, 0.5, 1, 0.5])],
     [[0, 0, 0.6, 0.6], [0.6, 0, 0.4, 0.3], [0.6, 0.3, 0.4, 0.3], [0, 0.6, 0.5, 0.4], [0.5, 0.6, 0.5, 0.4]],
+    [[0, 0, 1, 0.5], ...grade(4, 1, [0, 0.5, 1, 0.5])],
+    [[0, 0, 0.5, 1], ...grade(2, 2, [0.5, 0, 0.5, 1])],
+    [[0.25, 0.25, 0.5, 0.5], [0, 0, 0.25, 0.5], [0.75, 0, 0.25, 0.5], [0, 0.5, 0.25, 0.5], [0.75, 0.5, 0.25, 0.5]],
   ],
   6: [
-    [[0, 0, T3, 0.5], [T3, 0, T3, 0.5], [2 * T3, 0, T3, 0.5], [0, 0.5, T3, 0.5], [T3, 0.5, T3, 0.5], [2 * T3, 0.5, T3, 0.5]],
-    [[0, 0, 0.5, T3], [0.5, 0, 0.5, T3], [0, T3, 0.5, T3], [0.5, T3, 0.5, T3], [0, 2 * T3, 0.5, T3], [0.5, 2 * T3, 0.5, T3]],
+    grade(3, 2),
+    grade(2, 3),
+    [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.25], [0.5, 0.25, 0.5, 0.25], ...grade(3, 1, [0, 0.5, 1, 0.5])],
+    [[0, 0, 1, 0.5], ...grade(5, 1, [0, 0.5, 1, 0.5])],
+    [[0, 0, 0.6, 0.6], ...grade(1, 2, [0.6, 0, 0.4, 0.6]), ...grade(3, 1, [0, 0.6, 1, 0.4])],
+  ],
+  7: [
+    [...grade(3, 1, [0, 0, 1, 0.5]), ...grade(4, 1, [0, 0.5, 1, 0.5])],
+    [[0, 0, 0.5, 1], ...grade(2, 3, [0.5, 0, 0.5, 1])],
+    [[0, 0, 1, 0.5], ...grade(3, 2, [0, 0.5, 1, 0.5])],
+    [[0, 0, 0.5, 0.5], ...grade(2, 1, [0.5, 0, 0.5, 0.5]), ...grade(4, 1, [0, 0.5, 1, 0.5])],
+  ],
+  8: [
+    grade(4, 2),
+    grade(2, 4),
+    [...grade(3, 1, [0, 0, 1, 0.3]), ...grade(2, 1, [0, 0.3, 1, 0.4]), ...grade(3, 1, [0, 0.7, 1, 0.3])],
+    [[0, 0, 0.5, 0.5], ...grade(2, 1, [0.5, 0, 0.5, 0.5]), ...grade(5, 1, [0, 0.5, 1, 0.5])],
   ],
 }
 
-export const MAX_FOTOS_POR_LAMINA = 12
+const arredonda = (v: number) => Math.round(v * 1000) / 1000
+const chaveDaGrade = (t: Ret[]) =>
+  t
+    .map((r) => r.map(arredonda).join(','))
+    .sort()
+    .join('|')
+
+/** Base + espelhos (sem repetir grades simétricas). */
+const MODELOS_DE_PAGINA: Record<number, Ret[][]> = Object.fromEntries(
+  Object.entries(BASES_DE_PAGINA).map(([n, bases]) => {
+    const vistas = new Set<string>()
+    const lista: Ret[][] = []
+    for (const b of bases) {
+      const variantes: Ret[][] = [
+        b,
+        b.map(([x, y, w, h]) => [1 - x - w, y, w, h] as Ret),
+        b.map(([x, y, w, h]) => [x, 1 - y - h, w, h] as Ret),
+        b.map(([x, y, w, h]) => [1 - x - w, 1 - y - h, w, h] as Ret),
+      ]
+      for (const v of variantes) {
+        const k = chaveDaGrade(v)
+        if (!vistas.has(k)) {
+          vistas.add(k)
+          lista.push(v)
+        }
+      }
+    }
+    return [Number(n), lista]
+  }),
+)
+
+/** Quantas grades de página existem para cada quantidade (para a interface e os testes). */
+/** As grades de página (somente leitura) — para testes. */
+export function gradesDePagina(n: number): readonly (readonly number[])[][] {
+  return MODELOS_DE_PAGINA[n] ?? []
+}
+
+export const GRADES_POR_PAGINA = Object.fromEntries(Object.entries(MODELOS_DE_PAGINA).map(([n, l]) => [Number(n), l.length])) as Record<number, number>
+const MAX_POR_PAGINA = 8
+
+export const MAX_FOTOS_POR_LAMINA = 16
 const PROPORCAO_PADRAO = 1.5
 const PROPORCAO_PANORAMICA = 2.1
 /** Recorte acima disso (proporção do quadro × da foto) corta demais. */
@@ -224,7 +312,7 @@ export function variantesDeLayout(fotos: FotoEditor[], g: Geometria, limite = 5,
 
   // Foto panorâmica no grupo: faixa atravessando a lâmina + o resto embaixo, por página.
   const iPano = fotos.findIndex((f) => proporcaoDe(f) >= PROPORCAO_PANORAMICA)
-  if (iPano >= 0 && n >= 2 && n <= 7) {
+  if (iPano >= 0 && n >= 2 && n <= 9) {
     const m = margemExterna(g, o)
     const alturaFaixa = (g.laminaH - 2 * m) * 0.55
     const faixa = { x: m, y: m, w: g.laminaW - 2 * m, h: alturaFaixa - o.espaco / 2 }
@@ -240,7 +328,7 @@ export function variantesDeLayout(fotos: FotoEditor[], g: Geometria, limite = 5,
   }
 
   // Página inteira sangrando + o resto na outra página.
-  if (n >= 2 && n <= 7) {
+  if (n >= 2 && n <= MAX_POR_PAGINA + 1) {
     for (const lado of [0, 1] as const) {
       const cheia = { x: lado === 0 ? -s : g.paginaW, y: -s, w: g.paginaW + s, h: g.laminaH + 2 * s }
       const modelos = MODELOS_DE_PAGINA[n - 1] ?? []
@@ -258,11 +346,16 @@ export function variantesDeLayout(fotos: FotoEditor[], g: Geometria, limite = 5,
     divisoes.add(1)
     divisoes.add(n - 1)
   }
-  if (n <= 6) divisoes.add(n)
+  if (n <= MAX_POR_PAGINA) divisoes.add(n)
+  // Mais variedade nas lâminas cheias: divisões desequilibradas por 1.
+  if (n >= 6) {
+    divisoes.add(Math.ceil(n / 2) + 1)
+    divisoes.add(Math.floor(n / 2) - 1)
+  }
 
   for (const esquerda of divisoes) {
     const direita = n - esquerda
-    if (esquerda > 6 || direita > 6) continue
+    if (esquerda < 0 || direita < 0 || esquerda > MAX_POR_PAGINA || direita > MAX_POR_PAGINA) continue
     const modelosE = esquerda > 0 ? MODELOS_DE_PAGINA[esquerda] : [[]]
     const modelosD = direita > 0 ? MODELOS_DE_PAGINA[direita] : [[]]
     modelosE.forEach((me, ie) =>
