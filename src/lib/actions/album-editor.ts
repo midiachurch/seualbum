@@ -5,7 +5,8 @@ import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getVersoesD
 import { isDemoMode } from '@/lib/demo-mode'
 import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } from '@/lib/album/documento'
 import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
-import { laminaEmCm } from '@/lib/resolucao'
+import { laminaEmCm, normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
+import { prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
 import type { AlbumConfig, AlbumOrientationValue } from '@/types/platform'
 import type { AlbumLayoutRow, BibliotecaAlbum, DerivadoFoto } from '@/types/database'
 
@@ -18,7 +19,6 @@ import type { AlbumLayoutRow, BibliotecaAlbum, DerivadoFoto } from '@/types/data
 type Resultado<T = object> = ({ ok: true } & T) | { ok: false; erro: string }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ORIENTACOES: AlbumOrientationValue[] = ['quadrado', 'horizontal', 'vertical']
 const MAX_FOTOS_AVULSO = 1500
 /** Ponto de restauração automático no máximo a cada 15 min de edição. */
 const INTERVALO_AUTO_MS = 15 * 60 * 1000
@@ -37,10 +37,6 @@ const texto = (v: unknown, max: number) => {
  * "30 x 40", "20,5X30", "30×30" → "30x40" / "20.5x30" / "30x30": o mesmo que
  * `laminaEmCm` aceita, no formato que o CHECK da 0027 exige. '' se inválido.
  */
-function normalizarFormato(v: unknown) {
-  const m = /^\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*$/i.exec(String(v ?? ''))
-  return m ? `${m[1].replace(',', '.')}x${m[2].replace(',', '.')}` : ''
-}
 
 /** A migration 0027 ainda não foi aplicada (tabela do editor inexistente). */
 function semTabelasDoEditor(error: { code?: string; message?: string } | null | undefined) {
@@ -82,12 +78,13 @@ export async function criarAlbumAvulso(input: {
   const { supabase, user } = await requireEdicaoDeProducao()
   if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
 
-  const nome = String(input?.nome ?? '').trim()
-  if (nome.length < 2 || nome.length > 120) return { ok: false, erro: 'O nome precisa ter entre 2 e 120 caracteres.' }
+  const nome = String(input?.nome ?? '').replace(/\s+/g, ' ').trim().slice(0, 120)
+  if (nome.length < 2) return { ok: false, erro: 'Dê um nome ao álbum (pelo menos 2 letras).' }
   const formato = normalizarFormato(input?.formato)
-  if (!ORIENTACOES.includes(input?.orientacao)) return { ok: false, erro: 'Orientação inválida.' }
-  const g = geometria({ formato, orientacao: input.orientacao, sangriaMm: 3, margemSeguraMm: 5 })
-  if (!g) return { ok: false, erro: 'Formato inválido (ex.: 30x30).' }
+  // Orientação com outro nome ("retrato", "Paisagem"…) ou vazia não bloqueia: vira a canônica.
+  const orientacao = normalizarOrientacao(input?.orientacao, formato)
+  const g = geometria({ formato, orientacao, sangriaMm: 3, margemSeguraMm: 5 })
+  if (!g) return { ok: false, erro: 'Formato inválido: use largura x altura em cm, de 5 a 100 (ex.: 30x30).' }
   const laminas = Math.min(200, Math.max(1, Math.floor(Number(input?.laminasIniciais) || 1)))
   const modelo = modeloPorId(input?.modeloId)
   const fotosEstimadas = Number.isInteger(input?.fotosEstimadas) && Number(input.fotosEstimadas) >= 0 ? Math.min(10000, Number(input.fotosEstimadas)) : null
@@ -102,7 +99,7 @@ export async function criarAlbumAvulso(input: {
       modelo: modelo?.id ?? null,
       fotos_estimadas: fotosEstimadas,
       formato,
-      orientacao: input.orientacao,
+      orientacao,
       documento,
       criado_por: user.id,
     })
@@ -126,7 +123,7 @@ export async function criarAlbumAvulso(input: {
 export async function criarLayoutDoProjeto(
   projetoId: string,
   escolha?: { formato: string; orientacao: AlbumOrientationValue },
-): Promise<Resultado<{ id: string }> | { ok: false; erro: string; precisaFormato: true }> {
+): Promise<Resultado<{ id: string }> | { ok: false; erro: string; precisaFormato: true; sugestao: string }> {
   const demo = indisponivel()
   if (demo) return demo
   if (!UUID_RE.test(projetoId)) return { ok: false, erro: 'Projeto inválido.' }
@@ -139,21 +136,29 @@ export async function criarLayoutDoProjeto(
 
   const { data: projeto } = await supabase
     .from('projetos')
-    .select('nome, album_config, laminas_inclusas')
+    .select('nome, numero, album_config, laminas_inclusas, produto_id')
     .eq('id', projetoId)
-    .maybeSingle<{ nome: string; album_config: Partial<AlbumConfig> | null; laminas_inclusas: number | null }>()
+    .maybeSingle<{ nome: string; numero: number; album_config: unknown; laminas_inclusas: number | null; produto_id: string | null }>()
   if (!projeto) return { ok: false, erro: 'Projeto não encontrado.' }
-  let formato = normalizarFormato(projeto.album_config?.formato)
-  let orientacao: AlbumOrientationValue = projeto.album_config?.orientacao ?? 'quadrado'
-  if (!laminaEmCm({ formato, orientacao })) {
-    if (!escolha) return { ok: false, precisaFormato: true, erro: 'Este projeto ainda não tem o formato do álbum.' }
-    formato = normalizarFormato(escolha.formato)
-    orientacao = ORIENTACOES.includes(escolha.orientacao) ? escolha.orientacao : 'quadrado'
-    if (!laminaEmCm({ formato, orientacao })) return { ok: false, precisaFormato: true, erro: 'Formato inválido (ex.: 30x30).' }
-    // Grava no projeto também (a prova e a gráfica usam); sem permissão, fica só no álbum.
+  // Projetos que vieram de pedido não têm formato: o produto vinculado costuma ter.
+  const produtoFormato = projeto.produto_id
+    ? ((await supabase.from('produtos').select('formato').eq('id', projeto.produto_id).maybeSingle<{ formato: string }>()).data?.formato ?? null)
+    : null
+
+  const preparo = prepararLayoutDoProjeto(
+    { nome: projeto.nome, numero: projeto.numero, albumConfig: projeto.album_config, produtoFormato, laminasInclusas: projeto.laminas_inclusas },
+    escolha,
+  )
+  if (!preparo.ok) return preparo
+  const d = preparo.dados
+
+  // Formato que não estava no projeto (produto ou escolha) passa a valer para a prova e a gráfica.
+  // Sem permissão de editar o projeto, fica só no álbum.
+  if (d.origemFormato !== 'projeto') {
+    const cfg = projeto.album_config && typeof projeto.album_config === 'object' && !Array.isArray(projeto.album_config) ? projeto.album_config : {}
     await supabase
       .from('projetos')
-      .update({ album_config: { ...(projeto.album_config ?? {}), formato, orientacao } })
+      .update({ album_config: { ...(cfg as Record<string, unknown>), formato: d.formato, orientacao: d.orientacao } })
       .eq('id', projetoId)
   }
 
@@ -161,11 +166,11 @@ export async function criarLayoutDoProjeto(
     .from('album_layouts')
     .insert({
       projeto_id: projetoId,
-      nome: projeto.nome,
-      tipo: projeto.album_config?.tipo ?? null,
-      formato,
-      orientacao,
-      documento: documentoVazio(projeto.laminas_inclusas ?? 1),
+      nome: d.nome,
+      tipo: d.tipo,
+      formato: d.formato,
+      orientacao: d.orientacao,
+      documento: documentoVazio(d.laminas),
       criado_por: user.id,
     })
     .select('id')

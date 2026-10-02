@@ -41,6 +41,7 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
         return
       }
       if ('precisaFormato' in r && r.precisaFormato) {
+        if (!escolha && r.sugestao) setFormato(r.sugestao)
         setPedirFormato(true)
         if (escolha) setErro(r.erro)
         return
