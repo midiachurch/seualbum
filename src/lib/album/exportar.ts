@@ -57,6 +57,20 @@ function fotoNoQuadro(q: Quadro, img: HTMLImageElement, k: number) {
   return c
 }
 
+/** Retângulo de cantos arredondados centrado na origem (quadro com `raio`). */
+function caminhoArredondado(ctx: CanvasRenderingContext2D, W: number, H: number, raio: number) {
+  const r = Math.min(raio, W / 2, H / 2)
+  const x = -W / 2
+  const y = -H / 2
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + W, y, x + W, y + H, r)
+  ctx.arcTo(x + W, y + H, x, y + H, r)
+  ctx.arcTo(x, y + H, x, y, r)
+  ctx.arcTo(x, y, x + W, y, r)
+  ctx.closePath()
+}
+
 function noCentro(ctx: CanvasRenderingContext2D, e: { x: number; y: number; w: number; h: number; rotacao: number }, s: number, k: number) {
   ctx.translate((e.x + s + e.w / 2) * k, (e.y + s + e.h / 2) * k)
   if (e.rotacao) ctx.rotate((e.rotacao * Math.PI) / 180)
@@ -201,21 +215,30 @@ export async function desenharLamina(
     ctx.save()
     noCentro(ctx, q, s, k)
     ctx.globalAlpha = q.opacidade
+    const raio = (q.raio ?? 0) * k
     if (q.sombra) {
       ctx.save()
       ctx.shadowColor = 'rgba(0,0,0,0.35)'
       ctx.shadowBlur = 3 * k
       ctx.shadowOffsetY = 1.2 * k
       ctx.fillStyle = lamina.fundo
-      ctx.fillRect(-W / 2, -H / 2, W, H)
+      caminhoArredondado(ctx, W, H, raio)
+      ctx.fill()
       ctx.restore()
     }
-    ctx.drawImage(recortada, -W / 2, -H / 2, W, H)
+    if (raio > 0) {
+      ctx.save()
+      caminhoArredondado(ctx, W, H, raio)
+      ctx.clip()
+      ctx.drawImage(recortada, -W / 2, -H / 2, W, H)
+      ctx.restore()
+    } else ctx.drawImage(recortada, -W / 2, -H / 2, W, H)
     if (q.borda) {
       const lw = q.borda.espessura * k
       ctx.strokeStyle = q.borda.cor
       ctx.lineWidth = lw
-      ctx.strokeRect(-W / 2 + lw / 2, -H / 2 + lw / 2, W - lw, H - lw)
+      caminhoArredondado(ctx, W - lw, H - lw, Math.max(0, raio - lw / 2))
+      ctx.stroke()
     }
     ctx.restore()
     recortada.width = 0

@@ -159,7 +159,14 @@ export function InspetorLamina({
   onIrFundos,
   onAdicionarTexto,
   onLayoutVazio,
+  vao,
+  onVao,
+  onSalvarTemplate,
 }: {
+  /** Vão típico entre as fotos vizinhas (null = não há vizinhas). */
+  vao: number | null
+  onVao: (mm: number) => void
+  onSalvarTemplate: () => void
   lamina: LaminaDoc
   indice: number
   primeiraEhCapa: boolean
@@ -173,7 +180,7 @@ export function InspetorLamina({
   return (
     <div className="space-y-4 p-4 text-sm">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Configurações da página</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-300">Página selecionada</p>
         <p className="mt-1 font-medium">{rotuloDaLamina(indice, primeiraEhCapa)}</p>
         <p className="text-xs text-white/60">
           {lamina.quadros.length} foto(s) · {lamina.textos.length} texto(s) · {lamina.formas.length} elemento(s)
@@ -199,13 +206,28 @@ export function InspetorLamina({
               ))}
             </div>
           </div>
+          {vao !== null ? (
+            <label className="block text-xs text-white/70">
+              <span className="flex justify-between">
+                Espaçamento entre as fotos
+                <span className="tabular-nums text-white/90">{vao.toFixed(1)} mm</span>
+              </span>
+              <input type="range" min={0} max={15} step={0.5} value={vao} onChange={(e) => onVao(Number(e.target.value))} className="mt-1 block w-full accent-white" />
+            </label>
+          ) : null}
+          {lamina.quadros.length > 0 ? (
+            <button type="button" onClick={onSalvarTemplate} className="w-full rounded-md border border-white/20 px-2.5 py-1.5 text-left text-xs hover:bg-white/10">
+              ★ Salvar esta lâmina como template
+            </button>
+          ) : null}
           <button type="button" onClick={onAdicionarTexto} className="w-full rounded-md border border-white/20 px-2.5 py-1.5 text-left text-xs hover:bg-white/10">
             + Caixa de texto
           </button>
         </>
       ) : null}
       <div className="space-y-1 text-xs text-white/40">
-        <p>Shift+clique: seleção múltipla · Ctrl+C / Ctrl+V / Ctrl+D</p>
+        <p>Duplo clique na página: modo Designer · duplo clique na foto: ajustar a foto</p>
+        <p>Shift ou Ctrl/Cmd+clique: seleção múltipla · Ctrl+C / Ctrl+V / Ctrl+D</p>
         <p>Arraste uma foto sobre outra para trocar as duas</p>
         <p>Selecione uma foto: a alça azul entre ela e a vizinha redimensiona as duas</p>
         <p>Ctrl+Z desfaz · Delete apaga · setas movem 1 mm (Shift: 10)</p>

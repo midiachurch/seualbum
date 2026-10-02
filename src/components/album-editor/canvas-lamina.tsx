@@ -71,11 +71,30 @@ function useImagem(url: string | null, onCarregada?: (img: HTMLImageElement) => 
   return img
 }
 
+/** Caminho de retângulo com cantos arredondados (clip e contornos do quadro). */
+function retanguloArredondado(ctx: { beginPath(): void; moveTo(x: number, y: number): void; arcTo(x1: number, y1: number, x2: number, y2: number, r: number): void; closePath(): void; rect(x: number, y: number, w: number, h: number): void }, w: number, h: number, raio: number) {
+  const r = Math.min(raio, w / 2, h / 2)
+  if (r <= 0) {
+    ctx.rect(0, 0, w, h)
+    return
+  }
+  ctx.beginPath()
+  ctx.moveTo(r, 0)
+  ctx.arcTo(w, 0, w, h, r)
+  ctx.arcTo(w, h, 0, h, r)
+  ctx.arcTo(0, h, 0, 0, r)
+  ctx.arcTo(0, 0, w, 0, r)
+  ctx.closePath()
+}
+
 type Comum = {
   escala: number
   somenteLeitura: boolean
   bloqueado: boolean
+  /** Montagem: a geometria fica fixa (arrastar só troca fotos). */
+  geometriaFixa: boolean
   onSelecionar: (aditivo: boolean) => void
+  onDuploClique: () => void
   onArrastoInicio: (no: Konva.Node) => void
   onArrastando: (no: Konva.Node, w: number, h: number) => void
   onArrastoFim: (no: Konva.Node) => boolean
@@ -91,13 +110,30 @@ function fimDeTransformacao(no: Konva.Node, w: number, h: number, redimensionaAl
   return { x: no.x() - nw / 2, y: no.y() - nh / 2, w: nw, ...(redimensionaAltura ? { h: nh } : {}), rotacao: Math.round(no.rotation() * 10) / 10 }
 }
 
-function eventosComuns(c: Comum, w: number, h: number, mover: (x: number, y: number) => void) {
-  const arrastavel = !c.somenteLeitura && !c.bloqueado
+function eventosComuns(
+  c: Comum,
+  w: number,
+  h: number,
+  mover: (x: number, y: number) => void,
+  podeArrastarNaMontagem = false,
+  /** Centro original do nó (para voltar ao lugar na montagem). */
+  origem?: { x: number; y: number },
+) {
+  const arrastavel = !c.somenteLeitura && !c.bloqueado && (!c.geometriaFixa || podeArrastarNaMontagem)
   return {
     draggable: arrastavel,
     listening: !c.bloqueado,
-    onMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => c.onSelecionar(e.evt.shiftKey),
+    // Shift ou Ctrl/Cmd + clique: seleção múltipla.
+    onMouseDown: (e: Konva.KonvaEventObject<MouseEvent>) => c.onSelecionar(e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey),
     onTap: () => c.onSelecionar(false),
+    onDblClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
+      e.cancelBubble = true
+      c.onDuploClique()
+    },
+    onDblTap: (e: Konva.KonvaEventObject<Event>) => {
+      e.cancelBubble = true
+      c.onDuploClique()
+    },
     onDragStart: (e: Konva.KonvaEventObject<DragEvent>) => {
       if (e.target === e.currentTarget) c.onArrastoInicio(e.currentTarget)
     },
@@ -107,6 +143,11 @@ function eventosComuns(c: Comum, w: number, h: number, mover: (x: number, y: num
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
       if (e.target !== e.currentTarget) return
       if (c.onArrastoFim(e.currentTarget)) return
+      // Montagem: arrastar sem soltar em outra foto não move o quadro — volta ao lugar.
+      if (c.geometriaFixa) {
+        if (origem) e.target.position(origem)
+        return
+      }
       mover(e.target.x() - w / 2, e.target.y() - h / 2)
     },
   }
@@ -117,16 +158,20 @@ function QuadroNoCanvas({
   foto,
   fundo,
   recortando,
+  escolhendoFoco,
   onAlterar,
   onDimensoes,
+  onEscolherFoco,
   ...c
 }: Comum & {
   quadro: Quadro
   foto: (FotoNoCanvas & { id: string }) | null
   fundo: string
   recortando: boolean
+  escolhendoFoco: boolean
   onAlterar: (patch: Partial<Quadro>) => void
   onDimensoes: (fotoId: string, w: number, h: number) => void
+  onEscolherFoco: (fotoId: string, fx: number, fy: number) => void
 }) {
   // A tela usa a prévia; as dimensões do ORIGINAL decidem proporção e DPI.
   const urlTela = foto ? (foto.urlPreview ?? foto.url) : null
@@ -169,15 +214,26 @@ function QuadroNoCanvas({
       offsetY={q.h / 2}
       rotation={q.rotacao}
       opacity={q.opacidade}
-      {...eventosComuns({ ...c, somenteLeitura: c.somenteLeitura || recortando }, q.w, q.h, (x, y) => onAlterar({ x, y }))}
+      {...eventosComuns({ ...c, somenteLeitura: c.somenteLeitura || recortando }, q.w, q.h, (x, y) => onAlterar({ x, y }), Boolean(foto), { x: q.x + q.w / 2, y: q.y + q.h / 2 })}
       onTransformEnd={(e) => onAlterar(fimDeTransformacao(e.currentTarget, q.w, q.h))}
+      onClick={(e) => {
+        // Definindo o ponto focal: o clique marca o ponto da FOTO (não do quadro).
+        if (!escolhendoFoco || !foto || !pos) return
+        const local = e.currentTarget.getRelativePointerPosition()
+        if (!local) return
+        let fx = (local.x - pos.x) / pos.w
+        let fy = (local.y - pos.y) / pos.h
+        if (q.espelharH) fx = 1 - (local.x - (q.w - pos.x - pos.w)) / pos.w
+        if (q.espelharV) fy = 1 - (local.y - (q.h - pos.y - pos.h)) / pos.h
+        onEscolherFoco(foto.id, Math.min(1, Math.max(0, fx)), Math.min(1, Math.max(0, fy)))
+      }}
     >
-      {q.sombra ? <Rect width={q.w} height={q.h} fill={fundo} shadowColor="#000" shadowBlur={3} shadowOpacity={0.35} shadowOffsetY={1.2} listening={false} /> : null}
+      {q.sombra ? <Rect width={q.w} height={q.h} cornerRadius={q.raio} fill={fundo} shadowColor="#000" shadowBlur={3} shadowOpacity={0.35} shadowOffsetY={1.2} listening={false} /> : null}
       {recortando && pos && img ? (
         // Recortando: a foto inteira aparece translúcida para mostrar o que sobra fora do quadro.
         <KImage image={img} x={xImg} y={yImg} width={pos.w} height={pos.h} scaleX={q.espelharH ? -1 : 1} scaleY={q.espelharV ? -1 : 1} opacity={0.3} listening={false} />
       ) : null}
-      <Group clipFunc={(ctx) => ctx.rect(0, 0, q.w, q.h)}>
+      <Group clipFunc={(ctx) => retanguloArredondado(ctx, q.w, q.h, q.raio)}>
         {pos && img ? (
           <KImage
             ref={imagemRef}
@@ -217,6 +273,7 @@ function QuadroNoCanvas({
             y={q.borda.espessura / 2}
             width={q.w - q.borda.espessura}
             height={q.h - q.borda.espessura}
+            cornerRadius={Math.max(0, q.raio - q.borda.espessura / 2)}
             stroke={q.borda.cor}
             strokeWidth={q.borda.espessura}
             listening={false}
@@ -225,7 +282,8 @@ function QuadroNoCanvas({
       </Group>
       {alerta ? <Rect width={q.w} height={q.h} stroke="#D97706" strokeWidth={3 * traco} dash={[6 * traco, 4 * traco]} listening={false} /> : null}
       {!foto ? <Rect width={q.w} height={q.h} stroke="#9A9A9A" strokeWidth={traco} dash={[4 * traco, 4 * traco]} listening={false} /> : null}
-      {recortando ? <Rect width={q.w} height={q.h} stroke="#2563EB" strokeWidth={2 * traco} listening={false} /> : null}
+      {recortando ? <Rect width={q.w} height={q.h} cornerRadius={q.raio} stroke="#2563EB" strokeWidth={2 * traco} listening={false} /> : null}
+      {escolhendoFoco && foto && pos ? <Rect width={q.w} height={q.h} stroke="#F59E0B" strokeWidth={2 * traco} dash={[4 * traco, 3 * traco]} listening={false} /> : null}
     </Group>
   )
 }
@@ -344,6 +402,8 @@ export function CanvasLamina({
   selecao,
   selecionados,
   recortando,
+  modo,
+  escolhendoFoco,
   mostrarGuias,
   zoom,
   somenteLeitura,
@@ -355,6 +415,9 @@ export function CanvasLamina({
   onMoverVarios,
   onAjustarQuadros,
   onTrocarFotos,
+  onEntrarDesigner,
+  onAjustarFoto,
+  onEscolherFoco,
   onSoltarFoto,
   onDimensoes,
 }: {
@@ -365,6 +428,9 @@ export function CanvasLamina({
   /** Seleção múltipla (inclui a principal). */
   selecionados: Selecao[]
   recortando: boolean
+  /** Montagem: escolhe templates e troca fotos; Designer: edita a geometria. */
+  modo: 'montagem' | 'designer'
+  escolhendoFoco: boolean
   mostrarGuias: boolean
   /** 1 = lâmina inteira na tela. */
   zoom: number
@@ -378,6 +444,11 @@ export function CanvasLamina({
   /** Divisória arrastada: vários quadros mudam juntos (um passo de desfazer). */
   onAjustarQuadros: (patches: { id: string; patch: Partial<Quadro> }[]) => void
   onTrocarFotos: (a: string, b: string) => void
+  /** Duplo clique na página: entrar no Designer. */
+  onEntrarDesigner: () => void
+  /** Duplo clique na foto: ajustar a foto (enquadramento). */
+  onAjustarFoto: (quadroId: string) => void
+  onEscolherFoco: (fotoId: string, fx: number, fy: number) => void
   onSoltarFoto: (fotoId: string, xMm: number, yMm: number, quadroAlvo: string | null) => void
   onDimensoes: (fotoId: string, w: number, h: number) => void
 }) {
@@ -429,7 +500,7 @@ export function CanvasLamina({
   useEffect(() => {
     const tr = transformerRef.current
     if (!tr) return
-    const alvos = recortando || somenteLeitura ? [] : selecionados.filter((s) => !bloqueados.has(s.id)).map((s) => nos.current.get(s.id)).filter((n): n is Konva.Node => Boolean(n))
+    const alvos = recortando || somenteLeitura || modo === 'montagem' ? [] : selecionados.filter((s) => !bloqueados.has(s.id)).map((s) => nos.current.get(s.id)).filter((n): n is Konva.Node => Boolean(n))
     tr.nodes(alvos)
     const so = selecionados.length === 1 ? selecionados[0] : null
     const linha = so?.tipo === 'forma' && lamina.formas.find((f) => f.id === so.id)?.forma === 'linha'
@@ -439,7 +510,7 @@ export function CanvasLamina({
         : ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right'],
     )
     tr.getLayer()?.batchDraw()
-  }, [selecionados, recortando, lamina, somenteLeitura, bloqueados])
+  }, [selecionados, recortando, lamina, somenteLeitura, bloqueados, modo])
 
   // Linhas onde os elementos "grudam": bordas, dobra, área segura, sangria e bordas/centros dos outros.
   const alvosSnap = useMemo(() => {
@@ -550,7 +621,9 @@ export function CanvasLamina({
       escala,
       somenteLeitura,
       bloqueado: bloqueados.has(id),
+      geometriaFixa: modo === 'montagem',
       onSelecionar: (aditivo) => onSelecionar({ tipo, id }, aditivo),
+      onDuploClique: () => (tipo === 'quadro' ? onAjustarFoto(id) : onEntrarDesigner()),
       onArrastoInicio: () => aoIniciarArrasto(id),
       onArrastando: (no, w, h) => aoArrastar(id, no, w, h),
       onArrastoFim: (no) => aoTerminarArrasto(id, no),
@@ -569,11 +642,11 @@ export function CanvasLamina({
   }))
   // Divisórias só das fotos selecionadas (sem poluir a lâmina inteira).
   const divisorias = useMemo(() => {
-    if (somenteLeitura || recortando) return []
+    if (somenteLeitura || recortando || modo === 'montagem') return []
     const ids = new Set(selecionados.filter((x) => x.tipo === 'quadro').map((x) => x.id))
     if (ids.size === 0) return []
     return encontrarDivisorias(lamina.quadros).filter((d) => d.antes.some((id) => ids.has(id)) || d.depois.some((id) => ids.has(id)))
-  }, [lamina.quadros, selecionados, somenteLeitura, recortando])
+  }, [lamina.quadros, selecionados, somenteLeitura, recortando, modo])
 
   const fotoFundo = lamina.fundoImagem ? fotos.get(lamina.fundoImagem.fotoId) : undefined
   const urlFundo = fotoFundo ? (fotoFundo.urlPreview ?? fotoFundo.url) : undefined
@@ -631,6 +704,9 @@ export function CanvasLamina({
           onMouseDown={(e) => {
             if (e.target === e.target.getStage() || e.target.name() === 'fundo') onSelecionar(null)
           }}
+          onDblClick={(e) => {
+            if (e.target === e.target.getStage() || e.target.name() === 'fundo') onEntrarDesigner()
+          }}
           onTouchStart={(e) => {
             if (e.target === e.target.getStage() || e.target.name() === 'fundo') onSelecionar(null)
           }}
@@ -676,8 +752,10 @@ export function CanvasLamina({
                   foto={q.fotoId && fotos.get(q.fotoId) ? { id: q.fotoId, ...fotos.get(q.fotoId)! } : null}
                   fundo={lamina.fundo}
                   recortando={recortando && selecao?.id === q.id}
+                  escolhendoFoco={escolhendoFoco && selecao?.id === q.id}
                   onAlterar={(p) => onAlterarQuadro(q.id, p)}
                   onDimensoes={onDimensoes}
+                  onEscolherFoco={onEscolherFoco}
                   {...comum(q.id, 'quadro')}
                 />
               ))}

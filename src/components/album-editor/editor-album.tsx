@@ -48,7 +48,7 @@ import { PainelLayouts, type PedidoPreenchimento } from '@/components/album-edit
 import { PainelModelos } from '@/components/album-editor/painel-modelos'
 import { PainelConfiguracoes, PainelElementos, PainelFundos, PainelPaginas, PainelTextos } from '@/components/album-editor/paineis-simples'
 import { FitaLaminas } from '@/components/album-editor/fita-laminas'
-import { InspetorForma, InspetorMultiplo, InspetorQuadro, InspetorTexto, type CaixaSelecionada, type DirecaoOrdem } from '@/components/album-editor/inspetor'
+import { InspetorForma, InspetorMultiplo, InspetorQuadro, InspetorTexto, type CaixaSelecionada, type DirecaoOrdem, type PatchDeLote } from '@/components/album-editor/inspetor'
 import { BarraAlinhamento, InspetorLamina, PainelCamadas, type Alinhamento } from '@/components/album-editor/camadas'
 import { Publicar } from '@/components/album-editor/publicar'
 import { Visualizacao } from '@/components/album-editor/visualizacao'
@@ -87,6 +87,8 @@ import {
   type Variante,
 } from '@/lib/album/modelos'
 import { verificarAlbum, type NivelProblema } from '@/lib/album/verificacao'
+import { ajustarEspacamento, vaoAtual } from '@/lib/album/divisorias'
+import { aplicarTemplate, assinaturaDasFotos, bibliotecaPadrao, reorganizacoes as calcularReorganizacoes, templateDaLamina, type TemplateLamina } from '@/lib/album/templates'
 import { medirEstouro, medirFoco } from '@/lib/album/ajustes'
 import { alturaDoTexto } from '@/lib/album/texto'
 import { registrarFamilias } from '@/lib/album/fontes'
@@ -95,7 +97,12 @@ import { carregarOriginal, gerarDerivados, registrarDerivados } from '@/lib/albu
 import {
   atualizarDadosAlbum,
   atualizarMiniatura,
+  excluirTemplate,
+  favoritarTemplate,
   finalizarAlbum,
+  listarTemplates,
+  registrarUsoTemplate,
+  salvarTemplate,
   listarAprovacoesAlbum,
   removerFotoAlbum,
   resolverComentarioAlbum,
@@ -103,7 +110,7 @@ import {
   salvarDocumentoAlbum,
 } from '@/lib/actions/album-editor'
 import type { AlbumParaEditor, AprovacaoDoAlbum, FotoDoEditor } from '@/lib/supabase/queries'
-import type { DerivadoFoto, StatusAlbum } from '@/types/database'
+import type { AlbumTemplateRow, DerivadoFoto, StatusAlbum } from '@/types/database'
 import { cn } from '@/lib/utils'
 
 const CanvasLamina = dynamic(() => import('@/components/album-editor/canvas-lamina').then((m) => m.CanvasLamina), {
@@ -201,6 +208,12 @@ export function EditorAlbum({
   const [selecionados, setSelecionados] = useState<Selecao[]>([])
   const selecao = selecionados[selecionados.length - 1] ?? null
   const [recortando, setRecortando] = useState(false)
+  // Montagem: escolher templates e trocar fotos (geometria fixa). Designer: editar a geometria.
+  const [modo, setModo] = useState<'montagem' | 'designer'>('montagem')
+  const [escolhendoFoco, setEscolhendoFoco] = useState(false)
+  const [respeitarOrdem, setRespeitarOrdem] = useState(false)
+  const [templatesEquipe, setTemplatesEquipe] = useState<AlbumTemplateRow[]>([])
+  const [usoLocal, setUsoLocal] = useState<{ favoritos: string[]; recentes: Record<string, string> }>({ favoritos: [], recentes: {} })
   const [mostrarGuias, setMostrarGuias] = useState(true)
   const [zoom, setZoom] = useState(1)
   const [painelEsq, setPainelEsq] = useState<PainelEsquerdo>('fotos')
@@ -384,7 +397,19 @@ export function EditorAlbum({
   /* ------------------------------- fotos ------------------------------- */
   const metaDe = useCallback((id: string): MetaFoto => biblioteca.fotos[id] ?? {}, [biblioteca])
   const fotosParaLayout: FotoEditor[] = useMemo(
-    () => fotos.map((f) => ({ ...f, favorita: metaDe(f.id).favorita ?? f.favorita, prioridade: metaDe(f.id).prioridade ?? null })),
+    () =>
+      fotos.map((f) => {
+        const m = metaDe(f.id)
+        return {
+          ...f,
+          favorita: m.favorita ?? f.favorita,
+          prioridade: m.prioridade ?? null,
+          pasta: m.pasta ?? null,
+          // Ponto focal definido à mão vence o medido.
+          fx: m.foco?.fx ?? f.fx,
+          fy: m.foco?.fy ?? f.fy,
+        }
+      }),
     [fotos, metaDe],
   )
   const fotosMapa = useMemo(
@@ -421,11 +446,13 @@ export function EditorAlbum({
           const img = await carregarOriginal(f.url)
           try {
             const d = await gerarDerivados(album.id, f.id, img)
-            lote[f.id] = { mini: d.mini, preview: d.preview, largura: d.largura, altura: d.altura, estouro: d.estouro, fx: d.fx, fy: d.fy }
+            lote[f.id] = { mini: d.mini, preview: d.preview, largura: d.largura, altura: d.altura, estouro: d.estouro, fx: d.fx, fy: d.fy, pb: d.pb }
             if (!cancelado)
               setFotos((lista) =>
                 lista.map((x) =>
-                  x.id === f.id ? { ...x, largura: d.largura, altura: d.altura, estouro: d.estouro, fx: d.fx, fy: d.fy, urlMini: d.urlMini, urlPreview: d.urlPreview, temDerivados: true } : x,
+                  x.id === f.id
+                    ? { ...x, largura: d.largura, altura: d.altura, estouro: d.estouro, fx: d.fx, fy: d.fy, monocromatica: d.pb, urlMini: d.urlMini, urlPreview: d.urlPreview, temDerivados: true }
+                    : x,
                 ),
               )
             if (Object.keys(lote).length >= 6) await gravar()
@@ -778,6 +805,7 @@ export function EditorAlbum({
     const t = { ...textoNovo(g.paginaW + (g.paginaW - w) / 2, g.laminaH / 2 - 10, w, modelo.texto), ...modelo, id: novoId('t') }
     alterarNaLamina((l) => ({ ...l, textos: [...l.textos, t] }), 'Adicionado texto')
     setSelecionados([{ tipo: 'texto', id: t.id }])
+    setModo('designer')
   }
 
   function adicionarForma(forma: FormaDoc['forma'], estilo?: Partial<FormaDoc>) {
@@ -787,6 +815,7 @@ export function EditorAlbum({
     const f = { ...formaNova(forma, g.paginaW + (g.paginaW - w) / 2, (g.laminaH - h) / 2, w, h), ...estilo, id: novoId('f') }
     alterarNaLamina((l) => ({ ...l, formas: [...l.formas, f] }), forma === 'ornamento' ? 'Adicionado ornamento' : 'Adicionado elemento')
     setSelecionados([{ tipo: 'forma', id: f.id }])
+    setModo('designer')
   }
 
   /* ----------------------------- layouts ----------------------------- */
@@ -802,8 +831,135 @@ export function EditorAlbum({
     if (!g || !origemVariantes) return []
     const ids = origemVariantes === 'selecao' ? selecionadas : fotosNaLamina
     const escolhidas = ids.map((id) => fotosParaLayout.find((f) => f.id === id)).filter((f): f is FotoEditor => Boolean(f))
-    return variantesDeLayout(escolhidas, g, 5, estiloDoAlbum)
-  }, [g, origemVariantes, selecionadas, fotosNaLamina, fotosParaLayout, estiloDoAlbum])
+    return variantesDeLayout(escolhidas, g, 5, estiloDoAlbum, { respeitarOrdem })
+  }, [g, origemVariantes, selecionadas, fotosNaLamina, fotosParaLayout, estiloDoAlbum, respeitarOrdem])
+
+  /* ---------------------------- templates ---------------------------- */
+  // Favoritos/recentes dos templates PADRÃO ficam neste navegador; os personalizados, no banco.
+  const CHAVE_USO = 'seualbum:templates-uso'
+  useEffect(() => {
+    try {
+      const bruto = window.localStorage.getItem(CHAVE_USO)
+      if (bruto) setUsoLocal(JSON.parse(bruto))
+    } catch {
+      // sem armazenamento local
+    }
+    void listarTemplates().then((r) => {
+      if (r.ok) setTemplatesEquipe(r.templates)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  function gravarUsoLocal(u: typeof usoLocal) {
+    setUsoLocal(u)
+    try {
+      window.localStorage.setItem(CHAVE_USO, JSON.stringify(u))
+    } catch {
+      // sem armazenamento local
+    }
+  }
+  const templates: TemplateLamina[] = useMemo(() => {
+    if (!g) return []
+    const padrao = bibliotecaPadrao(g, estiloDoAlbum).map((t) => ({ ...t, favorito: usoLocal.favoritos.includes(t.id), ultimoUso: usoLocal.recentes[t.id] ?? null }))
+    const equipe: TemplateLamina[] = templatesEquipe.map((t) => ({
+      id: t.id,
+      nome: t.nome,
+      origem: 'personalizado',
+      quadros: t.quadros,
+      assinatura: t.assinatura,
+      nFotos: t.n_fotos,
+      favorito: t.favorito,
+      usos: t.usos,
+      ultimoUso: t.ultimo_uso,
+    }))
+    return [...equipe, ...padrao]
+  }, [g, estiloDoAlbum, templatesEquipe, usoLocal])
+
+  const fotosSelecionadasObj = useMemo(
+    () => selecionadas.map((id) => fotosParaLayout.find((f) => f.id === id)).filter((f): f is FotoEditor => Boolean(f)),
+    [selecionadas, fotosParaLayout],
+  )
+  const assinatura = useMemo(() => {
+    const base = origemVariantes === 'selecao' ? fotosSelecionadasObj : origemVariantes === 'lamina' ? fotosNaLamina.map((id) => fotosParaLayout.find((f) => f.id === id)).filter((f): f is FotoEditor => Boolean(f)) : []
+    return base.length > 0 ? assinaturaDasFotos(base) : null
+  }, [origemVariantes, fotosSelecionadasObj, fotosNaLamina, fotosParaLayout])
+  const reorganizacoes = useMemo(() => (fotosSelecionadasObj.length >= 2 ? calcularReorganizacoes(fotosSelecionadasObj, templates) : []), [fotosSelecionadasObj, templates])
+
+  function aplicarTemplateNaLamina(t: TemplateLamina) {
+    if (!g) return
+    const quadros = aplicarTemplate(t, g, fotosSelecionadasObj, respeitarOrdem)
+    alterarNaLamina((l) => ({ ...l, quadros }), `Aplicado o template ${t.nome}`)
+    setSelecionadas([])
+    setSelecionados([])
+    if (t.origem === 'personalizado') {
+      void registrarUsoTemplate(t.id)
+      setTemplatesEquipe((lista) => lista.map((x) => (x.id === t.id ? { ...x, usos: x.usos + 1, ultimo_uso: new Date().toISOString() } : x)))
+    } else gravarUsoLocal({ ...usoLocal, recentes: { ...usoLocal.recentes, [t.id]: new Date().toISOString() } })
+  }
+
+  async function favoritar(t: TemplateLamina) {
+    if (t.origem === 'personalizado') {
+      const r = await favoritarTemplate(t.id, !t.favorito)
+      if (r.ok) setTemplatesEquipe((lista) => lista.map((x) => (x.id === t.id ? { ...x, favorito: !t.favorito } : x)))
+      else setMensagem(r.erro)
+    } else {
+      const favoritos = t.favorito ? usoLocal.favoritos.filter((id) => id !== t.id) : [...usoLocal.favoritos, t.id]
+      gravarUsoLocal({ ...usoLocal, favoritos })
+    }
+  }
+
+  async function excluirTemplatePersonalizado(t: TemplateLamina) {
+    if (!window.confirm(`Excluir o template "${t.nome}"? As lâminas que já usaram ele não mudam.`)) return
+    const r = await excluirTemplate(t.id)
+    if (r.ok) setTemplatesEquipe((lista) => lista.filter((x) => x.id !== t.id))
+    else setMensagem(r.erro)
+  }
+
+  async function salvarComoTemplate() {
+    if (!g) return
+    const nomeTpl = window.prompt('Nome do template', `${lamina.quadros.length} fotos · ${album.nome}`.slice(0, 80))
+    if (!nomeTpl) return
+    const t = templateDaLamina(lamina, g, nomeTpl)
+    if (!t) return
+    const r = await salvarTemplate({ nome: t.nome, quadros: t.quadros, assinatura: t.assinatura })
+    if (r.ok) {
+      setTemplatesEquipe((lista) => [r.template, ...lista])
+      setMensagem(null)
+      setPainelEsq('layouts')
+    } else setMensagem(r.erro)
+  }
+
+  /** Ponto focal definido à mão: vale para a foto em qualquer quadro, e já reenquadra este. */
+  function definirFoco(fotoId: string, fx: number, fy: number) {
+    alterarMeta([fotoId], { foco: { fx, fy } })
+    setFotos((lista) => lista.map((f) => (f.id === fotoId ? { ...f, fx, fy, focoManual: true } : f)))
+    if (quadroSel?.fotoId === fotoId) alterarQuadro(quadroSel.id, { recorte: { ...quadroSel.recorte, cx: fx, cy: fy } }, 'Definido o ponto focal')
+    setEscolhendoFoco(false)
+  }
+
+  const vao = useMemo(() => vaoAtual(lamina.quadros), [lamina.quadros])
+  function mudarEspacamento(mm: number) {
+    const patches = new Map(ajustarEspacamento(lamina.quadros, mm).map((p) => [p.id, p.patch]))
+    if (patches.size === 0) return
+    alterarNaLamina((l) => ({ ...l, quadros: l.quadros.map((q) => (patches.has(q.id) ? { ...q, ...patches.get(q.id) } : q)) }), 'Alterado o espaçamento', `vao-${laminaIdx}`)
+  }
+
+  function aplicarLote(patch: PatchDeLote, rotulo: string) {
+    const ids = new Set(selecionados.filter((x) => x.tipo === 'quadro').map((x) => x.id))
+    if (ids.size === 0) return
+    alterarNaLamina(
+      (l) => ({
+        ...l,
+        quadros: l.quadros.map((q) => {
+          if (!ids.has(q.id)) return q
+          // Só as propriedades de lote — o enquadramento de cada foto fica como está.
+          const { ajustesPb, ...resto } = patch
+          return { ...q, ...resto, ...(ajustesPb === undefined ? {} : { ajustes: { ...q.ajustes, pb: ajustesPb } }) }
+        }),
+      }),
+      rotulo,
+      `lote-${Object.keys(patch).join()}`,
+    )
+  }
 
   function aplicarVariante(v: Variante) {
     alterarNaLamina((l) => ({ ...l, quadros: v.quadros.map((q) => ({ ...q, id: novoId() })) }), 'Aplicado layout')
@@ -858,7 +1014,10 @@ export function EditorAlbum({
     const base = p.soSelecionadas ? fotosParaLayout.filter((f) => selecionadas.includes(f.id)) : fotosParaLayout
     if (p.usarQuadrosDoModelo) aplicar((d) => preencherQuadrosVazios(d, base), 'Preenchidos os quadros do modelo')
     else {
-      aplicar(() => preencherAutomaticamente(base, p.laminas, g, p.capa, estiloPorId(p.estilo)), 'Preenchimento automático do álbum')
+      aplicar(
+        () => preencherAutomaticamente(base, p.laminas, g, p.capa, estiloPorId(p.estilo), { agrupar: p.agrupar, reutilizacao: p.reutilizacao, respeitarOrdem: p.respeitarOrdem }),
+        'Montagem automática do álbum (rascunho)',
+      )
       irPara(0)
     }
   }
@@ -922,8 +1081,10 @@ export function EditorAlbum({
         return
       }
       if (e.key === 'Escape') {
-        if (recortando) setRecortando(false)
-        else setSelecionados([])
+        if (escolhendoFoco) setEscolhendoFoco(false)
+        else if (recortando) setRecortando(false)
+        else if (selecionados.length > 0) setSelecionados([])
+        else setModo('montagem')
         return
       }
       if (selecionados.length === 0 || travado) return
@@ -951,7 +1112,7 @@ export function EditorAlbum({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal, desfazer, refazer, selecionados, recortando, travado, excluirSelecionados, alterarNaLamina, copiar, colar, duplicarSelecionados])
+  }, [modal, desfazer, refazer, selecionados, recortando, escolhendoFoco, travado, excluirSelecionados, alterarNaLamina, copiar, colar, duplicarSelecionados])
 
   /* ------------------------------- ações ------------------------------- */
   async function finalizar() {
@@ -1064,6 +1225,31 @@ export function EditorAlbum({
           </p>
         </div>
         <div className="flex items-center gap-0.5">
+          {!travado ? (
+            <div className="mr-1 hidden items-center rounded-full bg-white/5 p-0.5 md:flex" role="radiogroup" aria-label="Modo">
+              {(
+                [
+                  ['montagem', 'Montagem', 'Escolher layouts e trocar fotos (quadros fixos)'],
+                  ['designer', 'Designer', 'Editar o layout: mover, redimensionar e criar quadros'],
+                ] as const
+              ).map(([v, r, d]) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="radio"
+                  aria-checked={modo === v}
+                  title={d}
+                  onClick={() => {
+                    setModo(v)
+                    if (v === 'montagem') setRecortando(false)
+                  }}
+                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium', modo === v ? 'bg-white text-[#171717]' : 'text-white/70 hover:text-white')}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <button type="button" onClick={() => desfazer()} disabled={hist.passado.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Desfazer">
             <Undo2 className="h-4 w-4" />
           </button>
@@ -1255,7 +1441,19 @@ export function EditorAlbum({
               temConteudo={temConteudo}
               temQuadrosVazios={temQuadrosVazios(doc)}
               somenteLeitura={travado}
+              fotosSelecionadas={fotosSelecionadasObj}
+              respeitarOrdem={respeitarOrdem}
+              assinatura={assinatura}
+              reorganizacoes={reorganizacoes}
+              templates={templates}
+              podeSalvarTemplate={lamina.quadros.length > 0}
+              onRespeitarOrdem={setRespeitarOrdem}
+              onReordenar={(ordem) => setSelecionadas(ordem)}
               onAplicar={aplicarVariante}
+              onAplicarTemplate={aplicarTemplateNaLamina}
+              onFavoritarTemplate={favoritar}
+              onExcluirTemplate={excluirTemplatePersonalizado}
+              onSalvarTemplate={salvarComoTemplate}
               onPreencher={preencher}
             />
           ) : painelEsq === 'modelos' ? (
@@ -1353,6 +1551,17 @@ export function EditorAlbum({
             selecao={selecao}
             selecionados={selecionados}
             recortando={recortando}
+            modo={modo}
+            escolhendoFoco={escolhendoFoco}
+            onEntrarDesigner={() => !travado && setModo('designer')}
+            onAjustarFoto={(id) => {
+              const q = lamina.quadros.find((x) => x.id === id)
+              setSelecionados([{ tipo: 'quadro', id }])
+              setPainelDir('inspetor')
+              if (q?.fotoId) setRecortando(true)
+              else if (!travado) setModo('designer')
+            }}
+            onEscolherFoco={definirFoco}
             mostrarGuias={mostrarGuias}
             zoom={zoom}
             somenteLeitura={travado}
@@ -1372,7 +1581,9 @@ export function EditorAlbum({
           />
           <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-white/40">
             {rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}
-            {recortando ? ' · arraste a foto para recortar · Esc conclui' : ''}
+            {modo === 'montagem' && !travado ? ' · Montagem: arraste foto sobre foto para trocar · duplo clique na página para editar o layout' : ''}
+            {modo === 'designer' && !recortando ? ' · Designer: mova e redimensione os quadros · Esc volta à montagem' : ''}
+            {recortando ? (escolhendoFoco ? ' · clique no ponto principal da foto' : ' · arraste a foto dentro do quadro · Esc conclui') : ''}
             {zoom > 1 ? ' · arraste o fundo ou role para mover' : ''}
           </p>
           {boasVindas ? (
@@ -1553,6 +1764,7 @@ export function EditorAlbum({
                     rotulo,
                   )
                 }}
+                onLote={selecionados.some((x) => x.tipo === 'quadro') ? aplicarLote : undefined}
                 onExcluir={excluirSelecionados}
                 onDuplicar={duplicarSelecionados}
               />
@@ -1560,9 +1772,26 @@ export function EditorAlbum({
               <InspetorQuadro
                 geometria={g}
                 quadro={quadroSel}
-                foto={fotoSel ? { nome: fotoSel.nome, largura: fotoSel.largura, altura: fotoSel.altura, estouro: fotoSel.estouro, fx: fotoSel.fx, fy: fotoSel.fy } : null}
+                foto={
+                  fotoSel
+                    ? {
+                        nome: fotoSel.nome,
+                        largura: fotoSel.largura,
+                        altura: fotoSel.altura,
+                        estouro: fotoSel.estouro,
+                        fx: metaDe(fotoSel.id).foco?.fx ?? fotoSel.fx,
+                        fy: metaDe(fotoSel.id).foco?.fy ?? fotoSel.fy,
+                        focoManual: Boolean(metaDe(fotoSel.id).foco) || fotoSel.focoManual,
+                      }
+                    : null
+                }
                 recortando={recortando}
-                onRecortar={setRecortando}
+                escolhendoFoco={escolhendoFoco}
+                onRecortar={(v) => {
+                  setRecortando(v)
+                  if (!v) setEscolhendoFoco(false)
+                }}
+                onEscolherFoco={setEscolhendoFoco}
                 onAlterar={(patch) => !travado && alterarQuadro(quadroSel.id, patch, 'Ajustada a foto', `inspetor-${quadroSel.id}-${Object.keys(patch).join()}`)}
                 onOrdem={(d) => mudarOrdem(d)}
                 onExcluir={excluirSelecionados}
@@ -1595,6 +1824,9 @@ export function EditorAlbum({
                 onIrFundos={() => setPainelEsq('fundos')}
                 onAdicionarTexto={() => adicionarTexto({ texto: 'Seu texto aqui' })}
                 onLayoutVazio={(n) => layoutVazioNa(laminaIdx, n)}
+                vao={vao}
+                onVao={mudarEspacamento}
+                onSalvarTemplate={salvarComoTemplate}
               />
             )}
           </div>

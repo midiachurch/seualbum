@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { quadroNovo } from '@/lib/album/documento'
-import { aplicarDivisoria, encontrarDivisorias, limitarDeslocamento } from '@/lib/album/divisorias'
+import { ajustarEspacamento, aplicarDivisoria, encontrarDivisorias, limitarDeslocamento, vaoAtual } from '@/lib/album/divisorias'
 
 /** Grade 2 × 2 com vão de 4 mm, como as composições automáticas. */
 function grade2x2() {
@@ -63,5 +63,23 @@ describe('Divisórias entre fotos', () => {
     const qs = [{ ...quadroNovo(0, 0, 100, 100), id: 'a' }, { ...quadroNovo(100, 0, 100, 100), id: 'b' }]
     const [v] = encontrarDivisorias(qs)
     expect(v.eixo).toBe('v')
+  })
+})
+
+describe('Espaçamento da página', () => {
+  it('vão atual da grade 2 × 2 = 4 mm', () => expect(vaoAtual(grade2x2())).toBe(4))
+  it('levar o vão a 10 mm: todos os vãos ficam 10, bordas externas no lugar', () => {
+    const qs = grade2x2()
+    const p = new Map(ajustarEspacamento(qs, 10).map((x) => [x.id, x.patch]))
+    const novo = qs.map((q) => ({ ...q, ...p.get(q.id) }))
+    const [a, b, c] = novo
+    expect(b.x - (a.x + a.w)).toBeCloseTo(10)
+    expect(c.y - (a.y + a.h)).toBeCloseTo(10)
+    expect(a.x).toBeCloseTo(10)
+    expect(b.x + b.w).toBeCloseTo(214)
+  })
+  it('sem vizinhas: nada muda', () => {
+    expect(ajustarEspacamento([{ ...quadroNovo(0, 0, 50, 50), id: 'x' }], 10)).toEqual([])
+    expect(vaoAtual([{ ...quadroNovo(0, 0, 50, 50), id: 'x' }])).toBeNull()
   })
 })

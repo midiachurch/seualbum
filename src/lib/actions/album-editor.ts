@@ -1,14 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getVersoesDoAlbum, lerTodasAsLinhas, requireEdicaoDeProducao, type AprovacaoDoAlbum, type FotoDoEditor, type VersaoDoAlbum } from '@/lib/supabase/queries'
+import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getTemplatesDaEquipe, getVersoesDoAlbum, lerTodasAsLinhas, requireEdicaoDeProducao, type AprovacaoDoAlbum, type FotoDoEditor, type VersaoDoAlbum } from '@/lib/supabase/queries'
 import { isDemoMode } from '@/lib/demo-mode'
 import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } from '@/lib/album/documento'
 import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
 import { laminaEmCm, normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
 import { prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
 import type { AlbumConfig, AlbumOrientationValue } from '@/types/platform'
-import type { AlbumLayoutRow, BibliotecaAlbum, DerivadoFoto } from '@/types/database'
+import type { AlbumLayoutRow, AlbumTemplateRow, BibliotecaAlbum, DerivadoFoto } from '@/types/database'
 
 /**
  * Server Actions do editor de álbum (migration 0027). Escrever exige poder
@@ -732,6 +732,7 @@ export async function salvarDerivados(id: string, novos: Record<string, Derivado
       estouro: num(d.estouro, 0, 1),
       fx: num(d.fx, 0, 1) ?? 0.5,
       fy: num(d.fy, 0, 1) ?? 0.5,
+      pb: typeof d.pb === 'boolean' ? d.pb : null,
     }
   }
   const { data: atual } = await supabase.from('album_layouts').select('derivados').eq('id', id).maybeSingle<Pick<AlbumLayoutRow, 'derivados'>>()
@@ -760,8 +761,12 @@ export async function salvarBiblioteca(id: string, biblioteca: BibliotecaAlbum):
     if (fotoId.length > 64 || !m) continue
     const pasta = m.pasta && ids.has(m.pasta) ? m.pasta : null
     const prioridade = m.prioridade && PRIORIDADES.includes(m.prioridade) ? m.prioridade : null
-    if (!pasta && !m.favorita && !prioridade) continue
-    fotos[fotoId] = { pasta, favorita: m.favorita === true, prioridade }
+    const foco =
+      m.foco && Number.isFinite(m.foco.fx) && Number.isFinite(m.foco.fy)
+        ? { fx: Math.min(1, Math.max(0, m.foco.fx)), fy: Math.min(1, Math.max(0, m.foco.fy)) }
+        : null
+    if (!pasta && !m.favorita && !prioridade && !foco) continue
+    fotos[fotoId] = { pasta, favorita: m.favorita === true, prioridade, foco }
   }
   const { error } = await supabase.from('album_layouts').update({ biblioteca: { pastas, fotos } }).eq('id', id)
   if (error) return { ok: false, erro: 'Não foi possível salvar a organização das fotos.' }
@@ -798,4 +803,78 @@ export async function enviarParaProducao(id: string): Promise<Resultado> {
   if (error || !data) return { ok: false, erro: 'Só um álbum finalizado pode ir para a produção.' }
   revalidarAlbum(id)
   return { ok: true }
+}
+
+/* -------------------------------- templates -------------------------------- */
+
+const ASSINATURA_RE = /^[PLS](-[PLS])*$/
+
+export async function listarTemplates(): Promise<Resultado<{ templates: AlbumTemplateRow[] }>> {
+  const demo = indisponivel()
+  if (demo) return demo
+  await requireEdicaoDeProducao()
+  return { ok: true, templates: await getTemplatesDaEquipe() }
+}
+
+/** "Salvar como template": só a geometria (frações da lâmina) e a assinatura. */
+export async function salvarTemplate(input: {
+  nome: string
+  quadros: { x: number; y: number; w: number; h: number; raio?: number }[]
+  assinatura: string
+}): Promise<Resultado<{ template: AlbumTemplateRow }>> {
+  const demo = indisponivel()
+  if (demo) return demo
+  const { supabase, user } = await requireEdicaoDeProducao()
+  if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
+  const nome = String(input?.nome ?? '').trim().slice(0, 80)
+  const fr = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : null)
+  const quadros = (Array.isArray(input?.quadros) ? input.quadros.slice(0, 40) : [])
+    .map((q) => ({ x: fr(q.x, -0.1, 1.1), y: fr(q.y, -0.1, 1.1), w: fr(q.w, 0.001, 1.2), h: fr(q.h, 0.001, 1.2), raio: fr(q.raio ?? 0, 0, 200) ?? 0 }))
+    .filter((q): q is { x: number; y: number; w: number; h: number; raio: number } => q.x !== null && q.y !== null && q.w !== null && q.h !== null)
+  if (!nome) return { ok: false, erro: 'Dê um nome ao template.' }
+  if (quadros.length === 0) return { ok: false, erro: 'A lâmina não tem quadros para virar template.' }
+  if (!ASSINATURA_RE.test(input?.assinatura ?? '') || input.assinatura.split('-').length !== quadros.length) return { ok: false, erro: 'Assinatura inválida.' }
+  const { data, error } = await supabase
+    .from('album_templates')
+    .insert({ nome, quadros, assinatura: input.assinatura, n_fotos: quadros.length, criado_por: user.id })
+    .select('*')
+    .single<AlbumTemplateRow>()
+  if (error || !data) {
+    if (semTabelasDoEditor(error) || /album_templates/i.test(error?.message ?? '')) return { ok: false, erro: ERRO_SEM_TABELAS }
+    return { ok: false, erro: 'Não foi possível salvar o template.' }
+  }
+  return { ok: true, template: data }
+}
+
+export async function favoritarTemplate(id: string, favorito: boolean): Promise<Resultado> {
+  const demo = indisponivel()
+  if (demo) return demo
+  if (!UUID_RE.test(id)) return { ok: false, erro: 'Pedido inválido.' }
+  const { supabase } = await requireEdicaoDeProducao()
+  if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
+  const { error } = await supabase.from('album_templates').update({ favorito: Boolean(favorito) }).eq('id', id)
+  return error ? { ok: false, erro: 'Não foi possível favoritar.' } : { ok: true }
+}
+
+/** Conta o uso (ordena "Recentes" e os mais usados). */
+export async function registrarUsoTemplate(id: string): Promise<Resultado> {
+  const demo = indisponivel()
+  if (demo) return demo
+  if (!UUID_RE.test(id)) return { ok: true }
+  const { supabase } = await requireEdicaoDeProducao()
+  if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
+  const { data } = await supabase.from('album_templates').select('usos').eq('id', id).maybeSingle<{ usos: number }>()
+  if (!data) return { ok: true }
+  await supabase.from('album_templates').update({ usos: data.usos + 1, ultimo_uso: new Date().toISOString() }).eq('id', id)
+  return { ok: true }
+}
+
+export async function excluirTemplate(id: string): Promise<Resultado> {
+  const demo = indisponivel()
+  if (demo) return demo
+  if (!UUID_RE.test(id)) return { ok: false, erro: 'Pedido inválido.' }
+  const { supabase } = await requireEdicaoDeProducao()
+  if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
+  const { error } = await supabase.from('album_templates').delete().eq('id', id)
+  return error ? { ok: false, erro: 'Não foi possível excluir o template.' } : { ok: true }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { LADO_MINI, LADO_PREVIEW, medirEstouro, medirFoco, reduzirParaJpg } from '@/lib/album/ajustes'
+import { LADO_MINI, LADO_PREVIEW, medirEstouro, medirFoco, medirMonocromia, reduzirParaJpg } from '@/lib/album/ajustes'
 import { salvarDerivados } from '@/lib/actions/album-editor'
 import type { DerivadoFoto } from '@/types/database'
 
@@ -39,7 +39,8 @@ async function medir(fonte: HTMLImageElement | ImageBitmap) {
     estouro = medirEstouro(img)
   }
   const { fx, fy } = medirFoco(fonte)
-  return { mini, preview, largura, altura, estouro, fx, fy }
+  const pb = medirMonocromia(fonte)
+  return { mini, preview, largura, altura, estouro, fx, fy, pb }
 }
 
 function blobParaImagem(blob: Blob): Promise<HTMLImageElement> {
@@ -69,6 +70,7 @@ export async function gerarDerivados(albumId: string, fotoId: string, fonte: HTM
     estouro: m.estouro,
     fx: m.fx,
     fy: m.fy,
+    pb: m.pb,
     urlMini: URL.createObjectURL(m.mini),
     urlPreview: URL.createObjectURL(m.preview),
   }

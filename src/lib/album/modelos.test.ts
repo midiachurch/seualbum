@@ -191,3 +191,73 @@ describe('Grades de página — cada uma é válida', () => {
     for (let n = 8; n <= 16; n++) expect(variantesDeLayout(fotos(n), g, 10_000).length, `${n} fotos`).toBeGreaterThanOrEqual(10)
   })
 })
+
+describe('Montagem automática — agrupamento, reutilização e ordem', () => {
+  const g = geo('30x30', 'quadrado')
+  const comHora = (n: number, inicio: string, cena: string) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `${cena}${i}`,
+      url: '',
+      nome: `${cena}${i}`,
+      largura: 6000,
+      altura: 4000,
+      grupo: cena,
+      capturadaEm: new Date(Date.parse(inicio) + i * 60_000).toISOString().slice(0, 19),
+    }))
+
+  it('agrupar por momento: nenhuma lâmina mistura making of com festa', () => {
+    const lista = [...comHora(12, '2026-10-02T09:00:00Z', 'making'), ...comHora(12, '2026-10-02T15:00:00Z', 'festa')]
+    const d = preencherAutomaticamente(lista, 6, g, false, ESTILOS[0], { agrupar: 'captura' })
+    for (const l of d.laminas) {
+      const cenas = new Set(l.quadros.map((q) => q.fotoId!.replace(/\d+$/, '')))
+      expect(cenas.size).toBeLessThanOrEqual(1)
+    }
+    expect(d.laminas.flatMap((l) => l.quadros)).toHaveLength(24)
+  })
+
+  it('agrupar por cor: P&B separado das coloridas', () => {
+    const lista = fotos20misto()
+    const d = preencherAutomaticamente(lista, 6, g, false, ESTILOS[0], { agrupar: 'cor' })
+    for (const l of d.laminas) {
+      const tipos = new Set(l.quadros.map((q) => lista.find((f) => f.id === q.fotoId)!.monocromatica))
+      expect(tipos.size).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('mais grupos que lâminas: junta grupos e usa todas as fotos', () => {
+    const lista = Array.from({ length: 10 }, (_, k) => comHora(2, `2026-10-02T${String(8 + k).padStart(2, '0')}:00:00Z`, `c${k}`)).flat()
+    const d = preencherAutomaticamente(lista, 3, g, false, ESTILOS[0], { agrupar: 'captura' })
+    expect(d.laminas.flatMap((l) => l.quadros)).toHaveLength(20)
+  })
+
+  it('reutilização alta repete mais templates que a baixa', () => {
+    const lista = fotos(80)
+    const familias = (r: 'baixa' | 'alta') => {
+      const d = preencherAutomaticamente(lista, 20, g, false, ESTILOS[0], { reutilizacao: r })
+      return new Set(d.laminas.map((l) => l.quadros.map((q) => `${Math.round(q.x)}:${Math.round(q.y)}:${Math.round(q.w)}`).sort().join('|'))).size
+    }
+    expect(familias('alta')).toBeLessThanOrEqual(familias('baixa'))
+  })
+
+  it('respeitar a ordem: as fotos entram na sequência dada', () => {
+    const fs = fotos(9)
+    const d = preencherAutomaticamente(fs, 3, g, false, ESTILOS[0], { respeitarOrdem: true })
+    const usadas = d.laminas.flatMap((l) => l.quadros.map((q) => q.fotoId))
+    expect(new Set(usadas)).toEqual(new Set(fs.map((f) => f.id)))
+    // a 1ª lâmina contém as primeiras fotos
+    const primeira = d.laminas[0].quadros.map((q) => q.fotoId)
+    expect(primeira).toContain('f0')
+  })
+
+  it('Smart Layout respeitando ordem: 1ª foto no 1º quadro de leitura', () => {
+    const fs = fotos(4)
+    for (const v of variantesDeLayout(fs, g, 5, undefined, { respeitarOrdem: true })) {
+      const primeiro = [...v.quadros].sort((a, b) => (a.x + a.w / 2 < g.paginaW ? 0 : 1) - (b.x + b.w / 2 < g.paginaW ? 0 : 1) || a.y - b.y || a.x - b.x)[0]
+      expect(primeiro.fotoId).toBe('f0')
+    }
+  })
+})
+
+function fotos20misto(): FotoEditor[] {
+  return Array.from({ length: 20 }, (_, i) => ({ id: `m${i}`, url: '', nome: `m${i}`, largura: 6000, altura: 4000, monocromatica: i % 3 === 0 }))
+}

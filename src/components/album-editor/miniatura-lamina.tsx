@@ -116,6 +116,7 @@ export function MiniaturaLamina({
               width: q.w * k,
               height: q.h * k,
               transform: q.rotacao ? `rotate(${q.rotacao}deg)` : undefined,
+              borderRadius: q.raio ? q.raio * k : undefined,
               opacity: q.opacidade,
               boxShadow: q.sombra ? '0 1px 3px rgba(0,0,0,0.35)' : undefined,
               outline: q.borda ? `${Math.max(0.5, q.borda.espessura * k)}px solid ${q.borda.cor}` : undefined,

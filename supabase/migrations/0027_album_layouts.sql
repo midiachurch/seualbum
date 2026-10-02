@@ -11,6 +11,7 @@
 --     só grava se ninguém salvou no meio do caminho (outra aba/pessoa) e se o
 --     álbum não estiver travado (aprovado/finalizado, ou o projeto aprovado).
 --   * `album_layout_versoes`: histórico (pontos de restauração).
+--   * `album_templates`: templates de lâmina salvos pela equipe.
 --   * `album_aprovacoes` + `album_aprovacao_comentarios`: link de aprovação
 --     dos álbuns avulsos. O cliente não tem conta: tudo passa por funções
 --     SECURITY DEFINER que exigem o token do link. As lâminas da aprovação
@@ -137,6 +138,34 @@ alter table public.album_layout_versoes force row level security;
 
 drop policy if exists "album_layout_versoes_equipe" on public.album_layout_versoes;
 create policy "album_layout_versoes_equipe" on public.album_layout_versoes for all to authenticated
+  using (public.is_equipe()) with check (public.is_equipe());
+
+-- -----------------------------------------------------------------------------
+-- 2b. Templates de lâmina salvos pela equipe ("Salvar como template")
+--     Só geometria (frações da lâmina aberta: vale para qualquer formato) e a
+--     assinatura de compatibilidade (P-L-P…). Nenhuma foto fica no template.
+-- -----------------------------------------------------------------------------
+
+create table if not exists public.album_templates (
+  id          uuid primary key default gen_random_uuid(),
+  nome        text not null check (char_length(trim(nome)) between 1 and 80),
+  quadros     jsonb not null check (jsonb_typeof(quadros) = 'array' and jsonb_array_length(quadros) between 1 and 40),
+  assinatura  text not null check (assinatura ~ '^[PLS](-[PLS])*$'),
+  n_fotos     integer not null check (n_fotos between 1 and 40),
+  favorito    boolean not null default false,
+  usos        integer not null default 0,
+  ultimo_uso  timestamptz,
+  criado_por  uuid references public.profiles (id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists idx_album_templates_n on public.album_templates (n_fotos);
+
+alter table public.album_templates enable row level security;
+alter table public.album_templates force row level security;
+
+drop policy if exists "album_templates_equipe" on public.album_templates;
+create policy "album_templates_equipe" on public.album_templates for all to authenticated
   using (public.is_equipe()) with check (public.is_equipe());
 
 -- -----------------------------------------------------------------------------

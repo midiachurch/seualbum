@@ -172,12 +172,21 @@ function Ordem({ onOrdem, onExcluir, onDuplicar, rotuloExcluir }: { onOrdem: (d:
 
 /* --------------------------------- foto --------------------------------- */
 
+/**
+ * Quadro selecionado tem duas faces (seção "regra de ouro" da especificação):
+ *   - QUADRO: geometria — posição, tamanho, rotação, borda, cantos, sombra;
+ *   - FOTO: o que aparece dentro — escala, posição, ponto focal, ajustes.
+ * A face "Foto" é o modo de ajuste (duplo clique na foto): mexer nela nunca
+ * altera o quadro, e vice-versa.
+ */
 export function InspetorQuadro({
   geometria: g,
   quadro: q,
   foto,
   recortando,
+  escolhendoFoco,
   onRecortar,
+  onEscolherFoco,
   onAlterar,
   onOrdem,
   onExcluir,
@@ -185,9 +194,11 @@ export function InspetorQuadro({
 }: {
   geometria: Geometria
   quadro: Quadro
-  foto: { nome: string; largura: number | null; altura: number | null; estouro?: number | null; fx?: number | null; fy?: number | null } | null
+  foto: { nome: string; largura: number | null; altura: number | null; estouro?: number | null; fx?: number | null; fy?: number | null; focoManual?: boolean } | null
   recortando: boolean
+  escolhendoFoco: boolean
   onRecortar: (v: boolean) => void
+  onEscolherFoco: (v: boolean) => void
   onAlterar: (patch: Partial<Quadro>) => void
   onOrdem: (d: DirecaoOrdem) => void
   onExcluir: () => void
@@ -195,6 +206,7 @@ export function InspetorQuadro({
 }) {
   const dpi = foto?.largura && foto.altura ? dpiDoQuadro(q, foto.largura, foto.altura) : null
   const ajuste = (patch: Partial<Ajustes>) => onAlterar({ ajustes: { ...q.ajustes, ...patch } })
+  const face: 'quadro' | 'foto' = recortando && q.fotoId ? 'foto' : 'quadro'
   const sangrar = () => {
     // Bordas a menos de 1 cm do corte vão até o fim da sangria.
     const s = g.sangria
@@ -215,6 +227,29 @@ export function InspetorQuadro({
 
   return (
     <div className="space-y-5 p-4 text-sm">
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-white/5 p-1" role="tablist" aria-label="Editar">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={face === 'quadro'}
+          onClick={() => onRecortar(false)}
+          className={cn('rounded-md py-1.5 text-xs font-semibold', face === 'quadro' ? 'bg-white text-[#171717]' : 'text-white/70 hover:text-white')}
+        >
+          Quadro
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={face === 'foto'}
+          disabled={!q.fotoId}
+          onClick={() => onRecortar(true)}
+          className={cn('rounded-md py-1.5 text-xs font-semibold disabled:opacity-40', face === 'foto' ? 'bg-white text-[#171717]' : 'text-white/70 hover:text-white')}
+        >
+          Foto
+        </button>
+      </div>
+      <p className="-mt-3 text-[11px] font-semibold uppercase tracking-wide text-sky-300">{face === 'foto' ? 'Foto selecionada' : 'Quadro selecionado'}</p>
+
       <Secao titulo="Imagem">
         {foto ? (
           <>
@@ -242,20 +277,79 @@ export function InspetorQuadro({
         </div>
       </Secao>
 
-      {q.fotoId ? (
-        <Secao titulo="Enquadramento">
-          <Faixa rotulo="Escala (zoom)" valor={Math.round(q.recorte.zoom * 100)} min={100} max={400} sufixo="%" onMudar={(v) => onAlterar({ recorte: { ...q.recorte, zoom: v / 100 } })} />
-          <Faixa rotulo="Posição horizontal" valor={Math.round(q.recorte.cx * 100)} min={0} max={100} sufixo="%" onMudar={(v) => onAlterar({ recorte: { ...q.recorte, cx: v / 100 } })} />
-          <Faixa rotulo="Posição vertical" valor={Math.round(q.recorte.cy * 100)} min={0} max={100} sufixo="%" onMudar={(v) => onAlterar({ recorte: { ...q.recorte, cy: v / 100 } })} />
-          <button type="button" className={BOTAO} onClick={() => onAlterar({ recorte: { ...q.recorte, cx: foto?.fx ?? 0.5, cy: foto?.fy ?? 0.5 } })}>
-            <Sparkles className="h-4 w-4" aria-hidden /> Enquadramento inteligente
+      {face === 'foto' ? (
+        <>
+          <Secao titulo="Enquadramento (não muda o quadro)">
+            <p className="text-[11px] text-white/50">Arraste a foto dentro do quadro no canvas. Esc ou “Quadro” volta.</p>
+            <Faixa rotulo="Escala (zoom)" valor={Math.round(q.recorte.zoom * 100)} min={100} max={400} sufixo="%" onMudar={(v) => onAlterar({ recorte: { ...q.recorte, zoom: v / 100 } })} />
+            <Faixa rotulo="Posição horizontal" valor={Math.round(q.recorte.cx * 100)} min={0} max={100} sufixo="%" onMudar={(v) => onAlterar({ recorte: { ...q.recorte, cx: v / 100 } })} />
+            <Faixa rotulo="Posição vertical" valor={Math.round(q.recorte.cy * 100)} min={0} max={100} sufixo="%" onMudar={(v) => onAlterar({ recorte: { ...q.recorte, cy: v / 100 } })} />
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className={BOTAO} onClick={() => onAlterar({ recorte: { zoom: 1, cx: foto?.fx ?? 0.5, cy: foto?.fy ?? 0.5 } })}>
+                <Sparkles className="h-4 w-4" aria-hidden /> Automático
+              </button>
+              <button type="button" className={BOTAO} onClick={() => onAlterar({ recorte: { ...q.recorte, cx: 0.5, cy: 0.5 } })}>
+                Centralizar
+              </button>
+            </div>
+            <button type="button" aria-pressed={escolhendoFoco} className={cn(BOTAO, escolhendoFoco && 'bg-amber-400 text-[#171717] hover:bg-amber-300')} onClick={() => onEscolherFoco(!escolhendoFoco)}>
+              <Scan className="h-4 w-4" aria-hidden />
+              {escolhendoFoco ? 'Clique no ponto principal da foto…' : 'Definir ponto focal'}
+            </button>
+            <p className="text-[11px] text-white/50">
+              Ponto focal: {Math.round((foto?.fx ?? 0.5) * 100)}% × {Math.round((foto?.fy ?? 0.5) * 100)}%{foto?.focoManual ? ' (definido à mão)' : ' (automático)'} — vale para esta foto em
+              qualquer quadro.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" aria-pressed={q.espelharH} className={cn(BOTAO, q.espelharH && 'bg-white/20')} onClick={() => onAlterar({ espelharH: !q.espelharH })}>
+                <FlipHorizontal2 className="h-4 w-4" aria-hidden /> Espelhar ↔
+              </button>
+              <button type="button" aria-pressed={q.espelharV} className={cn(BOTAO, q.espelharV && 'bg-white/20')} onClick={() => onAlterar({ espelharV: !q.espelharV })}>
+                <FlipVertical2 className="h-4 w-4" aria-hidden /> Espelhar ↕
+              </button>
+            </div>
+          </Secao>
+          <Secao titulo="Ajustes">
+            <Faixa rotulo="Exposição" valor={q.ajustes.exposicao} min={-100} max={100} onMudar={(exposicao) => ajuste({ exposicao })} />
+            <Faixa rotulo="Brilho" valor={q.ajustes.brilho} min={-100} max={100} onMudar={(brilho) => ajuste({ brilho })} />
+            <Faixa rotulo="Contraste" valor={q.ajustes.contraste} min={-100} max={100} onMudar={(contraste) => ajuste({ contraste })} />
+            <Faixa rotulo="Saturação" valor={q.ajustes.saturacao} min={-100} max={100} onMudar={(saturacao) => ajuste({ saturacao })} />
+            <Faixa rotulo="Temperatura" valor={q.ajustes.temperatura} min={-100} max={100} onMudar={(temperatura) => ajuste({ temperatura })} />
+            <label className="flex items-center gap-2 text-xs text-white/80">
+              <input type="checkbox" checked={q.ajustes.pb} onChange={(e) => ajuste({ pb: e.target.checked })} className="accent-white" />
+              Preto e branco
+            </label>
+          </Secao>
+          <button
+            type="button"
+            className={BOTAO}
+            onClick={() => onAlterar({ recorte: { zoom: 1, cx: foto?.fx ?? 0.5, cy: foto?.fy ?? 0.5 }, espelharH: false, espelharV: false, ajustes: { ...AJUSTES_NEUTROS } })}
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden /> Restaurar foto (enquadramento e ajustes)
           </button>
-          <button type="button" className={cn(BOTAO, recortando && 'bg-white text-[#171717] hover:bg-white')} onClick={() => onRecortar(!recortando)}>
-            <Crop className="h-4 w-4" aria-hidden /> {recortando ? 'Concluir recorte' : 'Recortar (arrastar a foto)'}
+          <button type="button" className={BOTAO} onClick={() => onAlterar({ fotoId: null })}>
+            <ImageOff className="h-4 w-4" aria-hidden /> Tirar a foto (manter o quadro)
           </button>
+        </>
+      ) : (
+        <>
+          <PosicaoTamanho e={q} onAlterar={onAlterar} />
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" className={BOTAO} onClick={() => onAlterar({ recorte: { zoom: 1, cx: 0.5, cy: 0.5 } })}>
-              <Scan className="h-4 w-4" aria-hidden /> Preencher quadro
+            <button type="button" className={BOTAO} onClick={() => onAlterar({ rotacao: ((q.rotacao - 90 + 540) % 360) - 180 })}>
+              <RotateCcw className="h-4 w-4" aria-hidden /> Girar −90°
+            </button>
+            <button type="button" className={BOTAO} onClick={() => onAlterar({ rotacao: ((q.rotacao + 90 + 540) % 360) - 180 })}>
+              <RotateCw className="h-4 w-4" aria-hidden /> Girar +90°
+            </button>
+            <button type="button" className={BOTAO} onClick={sangrar}>
+              <Expand className="h-4 w-4" aria-hidden /> Sangrar
+            </button>
+            <button
+              type="button"
+              className={BOTAO}
+              onClick={() => onAlterar({ x: pagina * g.paginaW - (pagina === 0 ? g.sangria : 0), y: -g.sangria, w: g.paginaW + g.sangria, h: g.laminaH + 2 * g.sangria, rotacao: 0 })}
+            >
+              <Maximize className="h-4 w-4" aria-hidden /> Página inteira
             </button>
             <button
               type="button"
@@ -267,103 +361,32 @@ export function InspetorQuadro({
                 onAlterar({ y: q.y + q.h / 2 - h / 2, h, recorte: { zoom: 1, cx: 0.5, cy: 0.5 } })
               }}
             >
-              <Maximize className="h-4 w-4" aria-hidden /> Ajustar à imagem
+              <Maximize className="h-4 w-4" aria-hidden /> Ajustar à foto
+            </button>
+            <button type="button" className={BOTAO} onClick={() => onAlterar({ recorte: { zoom: 1, cx: foto?.fx ?? 0.5, cy: foto?.fy ?? 0.5 } })}>
+              <Scan className="h-4 w-4" aria-hidden /> Preencher quadro
             </button>
           </div>
-          <button type="button" className={BOTAO} onClick={() => onAlterar({ recorte: { ...q.recorte, cx: 0.5, cy: 0.5 } })}>
-            Centralizar
-          </button>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" className={BOTAO} onClick={() => onAlterar({ rotacao: ((q.rotacao - 90 + 540) % 360) - 180 })}>
-              <RotateCcw className="h-4 w-4" aria-hidden /> Girar −90°
-            </button>
-            <button type="button" className={BOTAO} onClick={() => onAlterar({ rotacao: ((q.rotacao + 90 + 540) % 360) - 180 })}>
-              <RotateCw className="h-4 w-4" aria-hidden /> Girar +90°
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" aria-pressed={q.espelharH} className={cn(BOTAO, q.espelharH && 'bg-white/20')} onClick={() => onAlterar({ espelharH: !q.espelharH })}>
-              <FlipHorizontal2 className="h-4 w-4" aria-hidden /> Espelhar ↔
-            </button>
-            <button type="button" aria-pressed={q.espelharV} className={cn(BOTAO, q.espelharV && 'bg-white/20')} onClick={() => onAlterar({ espelharV: !q.espelharV })}>
-              <FlipVertical2 className="h-4 w-4" aria-hidden /> Espelhar ↕
-            </button>
-          </div>
-        </Secao>
-      ) : null}
-
-      <PosicaoTamanho e={q} onAlterar={onAlterar} />
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" className={BOTAO} onClick={sangrar}>
-          <Expand className="h-4 w-4" aria-hidden /> Sangrar
-        </button>
-        <button
-          type="button"
-          className={BOTAO}
-          onClick={() => onAlterar({ x: pagina * g.paginaW - (pagina === 0 ? g.sangria : 0), y: -g.sangria, w: g.paginaW + g.sangria, h: g.laminaH + 2 * g.sangria, rotacao: 0 })}
-        >
-          <Maximize className="h-4 w-4" aria-hidden /> Página inteira
-        </button>
-      </div>
-
-      {q.fotoId ? (
-        <Secao titulo="Ajustes">
-          <Faixa rotulo="Exposição" valor={q.ajustes.exposicao} min={-100} max={100} onMudar={(exposicao) => ajuste({ exposicao })} />
-          <Faixa rotulo="Brilho" valor={q.ajustes.brilho} min={-100} max={100} onMudar={(brilho) => ajuste({ brilho })} />
-          <Faixa rotulo="Contraste" valor={q.ajustes.contraste} min={-100} max={100} onMudar={(contraste) => ajuste({ contraste })} />
-          <Faixa rotulo="Saturação" valor={q.ajustes.saturacao} min={-100} max={100} onMudar={(saturacao) => ajuste({ saturacao })} />
-          <Faixa rotulo="Temperatura" valor={q.ajustes.temperatura} min={-100} max={100} onMudar={(temperatura) => ajuste({ temperatura })} />
-          <label className="flex items-center gap-2 text-xs text-white/80">
-            <input type="checkbox" checked={q.ajustes.pb} onChange={(e) => ajuste({ pb: e.target.checked })} className="accent-white" />
-            Preto e branco
-          </label>
-          <button type="button" className={BOTAO} onClick={() => onAlterar({ ajustes: { ...AJUSTES_NEUTROS } })}>
-            <RotateCcw className="h-4 w-4" aria-hidden /> Restaurar ajustes
-          </button>
-        </Secao>
-      ) : null}
-
-      <Secao titulo="Borda e sombra">
-        <label className="flex items-center gap-2 text-xs text-white/80">
-          <input type="checkbox" checked={q.borda !== null} onChange={(e) => onAlterar({ borda: e.target.checked ? { cor: '#ffffff', espessura: 2 } : null })} className="accent-white" />
-          Borda
-        </label>
-        {q.borda ? (
-          <>
-            <Cor rotulo="Cor da borda" valor={q.borda.cor} onMudar={(cor) => onAlterar({ borda: { ...q.borda!, cor: cor ?? '#ffffff' } })} />
-            <Faixa rotulo="Espessura" valor={q.borda.espessura} min={0.2} max={15} passo={0.1} sufixo=" mm" onMudar={(espessura) => onAlterar({ borda: { ...q.borda!, espessura } })} />
-          </>
-        ) : null}
-        <label className="flex items-center gap-2 text-xs text-white/80">
-          <input type="checkbox" checked={q.sombra} onChange={(e) => onAlterar({ sombra: e.target.checked })} className="accent-white" />
-          Sombra
-        </label>
-      </Secao>
-
-      {q.fotoId ? (
-        <>
-          <button
-            type="button"
-            className={BOTAO}
-            onClick={() =>
-              onAlterar({
-                recorte: { zoom: 1, cx: foto?.fx ?? 0.5, cy: foto?.fy ?? 0.5 },
-                rotacao: 0,
-                espelharH: false,
-                espelharV: false,
-                opacidade: 1,
-                ajustes: { ...AJUSTES_NEUTROS },
-              })
-            }
-          >
-            <RotateCcw className="h-4 w-4" aria-hidden /> Restaurar tudo (foto original)
-          </button>
-          <button type="button" className={BOTAO} onClick={() => onAlterar({ fotoId: null })}>
-            <ImageOff className="h-4 w-4" aria-hidden /> Tirar a foto (manter o quadro)
-          </button>
+          <Secao titulo="Borda, cantos e sombra">
+            <label className="flex items-center gap-2 text-xs text-white/80">
+              <input type="checkbox" checked={q.borda !== null} onChange={(e) => onAlterar({ borda: e.target.checked ? { cor: '#ffffff', espessura: 2 } : null })} className="accent-white" />
+              Borda
+            </label>
+            {q.borda ? (
+              <>
+                <Cor rotulo="Cor da borda" valor={q.borda.cor} onMudar={(cor) => onAlterar({ borda: { ...q.borda!, cor: cor ?? '#ffffff' } })} />
+                <Faixa rotulo="Espessura" valor={q.borda.espessura} min={0.2} max={15} passo={0.1} sufixo=" mm" onMudar={(espessura) => onAlterar({ borda: { ...q.borda!, espessura } })} />
+              </>
+            ) : null}
+            <Faixa rotulo="Cantos arredondados" valor={q.raio} min={0} max={Math.round(Math.min(q.w, q.h) / 2)} passo={0.5} sufixo=" mm" onMudar={(raio) => onAlterar({ raio })} />
+            <label className="flex items-center gap-2 text-xs text-white/80">
+              <input type="checkbox" checked={q.sombra} onChange={(e) => onAlterar({ sombra: e.target.checked })} className="accent-white" />
+              Sombra
+            </label>
+          </Secao>
+          <Ordem onOrdem={onOrdem} onExcluir={onExcluir} onDuplicar={onDuplicar} rotuloExcluir="Excluir quadro" />
         </>
-      ) : null}
-      <Ordem onOrdem={onOrdem} onExcluir={onExcluir} onDuplicar={onDuplicar} rotuloExcluir="Excluir quadro" />
+      )}
     </div>
   )
 }
@@ -520,18 +543,27 @@ export type CaixaSelecionada = { id: string; tipo: 'quadro' | 'texto' | 'forma';
  * escalar todos juntos — cada um em torno do próprio centro. Alinhar e
  * distribuir ficam na barra acima.
  */
+export type PatchDeLote = { borda?: Quadro['borda']; raio?: number; opacidade?: number; sombra?: boolean; ajustesPb?: boolean }
+
 export function InspetorMultiplo({
   itens,
   onAlterarVarios,
+  onLote,
   onExcluir,
   onDuplicar,
 }: {
+  /** Propriedades de lote dos quadros de foto (nunca o enquadramento). */
+  onLote?: (patch: PatchDeLote, rotulo: string) => void
   itens: CaixaSelecionada[]
   onAlterarVarios: (patches: { id: string; tipo: CaixaSelecionada['tipo']; patch: { x?: number; y?: number; w?: number; h?: number } }[], rotulo: string) => void
   onExcluir: () => void
   onDuplicar: () => void
 }) {
   const [escala, setEscala] = useState('100')
+  const [corLote, setCorLote] = useState('#ffffff')
+  const [espLote, setEspLote] = useState(2)
+  const [raioLote, setRaioLote] = useState(0)
+  const [opacLote, setOpacLote] = useState(100)
   const ref = itens[itens.length - 1]
   const comAltura = (i: CaixaSelecionada) => i.tipo !== 'texto'
   const igualar = (modo: 'largura' | 'altura' | 'tamanho') =>
@@ -561,6 +593,40 @@ export function InspetorMultiplo({
       <Secao titulo={`${itens.length} elementos selecionados`}>
         <p className="text-xs text-white/60">Arraste qualquer um para mover todos. Os cantos redimensionam e giram o conjunto. Shift+clique tira ou põe na seleção.</p>
       </Secao>
+      {onLote ? (
+        <Secao titulo="Em lote (só os quadros de foto)">
+          <p className="text-[11px] text-white/50">Cada foto mantém o próprio enquadramento — aqui só muda o que for escolhido.</p>
+          <div className="flex items-center justify-between gap-2 text-xs text-white/80">
+            Borda
+            <span className="flex items-center gap-1.5">
+              <button type="button" onClick={() => onLote({ borda: null }, 'Bordas removidas')} className="rounded bg-white/10 px-1.5 py-0.5 text-[10px]">
+                Nenhuma
+              </button>
+              <input type="color" defaultValue="#ffffff" onChange={(e) => setCorLote(e.target.value)} className="h-7 w-10 cursor-pointer rounded border border-white/20 bg-transparent" aria-label="Cor da borda" />
+            </span>
+          </div>
+          <Faixa rotulo="Espessura da borda" valor={espLote} min={0.2} max={15} passo={0.1} sufixo=" mm" onMudar={setEspLote} />
+          <button type="button" className={BOTAO} onClick={() => onLote({ borda: { cor: corLote, espessura: espLote } }, 'Borda aplicada em lote')}>
+            Aplicar borda em todos
+          </button>
+          <Faixa rotulo="Cantos arredondados" valor={raioLote} min={0} max={40} passo={0.5} sufixo=" mm" onMudar={(v) => (setRaioLote(v), onLote({ raio: v }, 'Cantos em lote'))} />
+          <Faixa rotulo="Opacidade" valor={opacLote} min={0} max={100} sufixo="%" onMudar={(v) => (setOpacLote(v), onLote({ opacidade: v / 100 }, 'Opacidade em lote'))} />
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className={BOTAO} onClick={() => onLote({ sombra: true }, 'Sombra em lote')}>
+              Com sombra
+            </button>
+            <button type="button" className={BOTAO} onClick={() => onLote({ sombra: false }, 'Sem sombra em lote')}>
+              Sem sombra
+            </button>
+            <button type="button" className={BOTAO} onClick={() => onLote({ ajustesPb: true }, 'P&B em lote')}>
+              Preto e branco
+            </button>
+            <button type="button" className={BOTAO} onClick={() => onLote({ ajustesPb: false }, 'Cor em lote')}>
+              Colorido
+            </button>
+          </div>
+        </Secao>
+      ) : null}
       <Secao titulo="Igualar ao último selecionado">
         <div className="grid grid-cols-3 gap-2">
           <button type="button" className={BOTAO} onClick={() => igualar('largura')}>

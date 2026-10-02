@@ -32,6 +32,8 @@ export type Quadro = {
   /** 0–1 */
   opacidade: number
   borda: { cor: string; espessura: number } | null
+  /** Cantos arredondados (mm). */
+  raio: number
   sombra: boolean
   ajustes: Ajustes
   /** Bloqueado: não move nem seleciona pelo canvas (só pelo painel de camadas). */
@@ -138,6 +140,9 @@ export type FotoEditor = {
   fx?: number | null
   fy?: number | null
   prioridade?: 'principal' | 'secundaria' | 'complementar' | null
+  /** Modo de cor medido: true = preto e branco. */
+  monocromatica?: boolean | null
+  pasta?: string | null
 }
 
 export const LIMITES = { laminas: 200, quadrosPorLamina: 40, textosPorLamina: 30, formasPorLamina: 30 }
@@ -210,6 +215,7 @@ function normalizarQuadro(bruto: unknown): Quadro {
     espelharV: qd.espelharV === true,
     opacidade: limitar(finito(qd.opacidade, 1), 0, 1),
     borda: b ? { cor: cor(b.cor, '#ffffff'), espessura: limitar(finito(b.espessura, 1), 0.1, 30) } : null,
+    raio: limitar(finito(qd.raio, 0), 0, 200),
     sombra: qd.sombra === true,
     ajustes: {
       brilho: limitar(finito(a.brilho, 0), -100, 100),
@@ -309,6 +315,7 @@ export function quadroNovo(x: number, y: number, w: number, h: number, fotoId: s
     espelharV: false,
     opacidade: 1,
     borda: null,
+    raio: 0,
     sombra: false,
     ajustes: { ...AJUSTES_NEUTROS },
     bloqueado: false,

@@ -270,11 +270,30 @@ export type StatusAlbum =
 /** Organização da biblioteca de um álbum (0027). */
 export type BibliotecaAlbum = {
   pastas?: { id: string; nome: string }[]
-  fotos?: Record<string, { pasta?: string | null; favorita?: boolean; prioridade?: 'principal' | 'secundaria' | 'complementar' | null }>
+  fotos?: Record<
+    string,
+    {
+      pasta?: string | null
+      favorita?: boolean
+      prioridade?: 'principal' | 'secundaria' | 'complementar' | null
+      /** Ponto focal definido à mão (sobrepõe o medido). */
+      foco?: { fx: number; fy: number } | null
+    }
+  >
 }
 
 /** Versões leves de uma foto (paths em `albuns_fotos`) + medidas feitas no navegador. */
-export type DerivadoFoto = { mini: string; preview: string; largura: number; altura: number; estouro: number | null; fx: number; fy: number }
+export type DerivadoFoto = {
+  mini: string
+  preview: string
+  largura: number
+  altura: number
+  estouro: number | null
+  fx: number
+  fy: number
+  /** Preto e branco (modo de cor medido). */
+  pb?: boolean | null
+}
 
 export type AlbumLayoutVersaoRow = {
   id: string
@@ -296,6 +315,21 @@ export type AlbumAprovacaoRow = {
   mensagem_cliente: string | null
   decidido_por_nome: string | null
   decidido_em: string | null
+  criado_por: string | null
+  created_at: string
+}
+
+/** Template de lâmina salvo pela equipe (0027): geometria em frações da lâmina, sem fotos. */
+export type AlbumTemplateRow = {
+  id: string
+  nome: string
+  /** [{ x, y, w, h, raio? }] em frações (0–1) da lâmina aberta — vale para qualquer formato. */
+  quadros: { x: number; y: number; w: number; h: number; raio?: number }[]
+  assinatura: string
+  n_fotos: number
+  favorito: boolean
+  usos: number
+  ultimo_uso: string | null
   criado_por: string | null
   created_at: string
 }
@@ -636,6 +670,12 @@ export type Database = {
         Row: AlbumAprovacaoRow
         Insert: Pick<AlbumAprovacaoRow, 'layout_id' | 'numero' | 'laminas'> & Partial<Pick<AlbumAprovacaoRow, 'id' | 'status' | 'criado_por'>>
         Update: Partial<Pick<AlbumAprovacaoRow, 'status'>>
+        Relationships: []
+      }
+      album_templates: {
+        Row: AlbumTemplateRow
+        Insert: Pick<AlbumTemplateRow, 'nome' | 'quadros' | 'assinatura' | 'n_fotos'> & Partial<Pick<AlbumTemplateRow, 'favorito' | 'criado_por'>>
+        Update: Partial<Pick<AlbumTemplateRow, 'nome' | 'favorito' | 'usos' | 'ultimo_uso'>>
         Relationships: []
       }
       album_aprovacao_comentarios: {

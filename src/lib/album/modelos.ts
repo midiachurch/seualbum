@@ -296,7 +296,37 @@ function linhaDeQuadros(area: { x: number; y: number; w: number; h: number }, n:
 }
 
 /** Até `limite` grades para as fotos escolhidas, variadas e da que mais combina para a que menos combina. */
-export function variantesDeLayout(fotos: FotoEditor[], g: Geometria, limite = 5, estilo?: Estilo): Variante[] {
+/** Opções do Smart Layout. */
+export type OpcoesDeLayout = {
+  /** A 1ª foto vai no 1º quadro (ordem de leitura): a sequência da história manda, não a proporção. */
+  respeitarOrdem?: boolean
+}
+
+/** Ordem de leitura: página esquerda, depois direita; de cima para baixo, da esquerda para a direita. */
+function emOrdemDeLeitura(quadros: Quadro[], paginaW: number) {
+  const pagina = (q: Quadro) => (q.x + q.w / 2 < paginaW ? 0 : 1)
+  return [...quadros].sort((a, b) => {
+    if (pagina(a) !== pagina(b)) return pagina(a) - pagina(b)
+    if (Math.abs(a.y - b.y) > Math.min(a.h, b.h) * 0.3) return a.y - b.y
+    return a.x - b.x
+  })
+}
+
+/** Reatribui as fotos na ordem dada aos quadros em ordem de leitura e recalcula a nota. */
+function reatribuirEmOrdem(v: Variante, fotos: FotoEditor[], paginaW: number) {
+  const ordenados = emOrdemDeLeitura(v.quadros, paginaW)
+  let erro = 0
+  ordenados.forEach((q, i) => {
+    const f = fotos[i]
+    q.fotoId = f.id
+    q.recorte = { zoom: 1, cx: f.fx ?? 0.5, cy: f.fy ?? 0.5 }
+    erro += custo(q, proporcaoDe(f))
+  })
+  // A nota passa a ser só o casamento em ordem.
+  v.erro = erro
+}
+
+export function variantesDeLayout(fotos: FotoEditor[], g: Geometria, limite = 5, estilo?: Estilo, opcoes: OpcoesDeLayout = {}): Variante[] {
   const n = fotos.length
   if (n === 0 || n > MAX_FOTOS_POR_LAMINA) return []
   const o: Opcoes = estilo ? { margemExtra: estilo.margemExtra, espaco: estilo.espaco } : PADRAO
@@ -369,8 +399,11 @@ export function variantesDeLayout(fotos: FotoEditor[], g: Geometria, limite = 5,
     )
   }
 
-  // Hierarquia vale em todas as composições: principal no maior quadro, secundárias nos seguintes.
-  for (const c of candidatas) garantirHierarquia(c, fotos)
+  // Em ordem: a sequência manda. Senão, hierarquia: principal no maior quadro, secundárias nos seguintes.
+  for (const c of candidatas) {
+    if (opcoes.respeitarOrdem) reatribuirEmOrdem(c, fotos, g.paginaW)
+    else garantirHierarquia(c, fotos)
+  }
 
   // Variedade: primeiro a melhor de cada família, depois o resto por nota.
   const ordenadas = candidatas.sort((p, q) => p.erro - q.erro)
@@ -432,9 +465,77 @@ function distribuir(total: number, laminas: number, ritmo: number[]): number[] {
   return alvo
 }
 
+export type Agrupamento = 'captura' | 'pasta' | 'cor' | 'nenhum'
+export type Reutilizacao = 'baixa' | 'media' | 'alta'
+
+export type OpcoesDeMontagem = {
+  /** Lâminas não misturam grupos (momentos do dia, pastas, cor × P&B). */
+  agrupar?: Agrupamento
+  /** Baixa = máxima variedade de templates; alta = consistência (repete os mesmos). */
+  reutilizacao?: Reutilizacao
+  respeitarOrdem?: boolean
+}
+
+/** Intervalo entre fotos que separa dois momentos ("making of" → "cerimônia"). */
+const INTERVALO_DE_MOMENTO_MS = 45 * 60 * 1000
+
+/** Divide as fotos (já na ordem editorial) em grupos que uma lâmina não deve misturar. */
+export function agruparFotos(ordenadas: FotoEditor[], modo: Agrupamento): FotoEditor[][] {
+  if (ordenadas.length === 0) return []
+  if (modo === 'nenhum') return [ordenadas]
+  if (modo === 'cor') {
+    const cor = ordenadas.filter((f) => !f.monocromatica)
+    const pb = ordenadas.filter((f) => f.monocromatica)
+    return [cor, pb].filter((g) => g.length > 0)
+  }
+  if (modo === 'pasta') {
+    const grupos = new Map<string, FotoEditor[]>()
+    for (const f of ordenadas) grupos.set(f.pasta ?? '', [...(grupos.get(f.pasta ?? '') ?? []), f])
+    return [...grupos.values()]
+  }
+  // Captura: quebra quando o relógio da câmera pula mais que o intervalo (ou o grupo/cena muda).
+  const grupos: FotoEditor[][] = [[ordenadas[0]]]
+  for (let i = 1; i < ordenadas.length; i++) {
+    const a = ordenadas[i - 1]
+    const b = ordenadas[i]
+    const ta = a.capturadaEm ? Date.parse(a.capturadaEm) : NaN
+    const tb = b.capturadaEm ? Date.parse(b.capturadaEm) : NaN
+    const pulou = Number.isFinite(ta) && Number.isFinite(tb) && Math.abs(tb - ta) > INTERVALO_DE_MOMENTO_MS
+    const trocouCena = Boolean(a.grupo && b.grupo && a.grupo !== b.grupo)
+    if (pulou || trocouCena) grupos.push([b])
+    else grupos[grupos.length - 1].push(b)
+  }
+  return grupos
+}
+
+/** Lâminas por grupo, proporcional ao tamanho (todo grupo ganha pelo menos 1, se couber). */
+function laminasPorGrupo(tamanhos: number[], total: number): number[] {
+  if (tamanhos.length === 0) return []
+  if (total <= tamanhos.length) {
+    // Menos lâminas que grupos: os maiores ganham as lâminas; os demais se juntam ao vizinho (abaixo).
+    return tamanhos.map(() => 0)
+  }
+  const soma = tamanhos.reduce((a, b) => a + b, 0)
+  const alvo = tamanhos.map((t) => Math.max(1, Math.round((t / soma) * total)))
+  let diferenca = total - alvo.reduce((a, b) => a + b, 0)
+  for (let i = 0; diferenca !== 0 && i < tamanhos.length * 50; i++) {
+    const k = i % tamanhos.length
+    if (diferenca > 0) {
+      alvo[k]++
+      diferenca--
+    } else if (alvo[k] > 1) {
+      alvo[k]--
+      diferenca++
+    }
+  }
+  return alvo.map((a, i) => Math.min(a, tamanhos[i]))
+}
+
 /**
- * Primeira proposta editável do álbum inteiro: a ordem editorial decide quais
- * fotos vão em cada lâmina (no ritmo do estilo) e escolhemos a melhor grade.
+ * Primeira proposta editável do álbum inteiro (Auto Build): ordem editorial
+ * → grupos (momentos/pastas/cor) → lâminas por grupo → fotos por lâmina no
+ * ritmo do estilo → template de cada lâmina, com variedade ou repetição
+ * conforme a reutilização pedida. É um RASCUNHO: tudo fica editável.
  */
 export function preencherAutomaticamente(
   fotos: FotoEditor[],
@@ -442,16 +543,47 @@ export function preencherAutomaticamente(
   g: Geometria,
   primeiraEhCapa: boolean,
   estilo: Estilo = ESTILOS[0],
+  opcoes: OpcoesDeMontagem = {},
 ): DocumentoAlbum {
-  const ordenadas = ordenarFotos(fotos)
+  const ordenadas = opcoes.respeitarOrdem ? fotos : ordenarFotos(fotos)
   const n = Math.max(1, Math.min(laminasDesejadas, ordenadas.length || 1))
-  const contagens = ordenadas.length > 0 ? distribuir(ordenadas.length, n, estilo.ritmo) : []
-  let cursor = 0
-  const laminas: LaminaDoc[] = contagens.map((qtd) => {
-    const escolhidas = ordenadas.slice(cursor, cursor + qtd)
-    cursor += qtd
-    const [melhor] = variantesDeLayout(escolhidas, g, 1, estilo)
-    return { ...novaLamina(estilo.fundo), quadros: melhor ? melhor.quadros.map((q) => ({ ...q, id: novoId() })) : [] }
+  let grupos = agruparFotos(ordenadas, opcoes.agrupar ?? 'nenhum')
+  // Mais grupos que lâminas: junta os grupos em sequência até caber.
+  while (grupos.length > n && grupos.length > 1) {
+    let menor = 0
+    grupos.forEach((gr, i) => {
+      if (i < grupos.length - 1 && gr.length + grupos[i + 1].length < grupos[menor].length + (grupos[menor + 1]?.length ?? Infinity)) menor = i
+    })
+    grupos = [...grupos.slice(0, menor), [...grupos[menor], ...grupos[menor + 1]], ...grupos.slice(menor + 2)]
+  }
+  const porGrupo = grupos.length === 1 ? [n] : laminasPorGrupo(grupos.map((gr) => gr.length), n)
+
+  const usos = new Map<string, number>()
+  const familia = (v: Variante) => v.id.replace(/-\d+$/, '')
+  const reutilizacao = opcoes.reutilizacao ?? 'media'
+  const escolher = (escolhidas: FotoEditor[]) => {
+    const candidatas = variantesDeLayout(escolhidas, g, 8, estilo, { respeitarOrdem: opcoes.respeitarOrdem })
+    if (candidatas.length === 0) return null
+    const nota = (v: Variante) => {
+      const u = usos.get(familia(v)) ?? 0
+      return v.erro + (reutilizacao === 'baixa' ? 0.8 * u : reutilizacao === 'media' ? 0.3 * u : -0.5 * Math.min(u, 3))
+    }
+    const melhor = [...candidatas].sort((a, b) => nota(a) - nota(b))[0]
+    usos.set(familia(melhor), (usos.get(familia(melhor)) ?? 0) + 1)
+    return melhor
+  }
+
+  const laminas: LaminaDoc[] = []
+  grupos.forEach((grupo, gi) => {
+    const qtdLaminas = Math.max(1, porGrupo[gi] || 1)
+    const contagens = distribuir(grupo.length, Math.min(qtdLaminas, grupo.length), estilo.ritmo)
+    let cursor = 0
+    for (const qtd of contagens) {
+      const escolhidas = grupo.slice(cursor, cursor + qtd)
+      cursor += qtd
+      const melhor = escolher(escolhidas)
+      laminas.push({ ...novaLamina(estilo.fundo), quadros: melhor ? melhor.quadros.map((q) => ({ ...q, id: novoId() })) : [] })
+    }
   })
   // Pediu mais lâminas que fotos: completa com lâminas vazias.
   while (laminas.length < laminasDesejadas) laminas.push(novaLamina(estilo.fundo))

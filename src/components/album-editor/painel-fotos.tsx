@@ -19,7 +19,7 @@ const UPLOADS_SIMULTANEOS = 3
 const EXPIRACAO_SEGUNDOS = 8 * 60 * 60
 
 export type Prioridade = 'principal' | 'secundaria' | 'complementar'
-export type MetaFoto = { pasta?: string | null; favorita?: boolean; prioridade?: Prioridade | null }
+export type MetaFoto = { pasta?: string | null; favorita?: boolean; prioridade?: Prioridade | null; foco?: { fx: number; fy: number } | null }
 type Filtro = 'todas' | 'nao-usadas' | 'usadas' | 'favoritas'
 type Orientacao = 'todas' | 'horizontal' | 'vertical' | 'quadrada' | 'panoramica'
 type Ordem = 'nome' | 'captura' | 'orientacao' | 'envio'

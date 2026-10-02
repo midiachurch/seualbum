@@ -144,3 +144,33 @@ export async function reduzirParaJpg(img: HTMLImageElement | ImageBitmap, lado: 
 /** Lados das versões leves: miniatura (biblioteca, fita) e prévia (canvas, visualização). */
 export const LADO_MINI = 480
 export const LADO_PREVIEW = 2048
+
+/**
+ * Modo de cor: a foto é preto e branco quando quase todos os pixels têm
+ * saturação baixa (amostra de 96 px). Usado para agrupar na montagem.
+ */
+export function medirMonocromia(img: HTMLImageElement | ImageBitmap): boolean | null {
+  try {
+    const W0 = 'naturalWidth' in img ? img.naturalWidth : img.width
+    const H0 = 'naturalHeight' in img ? img.naturalHeight : img.height
+    const k = 96 / Math.max(W0, H0)
+    const w = Math.max(1, Math.round(W0 * k))
+    const h = Math.max(1, Math.round(H0 * k))
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const ctx = c.getContext('2d', { willReadFrequently: true })
+    if (!ctx) return null
+    ctx.drawImage(img, 0, 0, w, h)
+    const d = ctx.getImageData(0, 0, w, h).data
+    let coloridos = 0
+    for (let i = 0; i < d.length; i += 4) {
+      const max = Math.max(d[i], d[i + 1], d[i + 2])
+      const min = Math.min(d[i], d[i + 1], d[i + 2])
+      if (max - min > 24) coloridos++
+    }
+    return coloridos / (w * h) < 0.03
+  } catch {
+    return null
+  }
+}

@@ -40,6 +40,7 @@ import type {
   AlbumAprovacaoRow,
   AlbumLayoutRow,
   AlbumLayoutVersaoRow,
+  AlbumTemplateRow,
   BibliotecaAlbum,
   DerivadoFoto,
   StatusAlbum,
@@ -1521,6 +1522,9 @@ export type FotoDoEditor = {
   prioridade?: 'principal' | 'secundaria' | 'complementar' | null
   /** Já tem versões leves salvas (não precisa gerar de novo). */
   temDerivados?: boolean
+  monocromatica?: boolean | null
+  /** O ponto focal foi definido à mão. */
+  focoManual?: boolean
 }
 
 export type AlbumParaEditor = {
@@ -1653,8 +1657,11 @@ async function completarFotos(
       largura: d?.largura ?? f.largura,
       altura: d?.altura ?? f.altura,
       estouro: d ? d.estouro : f.estouro,
-      fx: d?.fx ?? null,
-      fy: d?.fy ?? null,
+      // Ponto focal definido à mão vence o medido.
+      fx: meta?.foco?.fx ?? d?.fx ?? null,
+      fy: meta?.foco?.fy ?? d?.fy ?? null,
+      monocromatica: d?.pb ?? null,
+      focoManual: Boolean(meta?.foco),
       urlMini: d ? (urls.get(`albuns_fotos:${d.mini}`) ?? null) : null,
       urlPreview: d ? (urls.get(`albuns_fotos:${d.preview}`) ?? null) : null,
       temDerivados: Boolean(d),
@@ -1862,4 +1869,17 @@ export async function getAprovacoesDoAlbum(layoutId: string): Promise<AprovacaoD
     criadoEm: a.created_at,
     comentarios: comentarios.get(a.id) ?? [],
   }))
+}
+
+/** Templates de lâmina salvos pela equipe (0027), mais usados primeiro. */
+export async function getTemplatesDaEquipe(): Promise<AlbumTemplateRow[]> {
+  if (isDemoMode()) return []
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const { data, error } = await supabase.from('album_templates').select('*').order('usos', { ascending: false }).limit(500)
+  if (error) {
+    if (!/album_templates|schema cache/i.test(error.message)) console.error('[getTemplatesDaEquipe]', error.message)
+    return []
+  }
+  return (data ?? []) as AlbumTemplateRow[]
 }

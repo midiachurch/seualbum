@@ -81,3 +81,48 @@ export function aplicarDivisoria(d: Divisoria, quadros: Quadro[], delta: number)
     return []
   })
 }
+
+/** Vão típico entre as fotos vizinhas da lâmina (mediana), ou null se não há vizinhas. */
+export function vaoAtual(quadros: Quadro[]): number | null {
+  const vaos = encontrarDivisorias(quadros)
+    .map((d) => d.bordaDepois - d.bordaAntes)
+    .sort((a, b) => a - b)
+  if (vaos.length === 0) return null
+  return vaos[Math.floor(vaos.length / 2)]
+}
+
+/**
+ * Espaçamento da página: leva todos os vãos entre fotos vizinhas ao valor
+ * pedido, dividindo a diferença entre os dois lados de cada vão (a grade e
+ * as bordas externas ficam no lugar). Fotos sem vizinhas não mudam.
+ */
+export function ajustarEspacamento(quadros: Quadro[], vao: number): { id: string; patch: Partial<Quadro> }[] {
+  const alvo = Math.max(0, Math.min(VAO_MAX_MM, vao))
+  const delta = new Map<string, { x: number; y: number; w: number; h: number }>()
+  const de = (id: string) => delta.get(id) ?? { x: 0, y: 0, w: 0, h: 0 }
+  for (const d of encontrarDivisorias(quadros)) {
+    const metade = (d.bordaDepois - d.bordaAntes - alvo) / 2
+    for (const id of d.antes) {
+      const m = de(id)
+      if (d.eixo === 'v') m.w += metade
+      else m.h += metade
+      delta.set(id, m)
+    }
+    for (const id of d.depois) {
+      const m = de(id)
+      if (d.eixo === 'v') {
+        m.x -= metade
+        m.w += metade
+      } else {
+        m.y -= metade
+        m.h += metade
+      }
+      delta.set(id, m)
+    }
+  }
+  return quadros.flatMap((q) => {
+    const m = delta.get(q.id)
+    if (!m) return []
+    return [{ id: q.id, patch: { x: q.x + m.x, y: q.y + m.y, w: Math.max(LADO_MIN_DIVISORIA_MM, q.w + m.w), h: Math.max(LADO_MIN_DIVISORIA_MM, q.h + m.h) } }]
+  })
+}
