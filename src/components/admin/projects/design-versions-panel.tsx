@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LaminasUpload } from '@/components/admin/projects/laminas-upload'
 import { formatDate } from '@/lib/utils'
+import type { FormatoAlbum } from '@/lib/resolucao'
 import type { DesignVersion, Photo, ProjectStatus, TeamMember } from '@/types/platform'
 
 const STATUS_LABEL: Record<DesignVersion['status'], string> = {
@@ -34,6 +35,7 @@ const STATUS_COLOR: Record<DesignVersion['status'], string> = {
  */
 export function DesignVersionsPanel({
   projetoId,
+  album,
   versions,
   photos,
   projectStatus,
@@ -45,6 +47,7 @@ export function DesignVersionsPanel({
   onSmartLayout,
 }: {
   projetoId: string
+  album: FormatoAlbum | null
   versions: DesignVersion[]
   photos: Photo[]
   projectStatus: ProjectStatus
@@ -84,6 +87,7 @@ export function DesignVersionsPanel({
         adding ? (
           <LaminasUpload
             projetoId={projetoId}
+            album={album}
             onCancelar={() => setAdding(false)}
             onConcluido={(versao) => {
               onVersaoCriada(versao)

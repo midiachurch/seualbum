@@ -59,6 +59,7 @@ export default async function DesignPage({
       laminasInclusas: p.laminasInclusas ?? null,
       // Na coluna de ajustes, o que falta aplicar é o que ficou aberto na última versão.
       pinsPendentes: ultima ? (pendentes.get(`${p.id}:${ultima.numero}`) ?? 0) : 0,
+      album: { formato: p.album.formato, orientacao: p.album.orientacao },
     }
   })
 

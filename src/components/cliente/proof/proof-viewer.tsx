@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  Columns2,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MODAL_ACOES, Modal } from '@/components/ui/modal'
+import { ComparadorVersoes } from '@/components/cliente/proof/comparador-versoes'
 import { addProofComment, clientApprove, clientRequestChanges, marcarComentarioResolvido } from '@/lib/actions/projetos'
 import { fotografoAprovar, fotografoComentar, fotografoPedirAjustes } from '@/lib/actions/prova-fotografo'
 import { cn, formatBRL, formatDate, rolagemSuave } from '@/lib/utils'
@@ -131,6 +133,7 @@ export function ProofViewer({
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [proporcoes, setProporcoes] = useState<Record<string, number>>({})
   const [alternando, setAlternando] = useState<string | null>(null)
+  const [comparando, setComparando] = useState(false)
 
   const carrosselRef = useRef<HTMLDivElement>(null)
   const campoRef = useRef<HTMLTextAreaElement>(null)
@@ -139,13 +142,25 @@ export function ProofViewer({
   const laminas: Lamina[] = useMemo(() => [...(versaoAtual?.laminas ?? [])].sort((a, b) => a.ordem - b.ordem), [versaoAtual])
   const laminaAtual = laminas[pageIndex] ?? null
 
+  // Comparar (equipe): a versão anterior à selecionada, com os pins dela.
+  const indiceSelecionada = versoesOrdenadas.findIndex((v) => v.numero === versaoSelecionada)
+  const versaoAnterior = indiceSelecionada > 0 ? versoesOrdenadas[indiceSelecionada - 1] : null
+  const emComparacao = leituraEquipe && comparando && versaoAnterior !== null
+  const laminasAnteriores: Lamina[] = useMemo(
+    () => [...(versaoAnterior?.laminas ?? [])].sort((a, b) => a.ordem - b.ordem),
+    [versaoAnterior],
+  )
+  const totalLaminas = emComparacao ? Math.max(laminas.length, laminasAnteriores.length) : laminas.length
+  // Comparando, os comentários que importam são os da versão anterior: os pedidos a conferir.
+  const versaoDosComentarios = emComparacao ? versaoAnterior.numero : versaoSelecionada
+
   const versaoAntiga = versaoSelecionada !== versaoMaisRecente
   // Comentar/decidir: só a versão atual, com a prova liberada, fora da equipe.
   const interativo = !leituraEquipe && !versaoAntiga && podeDecidir
   const arquivoSelecionado = versaoAtual?.arquivo ?? ''
   const arquivoDaVersao = /^https?:\/\//.test(arquivoSelecionado) ? arquivoSelecionado : null
 
-  const comentariosDaVersao = useMemo(() => comments.filter((c) => c.versao === versaoSelecionada), [comments, versaoSelecionada])
+  const comentariosDaVersao = useMemo(() => comments.filter((c) => c.versao === versaoDosComentarios), [comments, versaoDosComentarios])
   // Numeração dos pins: ordem de criação dentro da versão — a mesma na lâmina e na lista.
   const numeroDoPin = useMemo(() => {
     const mapa = new Map<string, number>()
@@ -154,7 +169,7 @@ export function ProofViewer({
   }, [comentariosDaVersao])
   const comentariosDaLamina = (lamina: Lamina | null, indice: number) =>
     comentariosDaVersao.filter((c) => (c.laminaId ? c.laminaId === lamina?.id : c.pageIndex === indice))
-  const commentsForPage = comentariosDaLamina(laminaAtual, pageIndex)
+  const commentsForPage = comentariosDaLamina(emComparacao ? (laminasAnteriores[pageIndex] ?? null) : laminaAtual, pageIndex)
   const pendentesDaVersao = comentariosDaVersao.filter((c) => !c.resolvido).length
 
   // Troca de versão: volta para a primeira lâmina.
@@ -166,13 +181,31 @@ export function ProofViewer({
 
   const irPara = useCallback(
     (indice: number) => {
+      const alvo = Math.max(0, Math.min(indice, totalLaminas - 1))
+      // Comparando não há carrossel: o índice manda direto nos dois quadros.
+      if (emComparacao) {
+        setPageIndex(alvo)
+        setDestacado(null)
+        return
+      }
       const el = carrosselRef.current
       if (!el) return
-      const alvo = Math.max(0, Math.min(indice, laminas.length - 1))
       el.scrollTo({ left: alvo * el.clientWidth, behavior: rolagemSuave() })
     },
-    [laminas.length],
+    [totalLaminas, emComparacao],
   )
+
+  // Saindo do modo comparar, o carrossel volta montado na lâmina em que estava.
+  useEffect(() => {
+    if (emComparacao) return
+    const el = carrosselRef.current
+    if (!el) return
+    const alvo = Math.max(0, Math.min(pageIndex, laminas.length - 1))
+    if (alvo !== pageIndex) setPageIndex(alvo)
+    el.scrollTo({ left: alvo * el.clientWidth })
+    // Só na troca de modo; o índice segue o scroll pelo `aoRolar`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emComparacao])
 
   // O índice acompanha o arrasto (scroll-snap), não só os botões.
   function aoRolar() {
@@ -546,7 +579,7 @@ export function ProofViewer({
         <div className="min-w-0 text-center">
           <p className="truncate text-sm font-medium">{projectName}</p>
           <p className="text-xs text-white/50">
-            {laminas.length > 0 ? `Lâmina ${pageIndex + 1} de ${laminas.length}` : `Versão ${versaoSelecionada}`}
+            {totalLaminas > 0 ? `Lâmina ${pageIndex + 1} de ${totalLaminas}` : `Versão ${versaoSelecionada}`}
           </p>
         </div>
         {/* Arquivo real enviado pela equipe nesta versão (PDF, link…), quando houver. */}
@@ -600,12 +633,49 @@ export function ProofViewer({
               </button>
             )
           })}
+          {leituraEquipe && versaoAnterior ? (
+            <button
+              type="button"
+              onClick={() => setComparando((v) => !v)}
+              aria-pressed={emComparacao}
+              className={cn(
+                'ml-auto flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
+                emComparacao ? 'border-white bg-white text-[#171717]' : 'border-white/30 text-white hover:bg-white/10',
+              )}
+            >
+              <Columns2 className="h-3.5 w-3.5" aria-hidden />
+              {emComparacao ? 'Sair da comparação' : `Comparar com v${versaoAnterior.numero}`}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex min-w-0 flex-1">
-          {laminas.length === 0 ? (
+          {emComparacao ? (
+            <ComparadorVersoes
+              antes={versaoAnterior.numero}
+              depois={versaoSelecionada}
+              laminaAntes={laminasAnteriores[pageIndex] ?? null}
+              laminaDepois={laminas[pageIndex] ?? null}
+              indice={pageIndex}
+              pins={commentsForPage
+                .filter((c) => c.posicaoX != null && c.posicaoY != null)
+                .map((c) => ({
+                  id: c.id,
+                  numero: numeroDoPin.get(c.id) ?? 0,
+                  x: c.posicaoX!,
+                  y: c.posicaoY!,
+                  resolvido: !!c.resolvido,
+                  texto: c.texto,
+                }))}
+              destacado={destacado}
+              onPin={(id) => {
+                setDestacado(id)
+                if (!window.matchMedia('(min-width: 1024px)').matches) setMobileCommentsOpen(true)
+              }}
+            />
+          ) : laminas.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
               <ImageOff className="h-8 w-8 text-white/40" aria-hidden />
               <p className="max-w-xs text-sm text-white/60">
@@ -701,7 +771,7 @@ export function ProofViewer({
             </div>
           )}
 
-          {laminas.length > 1 && pageIndex > 0 ? (
+          {totalLaminas > 1 && pageIndex > 0 ? (
             <button
               type="button"
               onClick={() => irPara(pageIndex - 1)}
@@ -711,7 +781,7 @@ export function ProofViewer({
               <ChevronLeft className="h-6 w-6" aria-hidden />
             </button>
           ) : null}
-          {laminas.length > 1 && pageIndex < laminas.length - 1 ? (
+          {totalLaminas > 1 && pageIndex < totalLaminas - 1 ? (
             <button
               type="button"
               onClick={() => irPara(pageIndex + 1)}
@@ -724,7 +794,9 @@ export function ProofViewer({
         </div>
 
         <div className="hidden w-80 shrink-0 flex-col border-l border-white/10 p-4 lg:flex">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">Comentários desta lâmina</p>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">
+            {emComparacao ? `Ajustes pedidos na versão ${versaoAnterior.numero}` : 'Comentários desta lâmina'}
+          </p>
           <div className="flex-1 overflow-y-auto">{CommentsList}</div>
         </div>
       </div>
@@ -746,10 +818,10 @@ export function ProofViewer({
           ) : null}
         </p>
         <div className="flex items-center justify-center">
-          {laminas.length <= 12 ? (
-            laminas.map((lamina, i) => (
+          {totalLaminas <= 12 ? (
+            Array.from({ length: totalLaminas }, (_, i) => (
               <button
-                key={lamina.id}
+                key={i}
                 type="button"
                 onClick={() => irPara(i)}
                 aria-label={`Ir para a lâmina ${i + 1}`}
@@ -762,7 +834,7 @@ export function ProofViewer({
           ) : (
             // Muitas lâminas: contador no lugar das bolinhas (não cabem na barra).
             <span className="flex h-11 items-center px-2 text-xs tabular-nums text-white/70">
-              {pageIndex + 1} / {laminas.length}
+              {pageIndex + 1} / {totalLaminas}
             </span>
           )}
         </div>

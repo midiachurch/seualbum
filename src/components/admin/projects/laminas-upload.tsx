@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, ArrowDown, ArrowUp, CheckCircle2, ImagePlus, Loader2, UploadCloud, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ImagePlus, Loader2, UploadCloud, X } from 'lucide-react'
 import { MODAL_ACOES } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,13 +9,15 @@ import { Label } from '@/components/ui/label'
 import { criarVersaoComLaminas } from '@/lib/actions/projetos'
 import { createClient } from '@/lib/supabase/client'
 import { cn, formatarTamanho } from '@/lib/utils'
+import { DPI_MINIMO, dpiEfetivo, pixelsMinimos, type FormatoAlbum } from '@/lib/resolucao'
 // randomUUID só existe em HTTPS/localhost; este funciona também pelo IP da rede.
 import { novoUuid } from '@/store/usePedidoWizardStore'
 
 // Inlined (não importado de '@/lib/demo-mode'): roda no navegador.
 const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
 const UPLOADS_SIMULTANEOS = 3
-const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
+// A prova e a gráfica trabalham com JPG por lâmina.
+const TIPOS_ACEITOS = ['image/jpeg']
 
 type Status = 'pronta' | 'enviando' | 'enviada' | 'erro'
 
@@ -61,10 +63,13 @@ async function dimensoes(file: File): Promise<{ largura: number | null; altura: 
  */
 export function LaminasUpload({
   projetoId,
+  album,
   onConcluido,
   onCancelar,
 }: {
   projetoId: string
+  /** Formato do álbum — sem ele não dá para checar a resolução de impressão. */
+  album: FormatoAlbum | null
   onConcluido: (versao: { versaoId: string; numero: number; laminas: number; comentarios: string | null }) => void
   onCancelar: () => void
 }) {
@@ -178,6 +183,13 @@ export function LaminasUpload({
     }
   }
 
+  const minimo = album ? pixelsMinimos(album) : null
+  const dpiDe = (i: Item) => (album && i.largura && i.altura ? dpiEfetivo(i.largura, i.altura, album) : null)
+  const abaixoDoMinimo = itens.filter((i) => {
+    const dpi = dpiDe(i)
+    return dpi !== null && dpi < DPI_MINIMO
+  }).length
+
   const enviadas = itens.filter((i) => i.status === 'enviada').length
   const pesoTotal = itens.reduce((s, i) => s + i.file.size, 0)
   const ocupado = fase !== 'montando'
@@ -223,8 +235,13 @@ export function LaminasUpload({
         )}
       >
         <UploadCloud className="h-7 w-7 text-muted-foreground" aria-hidden />
-        <p className="text-sm font-medium">Arraste as lâminas (JPG, PNG ou WebP)</p>
+        <p className="text-sm font-medium">Arraste as lâminas em JPG</p>
         <p className="text-xs text-muted-foreground">A ordem segue o nome do arquivo — dá para ajustar abaixo.</p>
+        <p className="text-xs text-muted-foreground">
+          {minimo
+            ? `Mínimo para impressão (${DPI_MINIMO} DPI, lâmina aberta ${album?.formato}): ${minimo.largura}×${minimo.altura} px.`
+            : 'Formato do álbum não definido no projeto — a resolução não será checada.'}
+        </p>
         <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={ocupado}>
           <ImagePlus className="h-4 w-4" aria-hidden />
           Selecionar arquivos
@@ -233,7 +250,7 @@ export function LaminasUpload({
 
       {ignorados > 0 ? (
         <p className="text-xs text-muted-foreground">
-          {ignorados} {ignorados === 1 ? 'arquivo ignorado' : 'arquivos ignorados'} (formato não aceito).
+          {ignorados} {ignorados === 1 ? 'arquivo ignorado' : 'arquivos ignorados'} (só JPG é aceito).
         </p>
       ) : null}
 
@@ -244,9 +261,21 @@ export function LaminasUpload({
             {formatarTamanho(pesoTotal)}
             {fase === 'enviando' ? ` · ${enviadas} de ${itens.length} enviadas` : ''}
           </p>
+          {abaixoDoMinimo > 0 ? (
+            <p role="status" className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              {abaixoDoMinimo === 1
+                ? `1 lâmina está abaixo de ${DPI_MINIMO} DPI e pode sair sem nitidez na impressão.`
+                : `${abaixoDoMinimo} lâminas estão abaixo de ${DPI_MINIMO} DPI e podem sair sem nitidez na impressão.`}{' '}
+              Dá para enviar mesmo assim.
+            </p>
+          ) : null}
           <ol className="max-h-96 space-y-2 overflow-y-auto pr-1">
-            {itens.map((item, i) => (
-              <li key={item.id} className="flex items-center gap-3 rounded-xl border p-2">
+            {itens.map((item, i) => {
+              const dpi = dpiDe(item)
+              const baixa = dpi !== null && dpi < DPI_MINIMO
+              return (
+              <li key={item.id} className={cn('flex items-center gap-3 rounded-xl border p-2', baixa && 'border-amber-300 bg-amber-50/60')}>
                 <span className="w-7 shrink-0 text-center text-xs font-semibold tabular-nums text-muted-foreground">{i + 1}</span>
                 {/* eslint-disable-next-line @next/next/no-img-element -- prévia local (object URL) antes do upload. */}
                 <img src={item.preview} alt="" loading="lazy" className="h-12 w-20 shrink-0 rounded object-cover" />
@@ -260,6 +289,12 @@ export function LaminasUpload({
                   <p className="text-xs text-muted-foreground">
                     {item.largura && item.altura ? `${item.largura}×${item.altura} · ` : ''}
                     {formatarTamanho(item.file.size)}
+                    {dpi !== null ? (
+                      <span className={baixa ? 'font-semibold text-amber-800' : 'text-emerald-700'}>
+                        {' · '}
+                        {dpi} DPI{baixa ? ' — baixa resolução' : ''}
+                      </span>
+                    ) : null}
                   </p>
                 </div>
                 {item.status === 'enviando' ? <Loader2 className="h-4 w-4 animate-spin" aria-label="Enviando" /> : null}
@@ -279,7 +314,8 @@ export function LaminasUpload({
                   </div>
                 ) : null}
               </li>
-            ))}
+              )
+            })}
           </ol>
         </>
       ) : null}

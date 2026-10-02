@@ -342,6 +342,7 @@ export function ProjectWorkspace({
             label: 'Diagramação',
             content: (
               <DesignVersionsPanel
+                album={{ formato: project.album.formato, orientacao: project.album.orientacao }}
                 versions={project.designVersions}
                 photos={project.photos}
                 projectStatus={project.status}

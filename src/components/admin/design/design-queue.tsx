@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui/modal'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SlaBadge } from '@/components/admin/production/sla-badge'
 import { LaminasUpload } from '@/components/admin/projects/laminas-upload'
+import type { FormatoAlbum } from '@/lib/resolucao'
 import { cn } from '@/lib/utils'
 import { PROJECT_STATUS_LABEL, type ProjectStatus } from '@/types/platform'
 
@@ -29,6 +30,8 @@ export type CartaoDesign = {
   /** Franquia de lâminas do plano — só a contagem; preço é assunto comercial. */
   laminasInclusas: number | null
   pinsPendentes: number
+  /** Formato do álbum: o upload checa a resolução de impressão das lâminas. */
+  album: FormatoAlbum | null
 }
 
 const COLUNAS: { chave: ColunaDesign; titulo: string; dica: string }[] = [
@@ -168,6 +171,7 @@ export function DesignQueue({
             </p>
             <LaminasUpload
               projetoId={projetoSubindo.id}
+              album={projetoSubindo.album}
               onCancelar={fecharUpload}
               onConcluido={(v) => {
                 setEnviado({ nome: projetoSubindo.nome, numero: v.numero })
