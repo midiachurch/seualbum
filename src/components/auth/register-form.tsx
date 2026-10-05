@@ -13,13 +13,18 @@ import { GoogleButton } from '@/components/auth/google-button'
 // navegador: NEXT_PUBLIC_SUPABASE_URL já vem embutida no bundle no build.
 const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
 
+const ERROS_DO_CALLBACK: Record<string, string> = {
+  google: 'Não foi possível criar a conta com o Google. Tente novamente.',
+  cadastro_google:
+    'Entramos com o Google, mas não conseguimos concluir o cadastro do estúdio. Clique em "Criar conta com Google" de novo.',
+}
+
 export function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  // `?erro=google`: o /auth/callback volta para cá se o Google falhar/for cancelado.
-  const [erro, setErro] = useState<string | null>(() =>
-    searchParams.get('erro') === 'google' ? 'Não foi possível criar a conta com o Google. Tente novamente.' : null,
-  )
+  // `?erro=`: o /auth/callback volta para cá se o Google falhar/for cancelado
+  // ou se a conta não puder ser concluída como estúdio.
+  const [erro, setErro] = useState<string | null>(() => ERROS_DO_CALLBACK[searchParams.get('erro') ?? ''] ?? null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
 

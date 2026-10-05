@@ -38,8 +38,20 @@ export async function GET(request: NextRequest) {
   if (cadastroGoogle) {
     // OAuth não leva metadados de cadastro: a conta nasce 'cliente' e a função
     // promove a fotógrafo só se ela acabou de ser criada (migration 0028).
-    const { data: papel } = await supabase.rpc('concluir_cadastro_google')
-    role = papel ?? null
+    const { data: papel, error: erroCadastro } = await supabase.rpc('concluir_cadastro_google')
+    if (erroCadastro || !papel) {
+      // Sem isso a conta seguia como 'cliente' e caía calada em /cliente.
+      console.error('[auth/callback] concluir_cadastro_google falhou', {
+        userId: data.user.id,
+        code: erroCadastro?.code,
+        message: erroCadastro?.message ?? 'retorno vazio',
+      })
+      // Logado, o proxy tiraria a pessoa de /auth/register. Deslogada, ela
+      // pode tentar de novo: a conta tem menos de 30 min e a função promove.
+      await supabase.auth.signOut()
+      return NextResponse.redirect(`${origin}/auth/register?erro=cadastro_google`)
+    }
+    role = papel
   } else if (!explicitNext) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -55,6 +67,8 @@ export async function GET(request: NextRequest) {
     cadastroGoogle && role && role !== 'fotografo'
       ? rotaDoPapel(role)
       : explicitNext ?? rotaDoPapel(role ?? 'fotografo')
+
+  console.info('[auth/callback] sessão criada', { userId: data.user.id, cadastroGoogle, role, next })
 
   return NextResponse.redirect(`${origin}${next}`)
 }
