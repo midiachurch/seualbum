@@ -1,0 +1,12 @@
+---
+description: Banco de dados e migrations Supabase
+globs: supabase/**,src/lib/actions/**
+alwaysApply: false
+---
+
+- Projeto remoto: SeuAlbum (`ogsnfnehmjljcaafnffn`). Todas as migrations em `supabase/migrations/` já estão aplicadas lá.
+- Nova migration: `supabase migration new <nome>`; nunca edite uma migration já aplicada.
+- Antes de qualquer `supabase db push`, rode `supabase migration list` e confira se local e remoto batem linha a linha.
+- `supabase/legado/` é só referência, nunca aplicar.
+- Toda tabela nova precisa de RLS habilitado e policies por papel (admin, gestor, operador, designer, fotógrafo, cliente).
+- Segredos ficam em `private.app_config`, nunca em migrations.

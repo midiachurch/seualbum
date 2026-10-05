@@ -1,0 +1,14 @@
+---
+description: Contexto geral do SeuÁlbum
+alwaysApply: true
+---
+
+# SeuÁlbum
+
+Plataforma B2B de diagramação de álbuns para fotógrafos.
+Stack: Next.js 16 (App Router) + React 19 + Supabase (`@supabase/ssr`) + Tailwind 3 / Radix + Zustand + Konva + Stripe. Deploy na Vercel.
+
+- Leia `AGENTS.md` antes de escrever código: este Next.js tem mudanças incompatíveis; consulte `node_modules/next/dist/docs/`. O middleware fica em `src/proxy.ts`.
+- Responda e escreva textos de interface em português do Brasil.
+- Rode `npm run typecheck` e `npm test` antes de dar uma tarefa por concluída.
+- Nunca exponha nem commite valores de `.env.local`.

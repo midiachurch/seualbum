@@ -1,0 +1,10 @@
+---
+description: Componentes e estilos
+globs: src/components/**,src/app/**/*.tsx
+alwaysApply: false
+---
+
+- Use os componentes de `src/components` (padrão shadcn: Radix + `cva` + `cn`) antes de criar novos.
+- Estilo só com classes Tailwind; combine classes com `cn()`.
+- Ícones de `lucide-react`.
+- Prefira Server Components; marque `"use client"` só quando precisar de estado, eventos ou Konva.
