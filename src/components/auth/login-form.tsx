@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
+import { GoogleButton } from '@/components/auth/google-button'
 import { PLATFORM_ROLE_LABEL, rotaDoPapel, type PlatformRole } from '@/types/platform'
 
 // Inlined (não importado de '@/lib/demo-mode') porque essa checagem roda no
@@ -19,10 +20,19 @@ function destinoPorRole(role: PlatformRole) {
   return rotaDoPapel(role)
 }
 
+/** `?erro=` que o /auth/callback devolve quando o link ou o Google falham. */
+const ERROS_DO_CALLBACK: Record<string, string> = {
+  codigo_ausente: 'O login não foi concluído. Tente novamente.',
+  link_invalido: 'Link expirado ou inválido. Entre novamente.',
+  google: 'Não foi possível entrar com o Google. Tente novamente.',
+}
+
 export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [erro, setErro] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(
+    () => ERROS_DO_CALLBACK[searchParams.get('erro') ?? ''] ?? null,
+  )
   const [carregando, setCarregando] = useState(false)
 
   // Destino original preservado pelo middleware (ex.: um link direto para
@@ -80,56 +90,59 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {DEMO_MODE ? (
-        <>
-          <p className="rounded-lg bg-[#F5F5F5] p-3 text-xs text-[#595959]">
-            Modo de demonstração: nenhum Supabase configurado ainda. Qualquer e-mail e senha
-            funcionam para entrar — escolha o perfil que quer visualizar.
+    <div className="space-y-4">
+      <GoogleButton modo="login" next={explicitNext} />
+      <form onSubmit={onSubmit} className="space-y-4">
+        {DEMO_MODE ? (
+          <>
+            <p className="rounded-lg bg-[#F5F5F5] p-3 text-xs text-[#595959]">
+              Modo de demonstração: nenhum Supabase configurado ainda. Qualquer e-mail e senha
+              funcionam para entrar — escolha o perfil que quer visualizar.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="role">Entrar como</Label>
+              <select
+                id="role"
+                name="role"
+                defaultValue="admin"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {DEMO_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {PLATFORM_ROLE_LABEL[role]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        ) : null}
+
+        <div className="space-y-2">
+          <Label htmlFor="email">E-mail</Label>
+          <Input id="email" name="email" type="email" autoComplete="email" required />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Senha</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required={!DEMO_MODE}
+          />
+        </div>
+
+        {erro ? (
+          <p role="alert" className="text-sm text-destructive">
+            {erro}
           </p>
-          <div className="space-y-2">
-            <Label htmlFor="role">Entrar como</Label>
-            <select
-              id="role"
-              name="role"
-              defaultValue="admin"
-              className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {DEMO_ROLES.map((role) => (
-                <option key={role} value={role}>
-                  {PLATFORM_ROLE_LABEL[role]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
-      ) : null}
+        ) : null}
 
-      <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required={!DEMO_MODE}
-        />
-      </div>
-
-      {erro ? (
-        <p role="alert" className="text-sm text-destructive">
-          {erro}
-        </p>
-      ) : null}
-
-      <Button type="submit" variant="brand" className="w-full" disabled={carregando}>
-        {carregando ? 'Entrando…' : 'Entrar'}
-      </Button>
-    </form>
+        <Button type="submit" variant="brand" className="w-full" disabled={carregando}>
+          {carregando ? 'Entrando…' : 'Entrar'}
+        </Button>
+      </form>
+    </div>
   )
 }

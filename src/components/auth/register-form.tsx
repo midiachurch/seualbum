@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { lembrarPlanoDaVitrine } from '@/lib/plano-vitrine'
+import { GoogleButton } from '@/components/auth/google-button'
 
 // Inlined (não importado de '@/lib/demo-mode') porque essa checagem roda no
 // navegador: NEXT_PUBLIC_SUPABASE_URL já vem embutida no bundle no build.
@@ -15,7 +16,10 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
 export function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [erro, setErro] = useState<string | null>(null)
+  // `?erro=google`: o /auth/callback volta para cá se o Google falhar/for cancelado.
+  const [erro, setErro] = useState<string | null>(() =>
+    searchParams.get('erro') === 'google' ? 'Não foi possível criar a conta com o Google. Tente novamente.' : null,
+  )
   const [aviso, setAviso] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
 
@@ -85,64 +89,71 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {DEMO_MODE ? (
-        <p className="rounded-lg bg-[#F5F5F5] p-3 text-xs text-[#595959]">
-          Modo de demonstração: nenhum Supabase configurado ainda. Qualquer e-mail e senha
-          funcionam para criar a sessão e navegar pelo painel.
-        </p>
-      ) : null}
-
-      <div className="space-y-2">
-        <Label htmlFor="nome_estudio">Nome do estúdio</Label>
-        <Input id="nome_estudio" name="nome_estudio" required minLength={2} maxLength={120} />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="nome_contato">Seu nome</Label>
-          <Input id="nome_contato" name="nome_contato" autoComplete="name" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="telefone">WhatsApp</Label>
-          <Input id="telefone" name="telefone" type="tel" placeholder="(11) 90000-0000" />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          required={!DEMO_MODE}
-          minLength={DEMO_MODE ? undefined : 8}
-        />
-        {!DEMO_MODE ? (
-          <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+    <div className="space-y-4">
+      {/* A ida ao Google perde o estado da página: o plano vai na URL de volta. */}
+      <GoogleButton
+        modo="cadastro"
+        next={plano ? `/dashboard/novo-pedido?plano=${encodeURIComponent(plano)}` : '/dashboard/novo-pedido'}
+      />
+      <form onSubmit={onSubmit} className="space-y-4">
+        {DEMO_MODE ? (
+          <p className="rounded-lg bg-[#F5F5F5] p-3 text-xs text-[#595959]">
+            Modo de demonstração: nenhum Supabase configurado ainda. Qualquer e-mail e senha
+            funcionam para criar a sessão e navegar pelo painel.
+          </p>
         ) : null}
-      </div>
 
-      {erro ? (
-        <p role="alert" className="text-sm text-destructive">
-          {erro}
-        </p>
-      ) : null}
-      {aviso ? (
-        <p role="status" className="text-sm text-emerald-700">
-          {aviso}
-        </p>
-      ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="nome_estudio">Nome do estúdio</Label>
+          <Input id="nome_estudio" name="nome_estudio" required minLength={2} maxLength={120} />
+        </div>
 
-      <Button type="submit" variant="brand" className="w-full" disabled={carregando}>
-        {carregando ? 'Criando conta…' : 'Criar conta'}
-      </Button>
-    </form>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="nome_contato">Seu nome</Label>
+            <Input id="nome_contato" name="nome_contato" autoComplete="name" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="telefone">WhatsApp</Label>
+            <Input id="telefone" name="telefone" type="tel" placeholder="(11) 90000-0000" />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">E-mail</Label>
+          <Input id="email" name="email" type="email" autoComplete="email" required />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Senha</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            required={!DEMO_MODE}
+            minLength={DEMO_MODE ? undefined : 8}
+          />
+          {!DEMO_MODE ? (
+            <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres.</p>
+          ) : null}
+        </div>
+
+        {erro ? (
+          <p role="alert" className="text-sm text-destructive">
+            {erro}
+          </p>
+        ) : null}
+        {aviso ? (
+          <p role="status" className="text-sm text-emerald-700">
+            {aviso}
+          </p>
+        ) : null}
+
+        <Button type="submit" variant="brand" className="w-full" disabled={carregando}>
+          {carregando ? 'Criando conta…' : 'Criar conta'}
+        </Button>
+      </form>
+    </div>
   )
 }

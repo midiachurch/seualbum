@@ -801,6 +801,8 @@ export type Database = {
       is_gestor_ou_admin: { Args: Record<string, never>; Returns: boolean }
       /** Plano de assinatura ativo do fotógrafo logado, ou null (migration 0013). */
       minha_assinatura: { Args: Record<string, never>; Returns: string | null }
+      /** Cadastro com Google (0028): promove o usuário recém-criado a fotógrafo; devolve o papel final. */
+      concluir_cadastro_google: { Args: Record<string, never>; Returns: PlatformRole }
       pode_ver_projeto: { Args: { p_projeto_id: string }; Returns: boolean }
       /** Fase 5 (0023): prévia da cobrança de lâminas extras — fotógrafo dono ou operação. */
       calcular_excedente: {
