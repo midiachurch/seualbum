@@ -246,7 +246,7 @@ create table if not exists public.orcamentos (
   cliente_final_contato text,
   itens_json            jsonb not null default '[]'::jsonb,
   valor_total           numeric(10, 2) not null default 0 check (valor_total >= 0),
-  hash_publico          text not null unique default encode(gen_random_bytes(12), 'hex'),
+  hash_publico          text not null unique default encode(extensions.gen_random_bytes(12), 'hex'),
   status                public.orcamento_status not null default 'rascunho',
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
