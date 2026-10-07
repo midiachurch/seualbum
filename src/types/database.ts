@@ -187,6 +187,18 @@ export type ProjetoRow = {
   updated_at: string
 }
 
+/** Foto do wizard de novo pedido guardada no Cloudflare R2 (migration 0030). */
+export type PedidoFotoR2Row = {
+  id: string
+  client_id: string
+  chave_idempotencia: string
+  r2_key: string
+  nome_original: string
+  tamanho: number
+  content_type: string
+  created_at: string
+}
+
 export type FotoRow = {
   id: string
   projeto_id: string
@@ -630,6 +642,12 @@ export type Database = {
         Insert: Pick<FotoRow, 'projeto_id' | 'storage_path'> &
           Partial<Omit<FotoRow, 'id' | 'created_at' | 'projeto_id' | 'storage_path'>>
         Update: Partial<FotoRow>
+        Relationships: []
+      }
+      pedidos_fotos_r2: {
+        Row: PedidoFotoR2Row
+        Insert: Omit<PedidoFotoR2Row, 'id' | 'created_at'> & Partial<Pick<PedidoFotoR2Row, 'id' | 'created_at'>>
+        Update: never
         Relationships: []
       }
       design_versions: {

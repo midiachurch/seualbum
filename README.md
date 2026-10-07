@@ -60,7 +60,29 @@ Settings > Environment Variables**, em Production (e Preview, se usar).
 | `STRIPE_SECRET_KEY`             | obrigatória | Chave secreta do Stripe (`sk_live_...` em produção)                            |
 | `STRIPE_WEBHOOK_SECRET`         | obrigatória | `whsec_...` do endpoint `https://SEU-DOMINIO/api/webhooks/pagamento`           |
 | `WEBHOOK_SECRET`                | obrigatória | Segredo de `/api/webhooks/status`; mesmo valor de `private.app_config.webhook_secret` |
+| `R2_ACCOUNT_ID`                 | obrigatória | ID da conta Cloudflare (endpoint `https://<id>.r2.cloudflarestorage.com`)      |
+| `R2_ACCESS_KEY_ID`              | obrigatória | Token de API do R2 (R2 > Manage API Tokens), permissão Object Read & Write     |
+| `R2_SECRET_ACCESS_KEY`          | obrigatória | Segredo do mesmo token                                                         |
+| `R2_BUCKET`                     | obrigatória | Nome do bucket privado das fotos (ex.: `seualbum-fotos`)                       |
 | `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
+
+## Cloudflare R2 (fotos)
+
+O Supabase fica só com banco e Auth; as fotos de alta resolução vão para um
+bucket **privado** do R2. O helper fica em `src/lib/r2/` e a primeira rota já
+pronta é a das fotos do wizard de novo pedido:
+
+1. `POST /api/uploads/pedido-foto` `{ chave, idArquivo, nome, tipo, tamanho }`
+   → `{ key, url, headers }` (URL assinada de PUT, 15 min, tipo e tamanho travados)
+2. o navegador faz `PUT` direto no R2 (o arquivo não passa pela Vercel)
+3. `POST /api/uploads/pedido-foto/confirmar` `{ key, nome }` → confere no R2 e
+   grava só a chave em `pedidos_fotos_r2` (migration 0030)
+
+`DELETE /api/uploads/pedido-foto` `{ key }` tira a foto do rascunho.
+
+No painel da Cloudflare, o bucket precisa de uma regra de **CORS** que libere
+`PUT` e `GET` para a origem do site (`https://SEU-DOMINIO` e
+`http://localhost:3000`), com o header `Content-Type` permitido.
 
 ## Scripts
 
@@ -87,6 +109,10 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+Pendente: migração das fotos para o R2 — aplicar a 0030, ligar o wizard
+(`src/lib/upload-pedido-foto.ts`) às rotas acima e levar para o R2 a contagem
+do envio, a lista/download do admin, a conversão em projeto (0017/0025) e a
+limpeza de 72h (0015/0016); depois, os demais buckets (projetos, álbuns,
+vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
