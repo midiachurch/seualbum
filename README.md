@@ -17,11 +17,11 @@ de `src/lib/pricing.ts`. As áreas `/dashboard` e `/admin` exigem o banco.
 ## Banco de dados
 
 As migrations em `supabase/migrations/` usam as mesmas versões (timestamp) do
-projeto remoto **SeuAlbum** (`ogsnfnehmjljcaafnffn`), onde todas já estão
-aplicadas. Confira antes de qualquer push:
+projeto remoto **SeuAlbum** (`ytqbyfmroyilinxdhopv`). Confira antes de
+qualquer push:
 
 ```bash
-supabase link --project-ref ogsnfnehmjljcaafnffn
+supabase link --project-ref ytqbyfmroyilinxdhopv
 supabase migration list   # local e remoto devem bater, linha a linha
 ```
 
@@ -45,6 +45,22 @@ Em **Authentication > URL Configuration** adicione como redirect URL:
 
 - `http://localhost:3000/auth/callback`
 - `https://SEU-DOMINIO/auth/callback`
+
+## Variáveis de ambiente
+
+Local: `.env.local` (modelo em `.env.local.example`). Na Vercel: **Project
+Settings > Environment Variables**, em Production (e Preview, se usar).
+
+| Variável                        | Deploy      | Para que serve                                                                 |
+| ------------------------------- | ----------- | ------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`      | obrigatória | `https://ytqbyfmroyilinxdhopv.supabase.co`                                     |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | obrigatória | Chave pública do Supabase (Project Settings > API)                             |
+| `SUPABASE_SERVICE_ROLE_KEY`     | obrigatória | Só no servidor, ignora RLS (webhooks). Nunca com prefixo `NEXT_PUBLIC_`        |
+| `NEXT_PUBLIC_SITE_URL`          | obrigatória | URL canônica de produção (`https://SEU-DOMINIO`), usada nos redirects do Auth  |
+| `STRIPE_SECRET_KEY`             | obrigatória | Chave secreta do Stripe (`sk_live_...` em produção)                            |
+| `STRIPE_WEBHOOK_SECRET`         | obrigatória | `whsec_...` do endpoint `https://SEU-DOMINIO/api/webhooks/pagamento`           |
+| `WEBHOOK_SECRET`                | obrigatória | Segredo de `/api/webhooks/status`; mesmo valor de `private.app_config.webhook_secret` |
+| `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
 
 ## Scripts
 
@@ -71,6 +87,6 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: aplicar a migration 0027 no remoto, teste ponta a ponta do fluxo de adicionais e deploy na Vercel
-(URLs de produção do Auth, do webhook do Stripe e de
-`private.app_config.webhook_status_url`).
+Pendente: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+(variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
+de `private.app_config.webhook_status_url`).
