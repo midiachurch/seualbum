@@ -1,24 +1,25 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
-import { lerMetadadosFoto, metadadosDoStorage } from '@/lib/exif'
+import { lerMetadadosFoto } from '@/lib/exif'
 import { novoUuid, usePedidoWizardStore, type ArquivoFoto } from '@/store/usePedidoWizardStore'
 
 /**
- * Fila de upload das fotos do wizard de novo pedido (passo 3) para o bucket
- * privado `pedidos_fotos` (migration 0011). Path:
- *   {userId}/{chaveIdempotencia}/{idArquivo}-{nome}
+ * Fila de upload das fotos do wizard de novo pedido (passo 3) para o
+ * Cloudflare R2. Cada foto, em 3 passos (ver /api/uploads/pedido-foto):
+ *   1. a rota valida e devolve uma URL assinada de PUT;
+ *   2. o navegador envia o arquivo direto para o R2;
+ *   3. a rota confirma no R2 e grava só a chave em `pedidos_fotos_r2`.
+ * Chave: pedidos/{userId}/{chaveIdempotencia}/{idArquivo}-{nome}
  *
  * Vive no nível do módulo, não num componente: se o fotógrafo volta ao passo 2
  * com fotos subindo, o passo 3 desmonta mas a fila continua e segue
  * atualizando a store.
  *
- * O supabase-js não expõe progresso de bytes no `upload()` (usa fetch), então
- * o progresso visível é por arquivo concluído — ver `resumoUpload`.
+ * O progresso visível é por arquivo concluído — ver `resumoUpload`.
  */
 
-export const BUCKET_PEDIDOS_FOTOS = 'pedidos_fotos'
-export const TAMANHO_MAXIMO_FOTO = 50 * 1024 * 1024 // espelha file_size_limit do bucket
+const ROTA_UPLOAD = '/api/uploads/pedido-foto'
+export const TAMANHO_MAXIMO_FOTO = 50 * 1024 * 1024 // espelha TAMANHO_MAXIMO_FOTO_R2
 const UPLOADS_SIMULTANEOS = 3
 
 // Inlined (não importado de '@/lib/demo-mode'): roda no navegador, e
@@ -45,17 +46,6 @@ function mimeDoArquivo(file: File) {
   if (file.type) return file.type
   const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
   return MIME_POR_EXTENSAO[ext] ?? ''
-}
-
-/** Chaves do Storage não aceitam acento e parte dos símbolos. */
-function nomeSeguro(nome: string) {
-  return (
-    nome
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z0-9._-]+/g, '_')
-      .slice(-80) || 'foto'
-  )
 }
 
 /**
@@ -111,7 +101,7 @@ export function reenviarComErro(ctx: { userId: string; chave: string }) {
     .forEach((a) => reenviarFoto(a.id, ctx))
 }
 
-/** Tira da lista e, se já tinha subido, apaga do Storage (a RLS só deixa enquanto é rascunho). */
+/** Tira da lista e, se já tinha subido, apaga do R2 (só enquanto é rascunho). */
 export function removerFoto(id: string) {
   const store = usePedidoWizardStore.getState()
   const arquivo = store.fotos.arquivos.find((a) => a.id === id)
@@ -121,10 +111,11 @@ export function removerFoto(id: string) {
   arquivosEmMemoria.delete(id)
 
   if (arquivo.storagePath && !DEMO_MODE) {
-    void createClient()
-      .storage.from(BUCKET_PEDIDOS_FOTOS)
-      .remove([arquivo.storagePath])
-      .catch(() => undefined)
+    void fetch(ROTA_UPLOAD, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: arquivo.storagePath }),
+    }).catch(() => undefined)
   }
 }
 
@@ -154,39 +145,28 @@ async function enviar(id: string) {
 
   ativos.add(id)
   store.atualizarArquivo(id, { status: 'enviando', erro: undefined })
-  const path = `${contexto.userId}/${contexto.chave}/${id}-${nomeSeguro(file.name)}`
 
   try {
+    let key = `demo/${id}`
     if (DEMO_MODE) {
       await new Promise((r) => setTimeout(r, 600 + Math.random() * 1200))
     } else {
-      // Smart Layout local: data/hora de captura e câmera viajam como metadados
-      // do próprio arquivo (invisível para o fotógrafo — nunca trava o envio).
-      // Na conversão em projeto, o banco copia para `fotos` (migration 0025).
-      const meta = await lerMetadadosFoto(file)
-      const { error } = await createClient()
-        .storage.from(BUCKET_PEDIDOS_FOTOS)
-        .upload(path, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: mimeDoArquivo(file),
-          metadata: metadadosDoStorage(meta),
-        })
-
-      // 409 = o objeto já existe: um envio anterior desta mesma foto chegou ao
-      // Storage mas a resposta se perdeu. Para nós, é sucesso.
-      if (error && !jaExiste(error)) throw error
+      key = await enviarParaR2(id, file, contexto.chave)
     }
 
     // A foto pode ter sido removida da lista enquanto subia.
     if (usePedidoWizardStore.getState().fotos.arquivos.some((a) => a.id === id)) {
-      usePedidoWizardStore.getState().atualizarArquivo(id, { status: 'enviado', storagePath: path })
+      usePedidoWizardStore.getState().atualizarArquivo(id, { status: 'enviado', storagePath: key })
     }
   } catch (error) {
     console.error('[upload-pedido-foto]', error)
     usePedidoWizardStore.getState().atualizarArquivo(id, {
       status: 'erro',
-      erro: navigator.onLine ? 'Falha no envio. Toque para tentar de novo.' : 'Sem internet. Toque para tentar de novo.',
+      erro: !navigator.onLine
+        ? 'Sem internet. Toque para tentar de novo.'
+        : error instanceof ErroDeEnvio
+          ? error.message
+          : 'Falha no envio. Toque para tentar de novo.',
     })
   } finally {
     ativos.delete(id)
@@ -194,13 +174,58 @@ async function enviar(id: string) {
   }
 }
 
-function jaExiste(error: unknown) {
-  const e = error as { status?: number; statusCode?: string | number; message?: string }
-  return (
-    e.status === 409 ||
-    String(e.statusCode) === '409' ||
-    /already exists|duplicate/i.test(e.message ?? '')
-  )
+/** Erro com mensagem pronta para a tela (vinda da rota ou do status HTTP). */
+class ErroDeEnvio extends Error {}
+
+async function chamarRota(caminho: string, corpo: unknown) {
+  const resposta = await fetch(caminho, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corpo),
+  })
+  const json = (await resposta.json().catch(() => ({}))) as Record<string, unknown>
+  if (!resposta.ok) {
+    const padrao: Record<number, string> = {
+      401: 'Sua sessão expirou. Entre de novo e toque para reenviar.',
+      503: 'Envio de fotos indisponível no momento. Tente mais tarde ou use o link externo.',
+    }
+    const msg = typeof json.erro === 'string' ? json.erro : padrao[resposta.status] ?? 'Falha no envio. Toque para tentar de novo.'
+    throw new ErroDeEnvio(msg)
+  }
+  return json
+}
+
+/** Os 3 passos do upload. Devolve a chave do objeto no R2. */
+async function enviarParaR2(id: string, file: File, chave: string) {
+  const tipo = mimeDoArquivo(file)
+  // Smart Layout local: data/hora de captura e câmera viajam na confirmação
+  // (invisível para o fotógrafo — nunca trava o envio). Na conversão em
+  // projeto, o banco copia para `fotos` (migration 0031).
+  const [assinatura, meta] = await Promise.all([
+    chamarRota(ROTA_UPLOAD, { chave, idArquivo: id, nome: file.name, tipo, tamanho: file.size }),
+    lerMetadadosFoto(file),
+  ])
+  const key = String(assinatura.key)
+
+  let envio: Response
+  try {
+    envio = await fetch(String(assinatura.url), {
+      method: 'PUT',
+      headers: assinatura.headers as Record<string, string>,
+      body: file,
+    })
+  } catch {
+    // CORS do bucket, rede caindo no meio do arquivo ou URL expirada.
+    throw new ErroDeEnvio(navigator.onLine ? 'O armazenamento recusou a conexão. Toque para tentar de novo.' : 'Sem internet. Toque para tentar de novo.')
+  }
+  if (!envio.ok) {
+    throw new ErroDeEnvio(
+      envio.status === 403 ? 'O link de envio expirou. Toque para tentar de novo.' : 'O armazenamento recusou a foto. Toque para tentar de novo.',
+    )
+  }
+
+  await chamarRota(`${ROTA_UPLOAD}/confirmar`, { key, nome: file.name, capturadaEm: meta.capturadaEm, camera: meta.camera })
+  return key
 }
 
 // -----------------------------------------------------------------------------

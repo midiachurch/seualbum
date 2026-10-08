@@ -101,3 +101,35 @@ export async function removerObjetos(keys: string[]) {
     )
   }
 }
+
+/**
+ * Links de leitura para várias chaves (chave → url). Nunca lança: sem R2
+ * configurado ou com o token recusado, devolve o que conseguiu e loga — a
+ * página que mostra as fotos continua de pé, só sem a imagem.
+ * Assinar é local (HMAC), sem ida ao R2: centenas de chaves custam pouco.
+ */
+export async function assinarLeituras(keys: string[], expiraEmS = EXPIRACAO_LEITURA_S): Promise<Map<string, string>> {
+  const urls = new Map<string, string>()
+  if (keys.length === 0) return urls
+  if (!r2Configurado()) {
+    console.error('[r2] assinarLeituras: R2 não configurado —', keys.length, 'arquivo(s) sem link')
+    return urls
+  }
+  await Promise.all(
+    [...new Set(keys)].map(async (key) => {
+      try {
+        urls.set(key, await urlDeLeitura(key, { expiraEmS }))
+      } catch (e) {
+        console.error('[r2] assinarLeituras', key, e instanceof Error ? e.message : e)
+      }
+    }),
+  )
+  return urls
+}
+
+/** Conteúdo do objeto (para copiar do R2 para outro armazenamento). */
+export async function lerObjeto(key: string) {
+  const r = await getR2().send(new GetObjectCommand({ Bucket: bucket(), Key: key }))
+  if (!r.Body) throw new Error(`Objeto vazio no R2: ${key}`)
+  return { bytes: await r.Body.transformToByteArray(), contentType: r.ContentType ?? 'application/octet-stream' }
+}

@@ -196,6 +196,9 @@ export type PedidoFotoR2Row = {
   nome_original: string
   tamanho: number
   content_type: string
+  /** EXIF lido no navegador (migration 0031). */
+  capturada_em: string | null
+  camera: string | null
   created_at: string
 }
 
@@ -212,7 +215,8 @@ export type FotoRow = {
   observacao: string | null
   enviado_por: string | null
   /** Bucket do arquivo: fotos vindas do wizard ficam em `pedidos_fotos` (migration 0017). */
-  bucket: 'projetos_fotos' | 'pedidos_fotos'
+  /** 'r2' = `storage_path` é a chave no Cloudflare R2 (migration 0031). */
+  bucket: 'projetos_fotos' | 'pedidos_fotos' | 'r2'
   /** EXIF (migration 0025): relógio da câmera, sem fuso ("2026-09-20T14:32:05.12"). */
   capturada_em: string | null
   camera: string | null
@@ -646,7 +650,8 @@ export type Database = {
       }
       pedidos_fotos_r2: {
         Row: PedidoFotoR2Row
-        Insert: Omit<PedidoFotoR2Row, 'id' | 'created_at'> & Partial<Pick<PedidoFotoR2Row, 'id' | 'created_at'>>
+        Insert: Omit<PedidoFotoR2Row, 'id' | 'created_at' | 'capturada_em' | 'camera'> &
+          Partial<Pick<PedidoFotoR2Row, 'id' | 'created_at' | 'capturada_em' | 'camera'>>
         Update: never
         Relationships: []
       }
@@ -821,6 +826,8 @@ export type Database = {
       minha_assinatura: { Args: Record<string, never>; Returns: string | null }
       /** Cadastro com Google (0028): promove o usuário recém-criado a fotógrafo; devolve o papel final. */
       concluir_cadastro_google: { Args: Record<string, never>; Returns: PlatformRole }
+      /** Chaves no R2 de rascunhos parados há p_horas que nunca viraram pedido (0031). Só service_role. */
+      rascunhos_r2_expirados: { Args: { p_horas?: number; p_limite?: number }; Returns: { r2_key: string }[] }
       pode_ver_projeto: { Args: { p_projeto_id: string }; Returns: boolean }
       /** Fase 5 (0023): prévia da cobrança de lâminas extras — fotógrafo dono ou operação. */
       calcular_excedente: {

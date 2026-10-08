@@ -7,6 +7,8 @@ import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } f
 import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
 import { laminaEmCm, normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
 import { prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
+import { BUCKET_R2 } from '@/lib/r2/chaves'
+import { assinarLeituras, lerObjeto } from '@/lib/r2/cliente'
 import type { AlbumConfig, AlbumOrientationValue } from '@/types/platform'
 import type { AlbumLayoutRow, AlbumTemplateRow, BibliotecaAlbum, DerivadoFoto } from '@/types/database'
 
@@ -53,6 +55,26 @@ async function fotosDoProjeto(supabase: NonNullable<Awaited<ReturnType<typeof re
     supabase.from('fotos').select('id, storage_path, bucket').eq('projeto_id', projetoId).order('id').range(de, ate),
   )
   return data
+}
+
+/**
+ * O álbum avulso guarda as fotos em `albuns_fotos` (Supabase). Foto de projeto
+ * que está no R2 é baixada e reenviada — uma por vez, para não estourar a
+ * memória da função com fotos de 50 MB.
+ */
+async function copiarDoR2(
+  supabase: NonNullable<Awaited<ReturnType<typeof requireEdicaoDeProducao>>['supabase']>,
+  key: string,
+  destino: string,
+): Promise<{ error: unknown }> {
+  try {
+    const { bytes, contentType } = await lerObjeto(key)
+    const { error } = await supabase.storage.from('albuns_fotos').upload(destino, bytes, { contentType, upsert: true })
+    return { error }
+  } catch (e) {
+    console.error('[duplicarAlbum] copiar do R2', key, e instanceof Error ? e.message : e)
+    return { error: e }
+  }
 }
 
 function revalidarAlbum(id: string, projetoId?: string | null) {
@@ -375,6 +397,14 @@ export async function renovarLinksDasFotos(id: string): Promise<Resultado<{ urls
   const porBucket = new Map<string, typeof pares>()
   for (const p of pares) porBucket.set(p.bucket, [...(porBucket.get(p.bucket) ?? []), p])
   for (const [bucket, lista] of porBucket) {
+    if (bucket === BUCKET_R2) {
+      const assinadas = await assinarLeituras(lista.map((p) => p.path), 2 * 60 * 60)
+      for (const p of lista) {
+        const url = assinadas.get(p.path)
+        if (url) urls[p.id] = url
+      }
+      continue
+    }
     for (let i = 0; i < lista.length; i += 500) {
       const fatia = lista.slice(i, i + 500)
       const idDoPath = new Map(fatia.map((p) => [p.path, p.id]))
@@ -482,7 +512,7 @@ export async function duplicarAlbum(id: string): Promise<Resultado<{ id: string 
   let falhas = 0
   for (const f of fontes) {
     const destino = `${novo.id}/${f.id}-${f.path.split('/').pop()}`
-    const { error: e } = await supabase.storage.from(f.bucket).copy(f.path, destino, { destinationBucket: 'albuns_fotos' })
+    const { error: e } = f.bucket === BUCKET_R2 ? await copiarDoR2(supabase, f.path, destino) : await supabase.storage.from(f.bucket).copy(f.path, destino, { destinationBucket: 'albuns_fotos' })
     if (e) falhas++
     else copiadas.push({ id: f.id, path: destino, nome: f.nome, largura: f.largura, altura: f.altura })
   }

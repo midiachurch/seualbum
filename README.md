@@ -64,25 +64,39 @@ Settings > Environment Variables**, em Production (e Preview, se usar).
 | `R2_ACCESS_KEY_ID`              | obrigatória | Token de API do R2 (R2 > Manage API Tokens), permissão Object Read & Write     |
 | `R2_SECRET_ACCESS_KEY`          | obrigatória | Segredo do mesmo token                                                         |
 | `R2_BUCKET`                     | obrigatória | Nome do bucket privado das fotos (ex.: `seualbum-fotos`)                       |
+| `CRON_SECRET`                   | obrigatória | Segredo do Cron da Vercel (`/api/cron/limpar-fotos-r2`); a Vercel o envia sozinha |
 | `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
 
 ## Cloudflare R2 (fotos)
 
-O Supabase fica só com banco e Auth; as fotos de alta resolução vão para um
-bucket **privado** do R2. O helper fica em `src/lib/r2/` e a primeira rota já
-pronta é a das fotos do wizard de novo pedido:
+O Supabase fica só com banco e Auth; as fotos de alta resolução dos pedidos
+ficam num bucket **privado** do R2 e o banco guarda só a chave de cada uma
+(`pedidos_fotos_r2`, migrations 0030/0031). O helper fica em `src/lib/r2/`.
+
+Upload do wizard de novo pedido (`src/lib/upload-pedido-foto.ts`):
 
 1. `POST /api/uploads/pedido-foto` `{ chave, idArquivo, nome, tipo, tamanho }`
    → `{ key, url, headers }` (URL assinada de PUT, 15 min, tipo e tamanho travados)
 2. o navegador faz `PUT` direto no R2 (o arquivo não passa pela Vercel)
-3. `POST /api/uploads/pedido-foto/confirmar` `{ key, nome }` → confere no R2 e
-   grava só a chave em `pedidos_fotos_r2` (migration 0030)
+3. `POST /api/uploads/pedido-foto/confirmar` `{ key, nome, capturadaEm, camera }`
+   → confere no R2 (HeadObject) e grava a chave e o EXIF no índice
 
 `DELETE /api/uploads/pedido-foto` `{ key }` tira a foto do rascunho.
 
+Depois do upload, tudo lê o índice: a contagem no envio do pedido, a lista,
+"Ver em alta" e download em `/admin/pedidos/[id]` (links assinados de 1h), e
+a conversão pedido → projeto, que cria `fotos` com `bucket = 'r2'`. Fotos com
+`bucket = 'r2'` são assinadas pelo R2 em todo lugar (projeto, editor, prova).
+
+Limpeza: o Cron da Vercel (`vercel.json`, diário às 06:17 UTC) chama
+`/api/cron/limpar-fotos-r2`, que apaga do R2 e do índice os rascunhos parados
+há mais de 72h que nunca viraram pedido. O bucket `pedidos_fotos` do Supabase
+não é mais lido nem escrito; o que sobrou nele pode ser apagado à mão.
+
 No painel da Cloudflare, o bucket precisa de uma regra de **CORS** que libere
 `PUT` e `GET` para a origem do site (`https://SEU-DOMINIO` e
-`http://localhost:3000`), com o header `Content-Type` permitido.
+`http://localhost:3000`), com o header `Content-Type` permitido — o editor
+desenha as fotos num canvas e precisa do `GET` com CORS.
 
 ## Scripts
 
@@ -109,10 +123,7 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: migração das fotos para o R2 — aplicar a 0030, ligar o wizard
-(`src/lib/upload-pedido-foto.ts`) às rotas acima e levar para o R2 a contagem
-do envio, a lista/download do admin, a conversão em projeto (0017/0025) e a
-limpeza de 72h (0015/0016); depois, os demais buckets (projetos, álbuns,
-vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+Pendente: aplicar as migrations 0030 e 0031 no Supabase; levar para o R2 os
+demais buckets (projetos, álbuns, vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).

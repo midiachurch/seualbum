@@ -29,3 +29,25 @@ describe('URLs assinadas do R2', () => {
     expect(u.searchParams.get('X-Amz-Expires')).toBe('3600')
   })
 })
+
+describe('assinarLeituras', () => {
+  it('assina várias chaves de uma vez, sem repetir', async () => {
+    const { assinarLeituras } = await import('./cliente')
+    const urls = await assinarLeituras(['a.jpg', 'b.jpg', 'a.jpg'], 600)
+    expect([...urls.keys()]).toEqual(['a.jpg', 'b.jpg'])
+    expect(new URL(urls.get('b.jpg')!).searchParams.get('X-Amz-Expires')).toBe('600')
+  })
+
+  it('sem R2 configurado devolve vazio em vez de lançar', async () => {
+    const guardado = process.env.R2_BUCKET
+    delete process.env.R2_BUCKET
+    try {
+      const { assinarLeituras } = await import('./cliente')
+      const silencio = vi.spyOn(console, 'error').mockImplementation(() => {})
+      expect((await assinarLeituras(['a.jpg'])).size).toBe(0)
+      silencio.mockRestore()
+    } finally {
+      process.env.R2_BUCKET = guardado
+    }
+  })
+})

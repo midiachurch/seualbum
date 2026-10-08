@@ -17,8 +17,9 @@ import { isDemoMode } from '@/lib/demo-mode'
  * vezes — rede caiu depois do INSERT, toque duplo — a segunda bate no UNIQUE
  * e devolvemos o pedido que já existe, como sucesso.
  *
- * Fotos: sobem direto do navegador para `pedidos_fotos/{userId}/{chave}/`
- * (passo 3). Aqui só contamos o que está de fato no Storage — o número que vai
+ * Fotos: sobem direto do navegador para o Cloudflare R2, em
+ * `pedidos/{userId}/{chave}/` (passo 3, /api/uploads/pedido-foto). Aqui só
+ * contamos o que a confirmação registrou no índice — o número que vai
  * para `fotos_enviadas` nunca vem do payload. O pedido precisa de fotos
  * enviadas OU do link externo (CHECK `orders_origem_fotos_check`).
  *
@@ -144,13 +145,13 @@ export async function criarPedidoAction(input: NovoPedidoPayload): Promise<Criar
     }
   }
 
-  const fotosEnviadas = await contarFotosNoStorage(supabase, user.id, dados.chaveIdempotencia)
+  const fotosEnviadas = await contarFotosDoRascunho(supabase, user.id, dados.chaveIdempotencia)
   if (fotosEnviadas === null) {
     return { ok: false, erro: 'Não foi possível conferir as fotos enviadas. Tente de novo.' }
   }
   if (fotosEnviadas === 0 && !dados.linkFotos) {
     // Também é o caso do rascunho parado há mais de 72h: a limpeza automática
-    // (migrations 0015/0016) apaga as fotos, mas o navegador ainda as lista.
+    // (/api/cron/limpar-fotos-r2) apaga as fotos, mas o navegador ainda as lista.
     return {
       ok: false,
       erro: 'Não encontramos as fotos deste pedido. Rascunhos parados por mais de 72h têm as fotos apagadas — volte ao passo 3, remova as fotos da lista e envie de novo (ou informe o link da pasta).',
@@ -197,22 +198,22 @@ export async function criarPedidoAction(input: NovoPedidoPayload): Promise<Criar
 
 type SupabaseServer = NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>
 
-/** Conta os arquivos na pasta do rascunho. `null` = não deu para listar. */
-async function contarFotosNoStorage(supabase: SupabaseServer, userId: string, chave: string) {
-  const PAGINA = 1000
-  let total = 0
-  for (let offset = 0; ; offset += PAGINA) {
-    const { data, error } = await supabase.storage
-      .from('pedidos_fotos')
-      .list(`${userId}/${chave}`, { limit: PAGINA, offset })
-    if (error) {
-      console.error('[criarPedidoAction] storage.list', error)
-      return null
-    }
-    // Pastas vêm com `id: null`; só arquivos contam.
-    total += data.filter((item) => item.id !== null).length
-    if (data.length < PAGINA) return total
+/**
+ * Conta as fotos do rascunho no índice do R2 (`pedidos_fotos_r2`, 0030): só
+ * entra ali o que a rota de confirmação viu de fato no R2. A RLS só mostra as
+ * linhas do próprio fotógrafo. `null` = não deu para contar.
+ */
+async function contarFotosDoRascunho(supabase: SupabaseServer, userId: string, chave: string) {
+  const { count, error } = await supabase
+    .from('pedidos_fotos_r2')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', userId)
+    .eq('chave_idempotencia', chave)
+  if (error) {
+    console.error('[criarPedidoAction] contar fotos', error.message)
+    return null
   }
+  return count ?? 0
 }
 
 /** Busca o pedido que a requisição anterior criou. A RLS só mostra os do próprio fotógrafo. */

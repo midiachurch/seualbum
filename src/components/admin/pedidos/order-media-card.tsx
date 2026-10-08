@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { AlertCircle, Download, ExternalLink, Loader2 } from 'lucide-react'
+import { AlertCircle, Download, ExternalLink, Eye, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { gerarLinksDownloadAction } from '@/lib/actions/pedidos-admin'
@@ -16,7 +16,7 @@ interface OrderMediaCardProps {
   orderId: string
   linkExterno: string | null
   fotosEnviadas: number
-  /** `null` = erro ao listar o Storage. */
+  /** `null` = erro ao ler o índice das fotos. */
   arquivos: ArquivoPedido[] | null
 }
 
@@ -49,6 +49,28 @@ export function OrderMediaCard({ orderId, linkExterno, fotosEnviadas, arquivos }
       setErro('Sem conexão com o servidor. Tente de novo.')
     } finally {
       setBaixando(null)
+    }
+  }
+
+  /** Abre a foto original numa aba. A aba nasce antes do await: senão o navegador bloqueia o pop-up. */
+  async function visualizar(arquivo: ArquivoPedido) {
+    setErro(null)
+    const aba = window.open('', '_blank')
+    try {
+      const result = await gerarLinksDownloadAction(orderId, [arquivo.path], 'visualizar')
+      if (!result.ok) {
+        aba?.close()
+        return setErro(result.erro)
+      }
+      if (aba) {
+        aba.opener = null
+        aba.location.href = result.links[0].url
+      } else {
+        window.open(result.links[0].url, '_blank', 'noopener')
+      }
+    } catch {
+      aba?.close()
+      setErro('Sem conexão com o servidor. Tente de novo.')
     }
   }
 
@@ -141,7 +163,7 @@ export function OrderMediaCard({ orderId, linkExterno, fotosEnviadas, arquivos }
         {arquivos === null ? (
           <p className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" aria-hidden />
-            Não foi possível listar as fotos no Storage. Recarregue a página.
+            Não foi possível listar as fotos deste pedido. Recarregue a página.
           </p>
         ) : arquivos.length > 0 ? (
           <ul className="divide-y rounded-xl border">
@@ -151,6 +173,17 @@ export function OrderMediaCard({ orderId, linkExterno, fotosEnviadas, arquivos }
                   <p className="truncate text-sm font-medium">{arquivo.nome}</p>
                   <p className="text-xs text-muted-foreground">{formatarTamanho(arquivo.tamanho)}</p>
                 </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => visualizar(arquivo)}
+                  disabled={ocupado}
+                  aria-label={`Ver ${arquivo.nome} em alta resolução`}
+                >
+                  <Eye className="h-4 w-4" aria-hidden />
+                  Ver em alta
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -170,10 +203,10 @@ export function OrderMediaCard({ orderId, linkExterno, fotosEnviadas, arquivos }
             ))}
           </ul>
         ) : fotosEnviadas > 0 ? (
-          // O banco diz que houve upload, mas a pasta está vazia: arquivos apagados à mão?
+          // O pedido diz que houve upload, mas o índice está vazio: fotos apagadas à mão?
           <p className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" aria-hidden />
-            O pedido registra {fotosEnviadas} {fotosEnviadas === 1 ? 'foto' : 'fotos'}, mas a pasta no Storage está vazia.
+            O pedido registra {fotosEnviadas} {fotosEnviadas === 1 ? 'foto' : 'fotos'}, mas nenhuma foi encontrada no armazenamento.
           </p>
         ) : linkExterno ? (
           <p className="text-sm text-muted-foreground">

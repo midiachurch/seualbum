@@ -9,6 +9,8 @@
  */
 
 export const PREFIXO_PEDIDOS = 'pedidos'
+/** Valor de `fotos.bucket` / `versoes_laminas.bucket` quando o arquivo está no R2. */
+export const BUCKET_R2 = 'r2'
 export const TAMANHO_MAXIMO_FOTO_R2 = 50 * 1024 * 1024 // mesmo limite do bucket do Supabase
 
 export const MIMES_FOTO_PEDIDO = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp'])
@@ -70,4 +72,19 @@ export function validarPedidoDeEnvio(corpo: unknown): { ok: true; dados: PedidoD
   }
   if (c.tamanho > TAMANHO_MAXIMO_FOTO_R2) return { ok: false, erro: 'Maior que 50 MB. Envie esta pelo link externo.' }
   return { ok: true, dados: { chave: c.chave, idArquivo: c.idArquivo, nome: c.nome, tipo: c.tipo, tamanho: c.tamanho } }
+}
+
+/**
+ * EXIF de captura enviado na confirmação, no formato das colunas de
+ * `pedidos_fotos_r2` (0031). Qualquer coisa fora do formato vira `null` —
+ * o mesmo critério de `_captura_ou_nulo` no banco.
+ */
+export function lerExifConfirmacao(corpo: unknown): { capturada_em: string | null; camera: string | null } {
+  const c = (corpo ?? {}) as Record<string, unknown>
+  const captura =
+    typeof c.capturadaEm === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/.test(c.capturadaEm)
+      ? c.capturadaEm
+      : null
+  const camera = typeof c.camera === 'string' && c.camera.trim() ? c.camera.trim().slice(0, 80) : null
+  return { capturada_em: captura, camera }
 }

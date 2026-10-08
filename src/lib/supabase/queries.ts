@@ -21,6 +21,8 @@ import {
 } from '@/lib/mappers'
 import { MOCK_BANNERS, MOCK_MEDIA_ASSETS, MOCK_PORTFOLIO_COLLECTIONS } from '@/lib/mock-vitrine-data'
 import { getSlaInfo } from '@/lib/sla'
+import { BUCKET_R2 } from '@/lib/r2/chaves'
+import { assinarLeituras } from '@/lib/r2/cliente'
 import {
   canAccess,
   EQUIPE_ROLES,
@@ -54,6 +56,7 @@ import type {
   FaturaRow,
   NotificacaoCrmRow,
   FotoRow,
+  PedidoFotoR2Row,
   ProvaComentarioRow,
   VersaoLaminaRow,
   FotografoRow,
@@ -394,52 +397,40 @@ export async function getOrderDetalhe(id: string): Promise<OrderDetalhe | null> 
 }
 
 export interface ArquivoPedido {
+  /** Chave do objeto no Cloudflare R2. */
   path: string
-  /** Nome sem o prefixo `{uuid}-` que o upload adiciona. */
   nome: string
   tamanho: number
 }
 
-/** Pasta das fotos do pedido no bucket `pedidos_fotos` (convenção da migration 0011). */
-export function pastaFotosPedido(order: Pick<Order, 'client_id' | 'chave_idempotencia'>) {
-  return order.chave_idempotencia ? `${order.client_id}/${order.chave_idempotencia}` : null
-}
-
 /**
- * Arquivos enviados pelo wizard. Só lista — as URLs assinadas saem sob demanda
- * em `gerarLinksDownloadAction`, para não expirarem com a aba aberta.
- * `null` = não deu para listar (erro de Storage).
+ * Fotos enviadas pelo wizard, do índice `pedidos_fotos_r2` (migration 0030).
+ * Só lista — as URLs assinadas saem sob demanda em `gerarLinksDownloadAction`,
+ * para não expirarem com a aba aberta. `null` = não deu para ler o índice.
  */
 export async function getArquivosPedido(
   order: Pick<Order, 'client_id' | 'chave_idempotencia'>,
 ): Promise<ArquivoPedido[] | null> {
-  const pasta = pastaFotosPedido(order)
-  if (isDemoMode() || !pasta) return []
+  if (isDemoMode() || !order.chave_idempotencia) return []
 
   const { supabase } = await requireAdmin()
   if (!supabase) return []
 
-  const PAGINA = 1000
-  const arquivos: ArquivoPedido[] = []
-  for (let offset = 0; ; offset += PAGINA) {
-    const { data, error } = await supabase.storage
-      .from('pedidos_fotos')
-      .list(pasta, { limit: PAGINA, offset, sortBy: { column: 'name', order: 'asc' } })
-    if (error) {
-      console.error('[getArquivosPedido]', error.message)
-      return null
-    }
-    for (const item of data) {
-      if (item.id === null) continue // subpasta
-      arquivos.push({
-        path: `${pasta}/${item.name}`,
-        nome: item.name.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, ''),
-        tamanho: Number(item.metadata?.size ?? 0),
-      })
-    }
-    if (data.length < PAGINA) break
+  const { data, error } = await lerTodasAsLinhas<Pick<PedidoFotoR2Row, 'r2_key' | 'nome_original' | 'tamanho'>>((de, ate) =>
+    supabase
+      .from('pedidos_fotos_r2')
+      .select('r2_key, nome_original, tamanho')
+      .eq('client_id', order.client_id)
+      .eq('chave_idempotencia', order.chave_idempotencia!)
+      .order('nome_original', { ascending: true })
+      .order('r2_key', { ascending: true })
+      .range(de, ate),
+  )
+  if (error) {
+    console.error('[getArquivosPedido]', error.message)
+    return null
   }
-  return arquivos
+  return data.map((f) => ({ path: f.r2_key, nome: f.nome_original, tamanho: Number(f.tamanho) }))
 }
 
 /** Clientes visíveis para o usuário atual (RLS: equipe vê todos, fotógrafo só os seus). */
@@ -547,6 +538,14 @@ async function assinarArquivos(
 
   const porBucket = new Map<string, string[]>()
   for (const a of arquivos) porBucket.set(a.bucket, [...(porBucket.get(a.bucket) ?? []), a.path])
+
+  // Arquivos no Cloudflare R2: quem chegou até aqui já leu a linha (`fotos`,
+  // `versoes_laminas`) pela RLS — essa é a checagem de acesso.
+  const doR2 = porBucket.get(BUCKET_R2)
+  porBucket.delete(BUCKET_R2)
+  if (doR2) {
+    for (const [key, url] of await assinarLeituras(doR2, EXPIRACAO_SEGUNDOS)) assinadas.set(`${BUCKET_R2}:${key}`, url)
+  }
 
   await Promise.all(
     [...porBucket].flatMap(([bucket, paths]) =>
