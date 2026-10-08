@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Layers, MessageSquareText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/orders/status-badge'
 import { SendProofAction } from '@/components/admin/send-proof-action'
@@ -82,6 +82,26 @@ export default async function PedidoDetailPage({ params }: { params: Promise<{ i
 
           <section className="rounded-2xl border bg-card p-5">
             <h2 className="mb-3 text-base font-semibold">Prova</h2>
+            {order.projeto_id ? (
+              // Revisão do álbum: versões (completas ou só das lâminas alteradas)
+              // e as orientações do cliente vivem no projeto de produção.
+              <div className="mb-4 flex flex-col gap-2">
+                <Button asChild variant="brand" size="sm">
+                  <Link href={`/admin/projetos/${order.projeto_id}`}>
+                    <Layers className="h-4 w-4" aria-hidden />
+                    Versões e envio de lâminas
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/admin/projetos/${order.projeto_id}/prova`}>
+                    <MessageSquareText className="h-4 w-4" aria-hidden />
+                    Orientações do cliente
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <p className="mb-3 text-sm text-muted-foreground">O projeto de produção nasce quando o pedido é liberado (pago).</p>
+            )}
             <SendProofAction orderId={order.id} initialLink={order.link_aprovacao} />
           </section>
         </aside>

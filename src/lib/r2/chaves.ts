@@ -88,3 +88,42 @@ export function lerExifConfirmacao(corpo: unknown): { capturada_em: string | nul
   const camera = typeof c.camera === 'string' && c.camera.trim() ? c.camera.trim().slice(0, 80) : null
   return { capturada_em: captura, camera }
 }
+
+/* --------------------------------- lâminas -------------------------------- */
+
+// Chave: projetos/{projetoId}/versoes/{lote}/{idArquivo}-{nome} — o `lote` é
+// fixo por tentativa de envio de uma versão (reenviar reaproveita o que subiu).
+export const PREFIXO_PROJETOS = 'projetos'
+export const TAMANHO_MAXIMO_LAMINA_R2 = 50 * 1024 * 1024
+// A prova e a gráfica trabalham com JPG por lâmina.
+export const MIMES_LAMINA = new Set(['image/jpeg'])
+
+export function pastaLoteLaminas(projetoId: string, lote: string) {
+  return `${PREFIXO_PROJETOS}/${projetoId}/versoes/${lote}`
+}
+
+export function chaveLamina(p: { projetoId: string; lote: string; idArquivo: string; nome: string }) {
+  return `${pastaLoteLaminas(p.projetoId, p.lote)}/${p.idArquivo}-${nomeSeguro(p.nome)}`
+}
+
+/** A chave é uma lâmina DESTE projeto e DESTE lote? (nunca registrar arquivo de outra pasta) */
+export function chaveEhDoLote(key: unknown, projetoId: string, lote: string): key is string {
+  if (typeof key !== 'string' || key.includes('..')) return false
+  const pasta = `${pastaLoteLaminas(projetoId, lote)}/`
+  if (!key.startsWith(pasta)) return false
+  return /^[0-9a-f-]{36}-[a-zA-Z0-9._-]{1,80}$/i.test(key.slice(pasta.length))
+}
+
+export type PedidoDeEnvioLamina = { projetoId: string; lote: string; idArquivo: string; nome: string; tipo: string; tamanho: number }
+
+/** Valida o corpo de POST /api/uploads/lamina. */
+export function validarEnvioLamina(corpo: unknown): { ok: true; dados: PedidoDeEnvioLamina } | { ok: false; erro: string } {
+  const c = (corpo ?? {}) as Record<string, unknown>
+  if (!ehUuid(c.projetoId) || !ehUuid(c.lote)) return { ok: false, erro: 'Envio inválido.' }
+  if (!ehUuid(c.idArquivo)) return { ok: false, erro: 'Arquivo inválido.' }
+  if (typeof c.nome !== 'string' || c.nome.trim() === '' || c.nome.length > 255) return { ok: false, erro: 'Nome de arquivo inválido.' }
+  if (typeof c.tipo !== 'string' || !MIMES_LAMINA.has(c.tipo)) return { ok: false, erro: 'As lâminas precisam ser JPG.' }
+  if (typeof c.tamanho !== 'number' || !Number.isInteger(c.tamanho) || c.tamanho <= 0) return { ok: false, erro: 'Tamanho de arquivo inválido.' }
+  if (c.tamanho > TAMANHO_MAXIMO_LAMINA_R2) return { ok: false, erro: 'Lâmina maior que 50 MB.' }
+  return { ok: true, dados: { projetoId: c.projetoId, lote: c.lote, idArquivo: c.idArquivo, nome: c.nome, tipo: c.tipo, tamanho: c.tamanho } }
+}

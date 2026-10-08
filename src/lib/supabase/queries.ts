@@ -599,7 +599,7 @@ async function carregarLaminas(
   const linhas = (data ?? []) as VersaoLaminaRow[]
   const urls = await assinarArquivos(supabase, linhas.map((l) => ({ bucket: l.bucket, path: l.storage_path })))
   for (const l of linhas) {
-    const lamina: Lamina = { id: l.id, ordem: l.ordem, url: urls.get(`${l.bucket}:${l.storage_path}`) ?? '', largura: l.largura, altura: l.altura, ehCapa: l.eh_capa }
+    const lamina: Lamina = { id: l.id, ordem: l.ordem, url: urls.get(`${l.bucket}:${l.storage_path}`) ?? '', largura: l.largura, altura: l.altura, ehCapa: l.eh_capa, alterada: l.alterada ?? true }
     porVersao.set(l.versao_id, [...(porVersao.get(l.versao_id) ?? []), lamina])
   }
   return porVersao
@@ -737,6 +737,8 @@ export async function getProofComments(projetoId: string): Promise<import('@/typ
     // numeric do Postgres chega como string pelo PostgREST.
     posicaoX: r.posicao_x === null ? null : Number(r.posicao_x),
     posicaoY: r.posicao_y === null ? null : Number(r.posicao_y),
+    areaLargura: r.area_largura == null ? null : Number(r.area_largura),
+    areaAltura: r.area_altura == null ? null : Number(r.area_altura),
     resolvido: r.resolvido ?? false,
     resolvidoEm: r.resolvido_em ?? null,
   }))

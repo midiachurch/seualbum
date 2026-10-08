@@ -7,6 +7,9 @@ import { mapPhoto } from '@/lib/mappers'
 import { generateSmartLayout } from '@/lib/smart-layout'
 import { colunasDoApontamento, type Apontamento } from '@/lib/apontamento'
 import { normalizarAdicionais } from '@/lib/adicionais'
+import { arquivosNovos, comporVersaoCompleta, comporVersaoParcial, type LaminaBase } from '@/lib/prova/versao-parcial'
+import { chaveEhDoLote } from '@/lib/r2/chaves'
+import { metadadosDoObjeto, r2Configurado } from '@/lib/r2/cliente'
 import type { AlbumConfig, Briefing, ItemEscolhido, ProjectStatus } from '@/types/platform'
 import type { FotoRow } from '@/types/database'
 
@@ -159,7 +162,8 @@ export async function addDesignVersion(projetoId: string, arquivoUrl: string, co
  * muda a origem dos dados, `gerado_automaticamente = true`.
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const MAX_LAMINAS = 300
+/** Quantos HeadObject no R2 em paralelo ao conferir as lâminas enviadas. */
+const CONFERENCIAS_SIMULTANEAS = 8
 
 export interface LaminaEnviada {
   storagePath: string
@@ -168,51 +172,91 @@ export interface LaminaEnviada {
   altura: number | null
 }
 
+/** Versão parcial: o que muda em relação à versão-base (ver lib/prova/versao-parcial). */
+export interface VersaoParcialInput {
+  baseVersaoId: string
+  substituir: LaminaEnviada[]
+  remover: number[]
+  adicionar: Omit<LaminaEnviada, 'ordem'>[]
+}
+
 /**
- * Upload em massa de lâminas (migration 0018). As imagens já subiram do
- * navegador para `projetos_fotos/{projetoId}/versoes/{lote}/`; aqui a versão
+ * Cria uma versão da prova com lâminas (migrations 0018/0032). As imagens já
+ * subiram do navegador para o Cloudflare R2, em
+ * `projetos/{projetoId}/versoes/{lote}/` (/api/uploads/lamina); aqui a versão
  * nasce e as lâminas são registradas em ordem.
  *
- * O navegador só informa caminhos — cada um é conferido contra o que existe
- * de fato na pasta do lote, então não dá para "registrar" arquivo alheio.
- * Se gravar as lâminas falhar, a versão é desfeita (não fica versão vazia).
+ * Duas formas:
+ *   - completa (`laminas`): todas as lâminas da versão;
+ *   - parcial (`parcial`): parte da versão mais recente e só substitui,
+ *     remove ou acrescenta as lâminas que mudaram — o resto é herdado.
+ *
+ * O navegador só informa chaves — cada arquivo novo precisa estar na pasta do
+ * lote E existir no R2 (HeadObject), então não dá para "registrar" arquivo
+ * alheio. Se gravar as lâminas falhar, a versão é desfeita.
  */
 export async function criarVersaoComLaminas(input: {
   projetoId: string
   lote: string
-  laminas: LaminaEnviada[]
+  laminas?: LaminaEnviada[]
+  parcial?: VersaoParcialInput
   comentarios: string | null
-  /** A lâmina de ordem 1 é a capa — não conta na franquia (migration 0023). */
+  /** A lâmina de ordem 1 é a capa — não conta na franquia (migration 0023). Só na versão completa. */
   primeiraEhCapa?: boolean
-}): Promise<{ versaoId: string; numero: number }> {
+}): Promise<{ versaoId: string; numero: number; laminas: number; alteradas: number }> {
   assertRealMode()
   const { supabase } = await requireEdicaoDeProducao()
   if (!supabase) throw new Error('Sem conexão com o banco.')
 
-  const { projetoId, lote, laminas } = input
+  const { projetoId, lote } = input
   if (!UUID_RE.test(projetoId) || !UUID_RE.test(lote)) throw new Error('Envio inválido.')
-  if (!Array.isArray(laminas) || laminas.length === 0) throw new Error('Envie pelo menos uma lâmina.')
-  if (laminas.length > MAX_LAMINAS) throw new Error(`No máximo ${MAX_LAMINAS} lâminas por versão.`)
+  if (!r2Configurado()) throw new Error('Armazenamento de lâminas não configurado. Fale com o suporte técnico.')
 
-  const pasta = `${projetoId}/versoes/${lote}`
-  const ordens = laminas.map((l) => l.ordem).sort((a, b) => a - b)
-  if (ordens.some((o, i) => o !== i + 1)) throw new Error('Ordem das lâminas inválida.')
-  const dimensaoOk = (v: number | null) => v === null || (Number.isInteger(v) && v > 0 && v < 100_000)
-  for (const l of laminas) {
-    const nome = typeof l.storagePath === 'string' ? l.storagePath.slice(pasta.length + 1) : ''
-    if (!l.storagePath?.startsWith(`${pasta}/`) || !nome || nome.includes('/') || nome.includes('..')) {
-      throw new Error('Arquivo fora da pasta deste envio.')
-    }
-    if (!dimensaoOk(l.largura) || !dimensaoOk(l.altura)) throw new Error('Dimensões de lâmina inválidas.')
+  let composicao: ReturnType<typeof comporVersaoCompleta>
+  let baseVersaoId: string | null = null
+  if (input.parcial) {
+    const p = input.parcial
+    if (!UUID_RE.test(p.baseVersaoId)) throw new Error('Versão-base inválida.')
+    // A parcial sempre parte da versão mais recente: é a que o cliente viu.
+    const { data: ultima } = await supabase
+      .from('design_versions')
+      .select('id, numero')
+      .eq('projeto_id', projetoId)
+      .order('numero', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!ultima || ultima.id !== p.baseVersaoId) throw new Error('A versão-base precisa ser a mais recente do projeto. Recarregue a página.')
+    const { data: base, error: baseError } = await supabase
+      .from('versoes_laminas')
+      .select('id, ordem, bucket, storage_path, largura, altura, eh_capa')
+      .eq('versao_id', p.baseVersaoId)
+      .order('ordem', { ascending: true })
+    if (baseError) throw new Error('Não foi possível ler as lâminas da versão-base.')
+    composicao = comporVersaoParcial((base ?? []) as LaminaBase[], {
+      substituir: p.substituir ?? [],
+      remover: p.remover ?? [],
+      adicionar: p.adicionar ?? [],
+    })
+    baseVersaoId = p.baseVersaoId
+  } else {
+    composicao = comporVersaoCompleta(input.laminas ?? [], Boolean(input.primeiraEhCapa))
   }
+  if (!composicao.ok) throw new Error(composicao.erro)
+  const laminas = composicao.laminas
 
-  const { data: noStorage, error: listError } = await supabase.storage
-    .from('projetos_fotos')
-    .list(pasta, { limit: MAX_LAMINAS + 1 })
-  if (listError) throw new Error('Não foi possível conferir os arquivos enviados.')
-  const existentes = new Set((noStorage ?? []).filter((o) => o.id !== null).map((o) => `${pasta}/${o.name}`))
-  const faltando = laminas.filter((l) => !existentes.has(l.storagePath)).length
-  if (faltando > 0) throw new Error(`${faltando} lâmina(s) não chegaram ao Storage. Envie de novo.`)
+  const novos = arquivosNovos(laminas)
+  if (novos.some((key) => !chaveEhDoLote(key, projetoId, lote))) throw new Error('Arquivo fora da pasta deste envio.')
+  let faltando = 0
+  try {
+    for (let i = 0; i < novos.length; i += CONFERENCIAS_SIMULTANEAS) {
+      const lote8 = await Promise.all(novos.slice(i, i + CONFERENCIAS_SIMULTANEAS).map((key) => metadadosDoObjeto(key)))
+      faltando += lote8.filter((m) => m === null).length
+    }
+  } catch (e) {
+    console.error('[criarVersaoComLaminas] R2', e)
+    throw new Error('Não foi possível conferir as lâminas no armazenamento. Tente de novo.')
+  }
+  if (faltando > 0) throw new Error(`${faltando} lâmina(s) não chegaram ao armazenamento. Envie de novo.`)
 
   const { data: userData } = await supabase.auth.getUser()
 
@@ -235,6 +279,7 @@ export async function criarVersaoComLaminas(input: {
         responsavel_id: userData.user?.id ?? null,
         comentarios: input.comentarios?.trim().slice(0, 2000) || null,
         status: 'enviada',
+        base_versao_id: baseVersaoId,
       })
       .select('id, numero')
       .single()
@@ -243,16 +288,7 @@ export async function criarVersaoComLaminas(input: {
   }
   if (!versao) throw new Error('Não foi possível numerar a versão. Tente de novo.')
 
-  const { error: laminasError } = await supabase.from('versoes_laminas').insert(
-    laminas.map((l) => ({
-      versao_id: versao.id,
-      ordem: l.ordem,
-      storage_path: l.storagePath,
-      largura: l.largura,
-      altura: l.altura,
-      eh_capa: Boolean(input.primeiraEhCapa) && l.ordem === 1,
-    })),
-  )
+  const { error: laminasError } = await supabase.from('versoes_laminas').insert(laminas.map((l) => ({ versao_id: versao.id, ...l })))
   if (laminasError) {
     await supabase.from('design_versions').delete().eq('id', versao.id)
     throw new Error(`Não foi possível registrar as lâminas: ${laminasError.message}`)
@@ -271,16 +307,20 @@ export async function criarVersaoComLaminas(input: {
   const nAplicados = aplicados?.length ?? 0
 
   await supabase.from('projetos').update({ status: 'em_revisao_interna' }).eq('id', projetoId)
+  const alteradas = novos.length
   await logActivity(
     supabase,
     projetoId,
-    `Nova versão com ${laminas.length} ${laminas.length === 1 ? 'lâmina' : 'lâminas'} enviada para revisão interna (v${versao.numero}).` +
+    (baseVersaoId
+      ? `Nova versão parcial (v${versao.numero}): ${alteradas} ${alteradas === 1 ? 'lâmina alterada' : 'lâminas alteradas'} de ${laminas.length}, enviada para revisão interna.`
+      : `Nova versão com ${laminas.length} ${laminas.length === 1 ? 'lâmina' : 'lâminas'} enviada para revisão interna (v${versao.numero}).`) +
       (nAplicados > 0 ? ` ${nAplicados} ${nAplicados === 1 ? 'apontamento pendente marcado' : 'apontamentos pendentes marcados'} como aplicado${nAplicados === 1 ? '' : 's'}.` : ''),
   )
 
   revalidatePath(`/admin/projetos/${projetoId}`)
   revalidatePath('/admin/design')
-  return { versaoId: versao.id, numero: versao.numero }
+  revalidatePath(`/admin/projetos/${projetoId}/prova`)
+  return { versaoId: versao.id, numero: versao.numero, laminas: laminas.length, alteradas }
 }
 
 export async function createSmartLayoutVersion(projetoId: string) {

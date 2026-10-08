@@ -235,6 +235,8 @@ export type DesignVersionRow = {
   quantidade_paginas: number | null
   layout_json: { numero: number; fotoIds: string[] }[] | null
   gerado_automaticamente: boolean
+  /** Versão parcial (0032): a versão de onde as lâminas não trocadas foram herdadas. */
+  base_versao_id: string | null
   created_at: string
 }
 
@@ -267,6 +269,9 @@ export type ProvaComentarioRow = {
   lamina_id: string | null
   posicao_x: number | null
   posicao_y: number | null
+  /** Apontamento por área (0032): retângulo em %, canto superior esquerdo em posicao_x/y. */
+  area_largura: number | null
+  area_altura: number | null
   /** A equipe marcou como resolvido (migration 0019); horário carimbado pelo banco. */
   resolvido: boolean
   resolvido_em: string | null
@@ -397,12 +402,16 @@ export type VersaoLaminaRow = {
   id: string
   versao_id: string
   ordem: number
-  bucket: 'projetos_fotos'
+  /** 'r2' = `storage_path` é a chave no Cloudflare R2 (migration 0032). */
+  bucket: 'projetos_fotos' | 'r2'
   storage_path: string
   largura: number | null
   altura: number | null
   /** A capa não conta na franquia de lâminas (migration 0023). */
   eh_capa: boolean
+  /** Versão parcial (0032): false = herdada sem mudança da versão-base. */
+  alterada: boolean
+  origem_lamina_id: string | null
   created_at: string
 }
 

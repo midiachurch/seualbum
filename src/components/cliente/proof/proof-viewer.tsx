@@ -14,6 +14,7 @@ import {
   Eye,
   ImageOff,
   Layers,
+  LayoutGrid,
   Gift,
   Lock,
   Minus,
@@ -29,6 +30,7 @@ import { MODAL_ACOES, Modal } from '@/components/ui/modal'
 import { ComparadorVersoes } from '@/components/cliente/proof/comparador-versoes'
 import { addProofComment, clientApprove, clientRequestChanges, marcarComentarioResolvido } from '@/lib/actions/projetos'
 import { fotografoAprovar, fotografoComentar, fotografoPedirAjustes } from '@/lib/actions/prova-fotografo'
+import { AREA_MINIMA } from '@/lib/apontamento'
 import { cn, formatBRL, formatDate, rolagemSuave } from '@/lib/utils'
 import type { DesignVersion, ItemEscolhido, Lamina, OfertaAdicional, ProofComment, ResumoExcedente } from '@/types/platform'
 
@@ -52,6 +54,12 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
  * marcado como resolvido — o pin fica verde e translúcido, com check, e a
  * barra de baixo conta o que ainda falta corrigir naquela versão.
  *
+ * Galeria (migration 0032): a prova abre com todas as lâminas lado a lado;
+ * numa versão parcial, as que mudaram ganham o selo "Alterada" e dá para
+ * filtrar só elas. O painel lateral da galeria lista TODAS as orientações da
+ * versão, numeradas — clicar leva à lâmina com o ponto destacado. Aberta a
+ * lâmina, tocar marca um ponto e arrastar (mouse/caneta) marca uma área.
+ *
  * Fase 3 (migration 0018): as lâminas são as imagens reais da versão
  * (`versoes_laminas`), num carrossel com scroll-snap (arrastar no celular,
  * setas/teclado no desktop). Tocar numa lâmina marca um PIN: o comentário
@@ -63,7 +71,7 @@ const ACOES = {
   equipe: null,
 } as const
 
-type PinRascunho = { laminaId: string; x: number; y: number }
+type PinRascunho = { laminaId: string; x: number; y: number; largura?: number; altura?: number }
 
 export function ProofViewer({
   projectId,
@@ -134,13 +142,22 @@ export function ProofViewer({
   const [proporcoes, setProporcoes] = useState<Record<string, number>>({})
   const [alternando, setAlternando] = useState<string | null>(null)
   const [comparando, setComparando] = useState(false)
+  const [vista, setVista] = useState<'galeria' | 'lamina'>('galeria')
+  const [soAlteradas, setSoAlteradas] = useState(false)
+  const [areaRascunho, setAreaRascunho] = useState<PinRascunho | null>(null)
 
   const carrosselRef = useRef<HTMLDivElement>(null)
   const campoRef = useRef<HTMLTextAreaElement>(null)
+  // Arrasto para marcar área: início em % e se o gesto virou arrasto (o click depois não marca ponto).
+  const arrastoRef = useRef<{ laminaId: string; x: number; y: number } | null>(null)
+  const arrastouRef = useRef(false)
 
   const versaoAtual = versoesOrdenadas.find((v) => v.numero === versaoSelecionada)
   const laminas: Lamina[] = useMemo(() => [...(versaoAtual?.laminas ?? [])].sort((a, b) => a.ordem - b.ordem), [versaoAtual])
   const laminaAtual = laminas[pageIndex] ?? null
+  // Versão parcial: herdou lâminas da anterior (as herdadas vêm com alterada = false).
+  const versaoParcial = laminas.some((l) => l.alterada === false)
+  const nAlteradas = laminas.filter((l) => l.alterada !== false).length
 
   // Comparar (equipe): a versão anterior à selecionada, com os pins dela.
   const indiceSelecionada = versoesOrdenadas.findIndex((v) => v.numero === versaoSelecionada)
@@ -176,8 +193,34 @@ export function ProofViewer({
   useEffect(() => {
     setPageIndex(0)
     setPinRascunho(null)
+    setSoAlteradas(false)
     carrosselRef.current?.scrollTo({ left: 0 })
   }, [versaoSelecionada])
+
+  // Comparar só existe lâmina a lâmina.
+  useEffect(() => {
+    if (emComparacao) setVista('lamina')
+  }, [emComparacao])
+
+  // Galeria → lâmina: o carrossel monta agora; posiciona sem animação.
+  useEffect(() => {
+    if (vista !== 'lamina') return
+    const el = carrosselRef.current
+    if (el) el.scrollTo({ left: pageIndex * el.clientWidth })
+    // Só na troca de vista; depois o índice segue o scroll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista])
+
+  function abrirLamina(indice: number, comentarioId?: string) {
+    setPageIndex(indice)
+    setPinRascunho(null)
+    setDestacado(comentarioId ?? null)
+    setVista('lamina')
+    if (vista === 'lamina') {
+      const el = carrosselRef.current
+      if (el) el.scrollTo({ left: indice * el.clientWidth, behavior: rolagemSuave() })
+    }
+  }
 
   const irPara = useCallback(
     (indice: number) => {
@@ -223,15 +266,68 @@ export function ProofViewer({
     function onKey(e: KeyboardEvent) {
       const alvo = e.target as HTMLElement | null
       if (alvo && ['TEXTAREA', 'INPUT'].includes(alvo.tagName)) return
+      if (vista !== 'lamina') return
+      if (e.key === 'Escape' && !emComparacao) setVista('galeria')
       if (e.key === 'ArrowRight') irPara(pageIndex + 1)
       if (e.key === 'ArrowLeft') irPara(pageIndex - 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [irPara, pageIndex])
+  }, [irPara, pageIndex, vista, emComparacao])
+
+  /** Posição do ponteiro em % da lâmina (0–100, presa nas bordas). */
+  function emPorcento(e: React.PointerEvent<HTMLDivElement>) {
+    const r = e.currentTarget.getBoundingClientRect()
+    const prender = (v: number) => Math.max(0, Math.min(100, v))
+    return { x: prender(((e.clientX - r.left) / r.width) * 100), y: prender(((e.clientY - r.top) / r.height) * 100) }
+  }
+
+  function retangulo(laminaId: string, a: { x: number; y: number }, b: { x: number; y: number }): PinRascunho {
+    const duas = (v: number) => Math.round(v * 100) / 100
+    return {
+      laminaId,
+      x: duas(Math.min(a.x, b.x)),
+      y: duas(Math.min(a.y, b.y)),
+      largura: duas(Math.abs(a.x - b.x)),
+      altura: duas(Math.abs(a.y - b.y)),
+    }
+  }
+
+  // Área: só com mouse/caneta — no toque, arrastar continua passando as lâminas.
+  function iniciarArea(e: React.PointerEvent<HTMLDivElement>, lamina: Lamina) {
+    if (!interativo || e.pointerType === 'touch' || e.button !== 0) return
+    arrastoRef.current = { laminaId: lamina.id, ...emPorcento(e) }
+    arrastouRef.current = false
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function moverArea(e: React.PointerEvent<HTMLDivElement>) {
+    const inicio = arrastoRef.current
+    if (!inicio) return
+    const area = retangulo(inicio.laminaId, inicio, emPorcento(e))
+    if ((area.largura ?? 0) >= AREA_MINIMA && (area.altura ?? 0) >= AREA_MINIMA) {
+      arrastouRef.current = true
+      setAreaRascunho(area)
+    }
+  }
+
+  function terminarArea(e: React.PointerEvent<HTMLDivElement>) {
+    const inicio = arrastoRef.current
+    arrastoRef.current = null
+    setAreaRascunho(null)
+    if (!inicio || !arrastouRef.current) return
+    setPinRascunho(retangulo(inicio.laminaId, inicio, emPorcento(e)))
+    setDestacado(null)
+    window.setTimeout(() => campoRef.current?.focus(), 50)
+  }
 
   function marcarPin(e: React.MouseEvent<HTMLDivElement>, lamina: Lamina) {
     if (!interativo) return
+    // O click que fecha um arrasto não vira ponto.
+    if (arrastouRef.current) {
+      arrastouRef.current = false
+      return
+    }
     const r = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - r.left) / r.width) * 100
     const y = ((e.clientY - r.top) / r.height) * 100
@@ -257,6 +353,8 @@ export function ProofViewer({
       laminaId: laminaAtual?.id ?? null,
       posicaoX: pin?.x ?? null,
       posicaoY: pin?.y ?? null,
+      areaLargura: pin?.largura ?? null,
+      areaAltura: pin?.altura ?? null,
     }
     setComments((prev) => [...prev, novo])
     setDraft('')
@@ -269,7 +367,9 @@ export function ProofViewer({
         pageIndex,
         versaoSelecionada,
         texto,
-        laminaAtual ? { laminaId: laminaAtual.id, x: pin?.x ?? null, y: pin?.y ?? null } : null,
+        laminaAtual
+          ? { laminaId: laminaAtual.id, x: pin?.x ?? null, y: pin?.y ?? null, largura: pin?.largura ?? null, altura: pin?.altura ?? null }
+          : null,
       )
     } catch {
       // Não some em silêncio: devolve o texto e o pin para tentar de novo.
@@ -335,7 +435,7 @@ export function ProofViewer({
         .filter((c) => c.versao === versaoMaisRecente)
         .map((c) => {
           const n = numeroDoPin.get(c.id)
-          return `Lâmina ${c.pageIndex + 1}${n ? ` (pin ${n})` : ''}: ${c.texto}`
+          return `Lâmina ${c.pageIndex + 1}${n ? ` (${c.areaLargura ? 'área' : 'pin'} ${n})` : ''}: ${c.texto}`
         })
         .join(' | ')
       try {
@@ -443,7 +543,9 @@ export function ProofViewer({
     <div className="space-y-3">
       {commentsForPage.length === 0 ? (
         <p className="text-sm text-white/50">
-          {interativo ? 'Nenhum comentário nesta lâmina ainda. Toque na imagem para marcar um ponto.' : 'Nenhum comentário nesta lâmina.'}
+          {interativo
+            ? 'Nenhuma orientação nesta lâmina ainda. Toque na imagem para marcar um ponto — ou arraste com o mouse para marcar uma área.'
+            : 'Nenhuma orientação nesta lâmina.'}
         </p>
       ) : (
         commentsForPage.map((comment) => {
@@ -530,10 +632,10 @@ export function ProofViewer({
             <p className="flex items-center justify-between gap-2 rounded-lg bg-amber-400/15 px-3 py-2 text-xs text-amber-200">
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" aria-hidden />
-                Comentário no ponto marcado
+                {pinDaLaminaAtual.largura ? 'Comentário na área marcada' : 'Comentário no ponto marcado'}
               </span>
               <button type="button" onClick={() => setPinRascunho(null)} className="min-h-[32px] font-semibold underline underline-offset-2">
-                Tirar ponto
+                {pinDaLaminaAtual.largura ? 'Tirar área' : 'Tirar ponto'}
               </button>
             </p>
           ) : null}
@@ -542,7 +644,7 @@ export function ProofViewer({
               ref={campoRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={pinDaLaminaAtual ? 'O que ajustar neste ponto?' : 'Ex.: Remover esta foto'}
+              placeholder={pinDaLaminaAtual ? (pinDaLaminaAtual.largura ? 'O que ajustar nesta área?' : 'O que ajustar neste ponto?') : 'Descreva a alteração. Ex.: trocar esta foto'}
               rows={2}
               className="min-h-[44px] flex-1 resize-none rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/40"
             />
@@ -565,6 +667,66 @@ export function ProofViewer({
     </div>
   )
 
+  const indiceDaLamina = new Map(laminas.map((l, i) => [l.id, i]))
+  const ListaDaVersao = (
+    <div className="space-y-2">
+      {comentariosDaVersao.length === 0 ? (
+        <p className="text-sm text-white/50">
+          {interativo
+            ? 'Nenhuma orientação ainda. Abra uma lâmina e toque no ponto (ou arraste sobre a área) que precisa mudar.'
+            : 'Nenhuma orientação nesta versão.'}
+        </p>
+      ) : (
+        [...comentariosDaVersao]
+          .map((c) => ({ c, indice: c.laminaId ? (indiceDaLamina.get(c.laminaId) ?? c.pageIndex) : c.pageIndex }))
+          .sort((a, b) => a.indice - b.indice)
+          .map(({ c, indice }) => {
+            const n = numeroDoPin.get(c.id)
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setMobileCommentsOpen(false)
+                  abrirLamina(indice, n ? c.id : undefined)
+                }}
+                className={cn('block w-full rounded-xl bg-white/10 p-3 text-left hover:bg-white/15', c.resolvido && 'bg-emerald-400/10')}
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+                  {laminas[indice]?.ehCapa && indice === 0 ? 'Capa' : `Lâmina ${indice + 1}`}
+                  {c.areaLargura ? ' · área' : n ? ' · ponto' : ''}
+                </p>
+                <p className="mt-1 flex items-start gap-2 text-sm text-white">
+                  {n ? (
+                    <span
+                      className={cn(
+                        'mt-0.5 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-bold text-[#171717]',
+                        c.resolvido ? 'bg-emerald-400' : 'bg-amber-400',
+                      )}
+                    >
+                      {n}
+                    </span>
+                  ) : null}
+                  <span className={cn('min-w-0 whitespace-pre-line [overflow-wrap:anywhere]', c.resolvido && 'text-white/50 line-through decoration-white/30')}>
+                    {c.texto}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-white/50">
+                  {c.autor} · {formatDate(c.data)}
+                  {c.resolvido ? ' · resolvido' : ''}
+                </p>
+              </button>
+            )
+          })
+      )}
+    </div>
+  )
+
+  const naGaleria = vista === 'galeria' && !emComparacao && laminas.length > 0
+  const laminasDaGaleria = laminas
+    .map((l, i) => ({ l, i }))
+    .filter(({ l }) => !soAlteradas || l.alterada !== false)
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#0A0A0A] text-white">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -579,7 +741,11 @@ export function ProofViewer({
         <div className="min-w-0 text-center">
           <p className="truncate text-sm font-medium">{projectName}</p>
           <p className="text-xs text-white/50">
-            {totalLaminas > 0 ? `Lâmina ${pageIndex + 1} de ${totalLaminas}` : `Versão ${versaoSelecionada}`}
+            {naGaleria
+              ? `${laminas.length} ${laminas.length === 1 ? 'lâmina' : 'lâminas'}${versaoParcial ? ` · ${nAlteradas} ${nAlteradas === 1 ? 'alterada' : 'alteradas'} nesta versão` : ''}`
+              : totalLaminas > 0
+                ? `Lâmina ${pageIndex + 1} de ${totalLaminas}${versaoParcial && laminaAtual && laminaAtual.alterada !== false && !emComparacao ? ' · alterada nesta versão' : ''}`
+                : `Versão ${versaoSelecionada}`}
           </p>
         </div>
         {/* Arquivo real enviado pela equipe nesta versão (PDF, link…), quando houver. */}
@@ -683,6 +849,106 @@ export function ProofViewer({
                 {arquivoDaVersao ? ' Abra o arquivo enviado pela equipe no botão acima.' : ''}
               </p>
             </div>
+          ) : naGaleria ? (
+            <div className="flex min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
+              {versaoParcial ? (
+                <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
+                  {(
+                    [
+                      [false, `Todas (${laminas.length})`],
+                      [true, `Só alteradas (${nAlteradas})`],
+                    ] as const
+                  ).map(([valor, rotulo]) => (
+                    <button
+                      key={rotulo}
+                      type="button"
+                      aria-pressed={soAlteradas === valor}
+                      onClick={() => setSoAlteradas(valor)}
+                      className={cn(
+                        'min-h-[36px] rounded-full px-3 text-xs font-medium transition-colors',
+                        soAlteradas === valor ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/70 hover:bg-white/20',
+                      )}
+                    >
+                      {rotulo}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <ul className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3" aria-label={`Lâminas da versão ${versaoSelecionada}`}>
+                {laminasDaGaleria.map(({ l, i }) => {
+                  const daLamina = comentariosDaLamina(l, i)
+                  const pendentes = daLamina.filter((c) => !c.resolvido).length
+                  const proporcao = l.largura && l.altura ? l.largura / l.altura : (proporcoes[l.id] ?? 3 / 2)
+                  return (
+                    <li key={l.id}>
+                      <button
+                        type="button"
+                        onClick={() => abrirLamina(i)}
+                        className="group block w-full text-left focus:outline-none"
+                        aria-label={`Abrir lâmina ${i + 1}${daLamina.length ? `, ${daLamina.length} orientações` : ''}`}
+                      >
+                        <span
+                          className="relative block overflow-hidden rounded-lg bg-white/5 ring-white/60 transition group-hover:ring-2 group-focus-visible:ring-2"
+                          style={{ aspectRatio: String(proporcao) }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- lâmina via link assinado (URL expira; next/image não se aplica). */}
+                          <img
+                            src={l.url}
+                            alt=""
+                            loading={i < 6 ? 'eager' : 'lazy'}
+                            decoding="async"
+                            draggable={false}
+                            onLoad={(e) => {
+                              const img = e.currentTarget
+                              if (!l.largura && img.naturalWidth && img.naturalHeight) {
+                                setProporcoes((p) => ({ ...p, [l.id]: img.naturalWidth / img.naturalHeight }))
+                              }
+                            }}
+                            className="h-full w-full select-none object-contain"
+                          />
+                          {daLamina
+                            .filter((c) => c.posicaoX != null && c.posicaoY != null)
+                            .map((c) =>
+                              c.areaLargura && c.areaAltura ? (
+                                <span
+                                  key={c.id}
+                                  aria-hidden
+                                  className={cn('absolute rounded-sm border-2', c.resolvido ? 'border-emerald-400/60' : 'border-amber-400 bg-amber-400/10')}
+                                  style={{ left: `${c.posicaoX}%`, top: `${c.posicaoY}%`, width: `${c.areaLargura}%`, height: `${c.areaAltura}%` }}
+                                />
+                              ) : (
+                                <span
+                                  key={c.id}
+                                  aria-hidden
+                                  className={cn(
+                                    'absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white',
+                                    c.resolvido ? 'bg-emerald-400/70' : 'bg-amber-400',
+                                  )}
+                                  style={{ left: `${c.posicaoX}%`, top: `${c.posicaoY}%` }}
+                                />
+                              ),
+                            )}
+                          {versaoParcial && l.alterada !== false ? (
+                            <span className="absolute right-2 top-2 rounded-full bg-sky-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]">
+                              Alterada
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="mt-1.5 flex items-center justify-between gap-2 text-xs">
+                          <span className="font-medium text-white/80">{l.ehCapa && i === 0 ? 'Capa' : `Lâmina ${i + 1}`}</span>
+                          {daLamina.length > 0 ? (
+                            <span className={cn('flex items-center gap-1', pendentes > 0 ? 'text-amber-300' : 'text-emerald-300')}>
+                              <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+                              {pendentes > 0 ? pendentes : daLamina.length}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           ) : (
             <div
               ref={carrosselRef}
@@ -708,6 +974,13 @@ export function ProofViewer({
                     <div className="flex h-full w-full items-center justify-center" style={{ containerType: 'size' }}>
                       <div
                         onClick={(e) => marcarPin(e, lamina)}
+                        onPointerDown={(e) => iniciarArea(e, lamina)}
+                        onPointerMove={moverArea}
+                        onPointerUp={terminarArea}
+                        onPointerCancel={() => {
+                          arrastoRef.current = null
+                          setAreaRascunho(null)
+                        }}
                         className={cn('relative', interativo && 'cursor-crosshair')}
                         style={{ aspectRatio: String(proporcao), width: `min(100cqw, calc(100cqh * ${proporcao}))` }}
                       >
@@ -726,6 +999,33 @@ export function ProofViewer({
                           }}
                           className="h-full w-full select-none rounded-lg object-contain shadow-2xl"
                         />
+                        {pins
+                          .filter((c) => c.areaLargura && c.areaAltura)
+                          .map((c) => (
+                            <span
+                              key={`area-${c.id}`}
+                              aria-hidden
+                              className={cn(
+                                'pointer-events-none absolute rounded-sm border-2 transition-colors',
+                                destacado === c.id
+                                  ? 'border-white bg-white/15'
+                                  : c.resolvido
+                                    ? 'border-emerald-400/50 bg-emerald-400/5'
+                                    : 'border-amber-400 bg-amber-400/10',
+                              )}
+                              style={{ left: `${c.posicaoX}%`, top: `${c.posicaoY}%`, width: `${c.areaLargura}%`, height: `${c.areaAltura}%` }}
+                            />
+                          ))}
+                        {[areaRascunho, rascunho?.largura ? rascunho : null]
+                          .filter((a): a is PinRascunho => !!a && a.laminaId === lamina.id && !!a.largura)
+                          .map((a, k) => (
+                            <span
+                              key={`rascunho-area-${k}`}
+                              aria-hidden
+                              className="pointer-events-none absolute rounded-sm border-2 border-dashed border-white bg-amber-400/20"
+                              style={{ left: `${a.x}%`, top: `${a.y}%`, width: `${a.largura}%`, height: `${a.altura}%` }}
+                            />
+                          ))}
                         {pins.map((c) => (
                           <button
                             key={c.id}
@@ -735,7 +1035,8 @@ export function ProofViewer({
                               setDestacado(c.id)
                               if (!window.matchMedia('(min-width: 1024px)').matches) setMobileCommentsOpen(true)
                             }}
-                            aria-label={`Comentário ${numeroDoPin.get(c.id)}${c.resolvido ? ' (resolvido)' : ''}: ${c.texto}`}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            aria-label={`Comentário ${numeroDoPin.get(c.id)}${c.areaLargura ? ' (área)' : ''}${c.resolvido ? ' (resolvido)' : ''}: ${c.texto}`}
                             className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
                             style={{ left: `${c.posicaoX}%`, top: `${c.posicaoY}%` }}
                           >
@@ -754,7 +1055,7 @@ export function ProofViewer({
                             </span>
                           </button>
                         ))}
-                        {rascunho ? (
+                        {rascunho && !rascunho.largura ? (
                           <span
                             aria-hidden
                             className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-pulse items-center justify-center rounded-full border-2 border-dashed border-white bg-amber-400/80 shadow-lg"
@@ -771,7 +1072,20 @@ export function ProofViewer({
             </div>
           )}
 
-          {totalLaminas > 1 && pageIndex > 0 ? (
+          {!naGaleria && !emComparacao && laminas.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPinRascunho(null)
+                setVista('galeria')
+              }}
+              className="absolute left-3 top-3 z-10 flex min-h-[40px] items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-semibold text-white hover:bg-black/80"
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+              Galeria
+            </button>
+          ) : null}
+          {!naGaleria && totalLaminas > 1 && pageIndex > 0 ? (
             <button
               type="button"
               onClick={() => irPara(pageIndex - 1)}
@@ -781,7 +1095,7 @@ export function ProofViewer({
               <ChevronLeft className="h-6 w-6" aria-hidden />
             </button>
           ) : null}
-          {totalLaminas > 1 && pageIndex < totalLaminas - 1 ? (
+          {!naGaleria && totalLaminas > 1 && pageIndex < totalLaminas - 1 ? (
             <button
               type="button"
               onClick={() => irPara(pageIndex + 1)}
@@ -795,9 +1109,13 @@ export function ProofViewer({
 
         <div className="hidden w-80 shrink-0 flex-col border-l border-white/10 p-4 lg:flex">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">
-            {emComparacao ? `Ajustes pedidos na versão ${versaoAnterior.numero}` : 'Comentários desta lâmina'}
+            {emComparacao
+              ? `Ajustes pedidos na versão ${versaoAnterior.numero}`
+              : naGaleria
+                ? `Orientações de alteração${comentariosDaVersao.length ? ` (${comentariosDaVersao.length})` : ''}`
+                : `Orientações · ${laminaAtual?.ehCapa && pageIndex === 0 ? 'capa' : `lâmina ${pageIndex + 1}`}`}
           </p>
-          <div className="flex-1 overflow-y-auto">{CommentsList}</div>
+          <div className="flex-1 overflow-y-auto">{naGaleria ? ListaDaVersao : CommentsList}</div>
         </div>
       </div>
 
@@ -807,8 +1125,8 @@ export function ProofViewer({
         <p className="truncate pl-2 text-xs text-white/40">
           {interativo && laminas.length > 0 ? (
             <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3 w-3" aria-hidden />
-              Toque para marcar
+              {naGaleria ? <LayoutGrid className="h-3 w-3" aria-hidden /> : <MapPin className="h-3 w-3" aria-hidden />}
+              {naGaleria ? 'Abra uma lâmina para orientar' : 'Toque: ponto · arraste: área'}
             </span>
           ) : leituraEquipe ? (
             <span className="inline-flex items-center gap-1">
@@ -818,7 +1136,7 @@ export function ProofViewer({
           ) : null}
         </p>
         <div className="flex items-center justify-center">
-          {totalLaminas <= 12 ? (
+          {naGaleria ? null : totalLaminas <= 12 ? (
             Array.from({ length: totalLaminas }, (_, i) => (
               <button
                 key={i}
@@ -845,8 +1163,10 @@ export function ProofViewer({
             className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold text-white hover:bg-white/10 lg:hidden"
           >
             <MessageCircle className="h-4 w-4" aria-hidden />
-            <span className="sr-only sm:not-sr-only">Comentários</span>
-            {commentsForPage.length > 0 ? <span>({commentsForPage.length})</span> : null}
+            <span className="sr-only sm:not-sr-only">Orientações</span>
+            {(naGaleria ? comentariosDaVersao : commentsForPage).length > 0 ? (
+              <span>({(naGaleria ? comentariosDaVersao : commentsForPage).length})</span>
+            ) : null}
           </button>
         </div>
       </div>
@@ -958,7 +1278,7 @@ export function ProofViewer({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Comentários desta lâmina"
+            aria-label={naGaleria ? 'Orientações de alteração' : 'Orientações desta lâmina'}
             onClick={(e) => e.stopPropagation()}
             onFocus={(e) => {
               // Teclado do iOS cobre a base da tela: traz o campo para a área visível.
@@ -968,7 +1288,7 @@ export function ProofViewer({
             className="relative max-h-[75dvh] w-full overflow-y-auto overflow-x-hidden overscroll-contain break-words rounded-t-2xl bg-[#171717] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
           >
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-white">Comentários desta lâmina</p>
+              <p className="text-sm font-semibold text-white">{naGaleria ? 'Orientações de alteração' : 'Orientações desta lâmina'}</p>
               <button
                 type="button"
                 onClick={() => setMobileCommentsOpen(false)}
@@ -978,7 +1298,7 @@ export function ProofViewer({
                 <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
-            {CommentsList}
+            {naGaleria ? ListaDaVersao : CommentsList}
           </div>
         </div>
       ) : null}

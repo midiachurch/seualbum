@@ -468,6 +468,8 @@ export type Lamina = {
   altura: number | null
   /** Capa: aparece na prova, mas não conta na franquia (migration 0023). */
   ehCapa?: boolean
+  /** Versão parcial (0032): false = igual à da versão anterior. */
+  alterada?: boolean
 }
 
 export type ProofComment = {
@@ -478,6 +480,9 @@ export type ProofComment = {
   /** Pin: posição em % (0–100) da largura/altura da lâmina. */
   posicaoX?: number | null
   posicaoY?: number | null
+  /** Área marcada (0032): largura/altura em %, a partir de posicaoX/Y. */
+  areaLargura?: number | null
+  areaAltura?: number | null
   /** A equipe já tratou este apontamento (migration 0019). */
   resolvido?: boolean
   resolvidoEm?: string | null

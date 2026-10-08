@@ -10,7 +10,7 @@ import { carregarImagem, renderizarLamina, renderizarLaminaParaTela } from '@/li
 import { montarPdf } from '@/lib/album/pdf'
 import { renovarLinksDasFotos } from '@/lib/actions/album-editor'
 import { criarVersaoComLaminas } from '@/lib/actions/projetos'
-import { createClient } from '@/lib/supabase/client'
+import { enviarLaminaR2 } from '@/lib/upload-lamina'
 import { rotuloDaLamina, type DocumentoAlbum, type Geometria } from '@/lib/album/documento'
 import type { Problema } from '@/lib/album/verificacao'
 import { cn } from '@/lib/utils'
@@ -158,31 +158,35 @@ export function Publicar({
 
       // Publicar versão do projeto: sobe na pasta da versão e passa pela mesma Server Action do upload manual.
       if (!projeto) return
-      const supabase = createClient()
       const lote = novoUuid()
-      const pasta = `${projeto.id}/versoes/${lote}`
       const caminhos: string[] = new Array(blobs.length)
       let feitas = 0
       let falhou = false
+      let motivo: string | null = null
       const fila = blobs.map((b, i) => ({ ...b, i }))
       setFase({ etapa: 'enviando', feitas: 0, total: blobs.length })
       await Promise.all(
         Array.from({ length: UPLOADS_SIMULTANEOS }, async () => {
           while (fila.length > 0 && !falhou) {
             const item = fila.shift()!
-            const path = `${pasta}/${String(item.i + 1).padStart(3, '0')}-lamina.jpg`
-            const { error } = await supabase.storage.from('projetos_fotos').upload(path, item.blob, { cacheControl: '3600', upsert: true, contentType: 'image/jpeg' })
-            if (error) {
+            try {
+              caminhos[item.i] = await enviarLaminaR2({
+                projetoId: projeto.id,
+                lote,
+                arquivo: item.blob,
+                nome: `${String(item.i + 1).padStart(3, '0')}-lamina.jpg`,
+              })
+            } catch (e) {
               falhou = true
+              motivo = e instanceof Error ? e.message : null
               return
             }
-            caminhos[item.i] = path
             feitas++
             setFase({ etapa: 'enviando', feitas, total: blobs.length })
           }
         }),
       )
-      if (falhou) throw new Error('Uma lâmina não subiu. Confira a conexão e publique de novo.')
+      if (falhou) throw new Error(`Uma lâmina não subiu${motivo ? `: ${motivo}` : '.'} Publique de novo.`)
       setFase({ etapa: 'registrando' })
       const versao = await criarVersaoComLaminas({
         projetoId: projeto.id,

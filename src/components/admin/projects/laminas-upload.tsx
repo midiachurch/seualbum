@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { criarVersaoComLaminas } from '@/lib/actions/projetos'
-import { createClient } from '@/lib/supabase/client'
+import { enviarLaminaR2 } from '@/lib/upload-lamina'
+import { dimensoes } from '@/lib/dimensoes-imagem'
+import { LaminasParciais, type VersaoBase } from '@/components/admin/projects/laminas-parciais'
 import { cn, formatarTamanho } from '@/lib/utils'
 import { DPI_MINIMO, dpiEfetivo, pixelsMinimos, type FormatoAlbum } from '@/lib/resolucao'
 // randomUUID só existe em HTTPS/localhost; este funciona também pelo IP da rede.
@@ -34,43 +36,100 @@ interface Item {
 /** "lamina-2" antes de "lamina-10": é como o designer numera os arquivos. */
 const ordemNatural = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' })
 
-function nomeSeguro(nome: string) {
-  return (
-    nome
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z0-9._-]+/g, '_')
-      .slice(-80) || 'lamina'
-  )
-}
-
-async function dimensoes(file: File): Promise<{ largura: number | null; altura: number | null }> {
-  try {
-    const bitmap = await createImageBitmap(file)
-    const d = { largura: bitmap.width, altura: bitmap.height }
-    bitmap.close()
-    return d
-  } catch {
-    return { largura: null, altura: null }
-  }
-}
+type Concluido = (versao: { versaoId: string; numero: number; laminas: number; comentarios: string | null }) => void
 
 /**
- * Upload em massa das lâminas de uma nova versão (Fase 3, migration 0018).
- * Sobe direto do navegador para `projetos_fotos/{projetoId}/versoes/{lote}/`
- * e, com tudo no Storage, cria a versão + lâminas numa Server Action.
- * O `lote` é fixo por tentativa: reenviar reaproveita o que já subiu.
+ * Nova versão da prova. Com uma versão anterior com lâminas, o designer
+ * escolhe: alterar só algumas lâminas (versão parcial, migration 0032 — o
+ * resto é herdado) ou subir a versão inteira de novo.
  */
 export function LaminasUpload({
   projetoId,
   album,
+  versaoBase = null,
   onConcluido,
   onCancelar,
 }: {
   projetoId: string
   /** Formato do álbum — sem ele não dá para checar a resolução de impressão. */
   album: FormatoAlbum | null
-  onConcluido: (versao: { versaoId: string; numero: number; laminas: number; comentarios: string | null }) => void
+  /** Versão mais recente, com as lâminas: habilita a versão parcial. */
+  versaoBase?: VersaoBase | null
+  onConcluido: Concluido
+  onCancelar: () => void
+}) {
+  const podeParcial = (versaoBase?.laminas.length ?? 0) > 0
+  const [modo, setModo] = useState<'parcial' | 'completa'>(podeParcial ? 'parcial' : 'completa')
+  const [ocupado, setOcupado] = useState(false)
+
+  return (
+    <div className="space-y-4 rounded-2xl border bg-card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Nova versão — lâminas</p>
+        <Button variant="ghost" size="icon" onClick={onCancelar} disabled={ocupado} aria-label="Cancelar">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      {podeParcial ? (
+        <div role="radiogroup" aria-label="Tipo de versão" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(
+            [
+              ['parcial', 'Alterar só algumas lâminas', `Parte da versão ${versaoBase!.numero}: troque, remova ou acrescente — o resto continua igual.`],
+              ['completa', 'Subir a versão inteira', 'Todas as lâminas de novo, do zero.'],
+            ] as const
+          ).map(([valor, titulo, texto]) => (
+            <button
+              key={valor}
+              type="button"
+              role="radio"
+              aria-checked={modo === valor}
+              disabled={ocupado}
+              onClick={() => setModo(valor)}
+              className={cn(
+                'rounded-xl border p-3 text-left text-sm transition-colors disabled:opacity-60',
+                modo === valor ? 'border-[#171717] bg-[#FAFAFA]' : 'hover:bg-secondary',
+              )}
+            >
+              <span className="block font-medium">{titulo}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{texto}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {modo === 'parcial' && podeParcial ? (
+        <LaminasParciais
+          projetoId={projetoId}
+          album={album}
+          versaoBase={versaoBase!}
+          onOcupado={setOcupado}
+          onConcluido={onConcluido}
+          onCancelar={onCancelar}
+        />
+      ) : (
+        <VersaoCompleta projetoId={projetoId} album={album} onOcupado={setOcupado} onConcluido={onConcluido} onCancelar={onCancelar} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Upload em massa das lâminas de uma versão completa (Fase 3, migration 0018).
+ * Sobe direto do navegador para o Cloudflare R2
+ * (`projetos/{projetoId}/versoes/{lote}/`) e, com tudo lá, cria a versão +
+ * lâminas numa Server Action. O `lote` é fixo por tentativa: reenviar
+ * reaproveita o que já subiu.
+ */
+function VersaoCompleta({
+  projetoId,
+  album,
+  onOcupado,
+  onConcluido,
+  onCancelar,
+}: {
+  projetoId: string
+  album: FormatoAlbum | null
+  onOcupado: (ocupado: boolean) => void
+  onConcluido: Concluido
   onCancelar: () => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -126,20 +185,19 @@ export function LaminasUpload({
 
     // A ordem vale a partir daqui: vira o prefixo do arquivo e a coluna `ordem`.
     const ordenados = itens.map((item, i) => ({ ...item, ordem: i + 1 }))
-    const supabase = createClient()
-    const pasta = `${projetoId}/versoes/${loteRef.current}`
+    let ultimoErro: string | null = null
     const resultado = new Map<string, string>() // id → storagePath
 
     const fila = ordenados.filter((i) => i.status !== 'enviada' || !i.storagePath)
     ordenados.filter((i) => i.status === 'enviada' && i.storagePath).forEach((i) => resultado.set(i.id, i.storagePath!))
 
     async function subir(item: (typeof ordenados)[number]) {
-      const path = `${pasta}/${String(item.ordem).padStart(3, '0')}-${nomeSeguro(item.file.name)}`
       setItens((atual) => atual.map((i) => (i.id === item.id ? { ...i, status: 'enviando' } : i)))
-      const { error } = await supabase.storage
-        .from('projetos_fotos')
-        .upload(path, item.file, { cacheControl: '3600', upsert: true, contentType: item.file.type })
-      if (error) {
+      let path: string
+      try {
+        path = await enviarLaminaR2({ projetoId, lote: loteRef.current, arquivo: item.file, nome: item.file.name })
+      } catch (e) {
+        ultimoErro = e instanceof Error ? e.message : null
         setItens((atual) => atual.map((i) => (i.id === item.id ? { ...i, status: 'erro' } : i)))
         return
       }
@@ -162,7 +220,7 @@ export function LaminasUpload({
       setErro(
         DEMO_MODE
           ? 'Upload indisponível em modo de demonstração.'
-          : `${ordenados.length - resultado.size} lâmina(s) não subiram. Toque em "Tentar de novo".`,
+          : `${ordenados.length - resultado.size} lâmina(s) não subiram${ultimoErro ? ` (${ultimoErro})` : ''}. Toque em "Tentar de novo".`,
       )
       return
     }
@@ -194,15 +252,10 @@ export function LaminasUpload({
   const pesoTotal = itens.reduce((s, i) => s + i.file.size, 0)
   const ocupado = fase !== 'montando'
   const temErro = itens.some((i) => i.status === 'erro')
+  useEffect(() => onOcupado(ocupado), [ocupado, onOcupado])
 
   return (
-    <div className="space-y-4 rounded-2xl border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">Nova versão — lâminas</p>
-        <Button variant="ghost" size="icon" onClick={onCancelar} disabled={ocupado} aria-label="Cancelar">
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className="space-y-4">
 
       <input
         ref={inputRef}

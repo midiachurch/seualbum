@@ -88,6 +88,7 @@ export function DesignVersionsPanel({
           <LaminasUpload
             projetoId={projetoId}
             album={album}
+            versaoBase={ultimaVersao?.laminas?.length ? { id: ultimaVersao.id, numero: ultimaVersao.numero, laminas: ultimaVersao.laminas } : null}
             onCancelar={() => setAdding(false)}
             onConcluido={(versao) => {
               onVersaoCriada(versao)
@@ -104,7 +105,7 @@ export function DesignVersionsPanel({
             </Button>
             <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" aria-hidden />
-              Subir lâminas prontas
+              {ultimaVersao?.laminas?.length ? 'Nova versão (lâminas)' : 'Subir lâminas prontas'}
             </Button>
             <Button size="sm" variant="outline" onClick={handleSmartLayout} disabled={gerandoSmartLayout || photos.length === 0}>
               <Sparkles className="h-4 w-4" aria-hidden />

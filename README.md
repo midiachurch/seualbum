@@ -98,6 +98,27 @@ No painel da Cloudflare, o bucket precisa de uma regra de **CORS** que libere
 `http://localhost:3000`), com o header `Content-Type` permitido — o editor
 desenha as fotos num canvas e precisa do `GET` com CORS.
 
+## Prova do álbum (revisão e aprovação)
+
+A prova vive no projeto de produção (o pedido vira projeto quando é pago) e é
+a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
+(`/dashboard/albuns/[id]/prova`) e a equipe (`/admin/projetos/[id]/prova`).
+
+- **Galeria:** a prova abre com todas as lâminas; numa versão parcial, as que
+  mudaram têm o selo "Alterada" e o filtro "Só alteradas".
+- **Orientações:** o painel lateral lista todas as orientações da versão,
+  numeradas. Aberta a lâmina, tocar marca um ponto e arrastar (mouse/caneta)
+  marca uma área — o comentário guarda a posição em % (migration 0032).
+- **Decisão:** "Aprovar álbum" (RPC `aprovar_prova`, com upsell) ou
+  "Solicitar ajustes" (vira `alteracoes_solicitadas` e entra no histórico e
+  no outbox de comunicação).
+- **Versão parcial:** em `/admin/projetos/[id]`, "Nova versão (lâminas)" deixa
+  o designer substituir, remover ou acrescentar só as lâminas que mudaram; as
+  outras são herdadas da versão anterior sem reenvio.
+- **Lâminas no R2:** upload manual e "Publicar versão" do editor sobem cada
+  lâmina por `POST /api/uploads/lamina` (URL assinada, JPG até 50 MB);
+  `criarVersaoComLaminas` confere cada chave no R2 antes de criar a versão.
+
 ## Scripts
 
 | Comando             | O que faz                          |
@@ -123,7 +144,7 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: aplicar as migrations 0030 e 0031 no Supabase; levar para o R2 os
+Pendente: aplicar as migrations 0030, 0031 e 0032 no Supabase; levar para o R2 os
 demais buckets (projetos, álbuns, vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
