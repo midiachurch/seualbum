@@ -64,7 +64,7 @@ function supabaseFalso() {
   }
 }
 
-const sessao = vi.hoisted(() => ({ logado: true }))
+const sessao = vi.hoisted(() => ({ logado: true, equipe: true }))
 vi.mock('@/lib/r2/sessao', async () => {
   const { NextResponse } = await import('next/server')
   return {
@@ -72,6 +72,10 @@ vi.mock('@/lib/r2/sessao', async () => {
       sessao.logado
         ? { ok: true, supabase: supabaseFalso(), userId: USER }
         : { ok: false, resposta: NextResponse.json({ erro: 'Faça login de novo.' }, { status: 401 }) },
+    producaoParaUpload: async () =>
+      sessao.equipe
+        ? { ok: true, supabase: supabaseFalso(), userId: USER }
+        : { ok: false, resposta: NextResponse.json({ erro: 'Sem permissão para enviar lâminas.' }, { status: 403 }) },
     rascunhoJaEnviado: async () => banco.pedidoExiste,
     lerJson: async (r: Request) => r.json().catch(() => null),
   }
@@ -81,6 +85,7 @@ vi.mock('@/lib/supabase/server', () => ({ createAdminClient: () => supabaseFalso
 const { POST: assinar, DELETE: remover } = await import('@/app/api/uploads/pedido-foto/route')
 const { POST: confirmar } = await import('@/app/api/uploads/pedido-foto/confirmar/route')
 const { GET: limpar } = await import('@/app/api/cron/limpar-fotos-r2/route')
+const { POST: assinarLamina } = await import('@/app/api/uploads/lamina/route')
 
 function req(metodo: string, corpo?: unknown, url = 'http://localhost/api/x', headers: Record<string, string> = {}) {
   return new NextRequest(url, {
@@ -93,6 +98,7 @@ function req(metodo: string, corpo?: unknown, url = 'http://localhost/api/x', he
 beforeEach(() => {
   r2.configurado = true
   sessao.logado = true
+  sessao.equipe = true
   Object.assign(banco, { pedidoExiste: false, insertErro: null, inseridos: [], apagados: [], expiradas: [], ordem: [] })
   r2.urlDeEnvio.mockReset().mockResolvedValue({ url: 'https://r2/put', expiraEm: 'x' })
   r2.metadadosDoObjeto.mockReset().mockResolvedValue({ tamanho: 1234, contentType: 'image/jpeg' })
@@ -230,5 +236,25 @@ describe('GET /api/cron/limpar-fotos-r2', () => {
   it('503 sem R2 configurado', async () => {
     r2.configurado = false
     expect((await limpar(req('GET', undefined, url, auth))).status).toBe(503)
+  })
+})
+
+describe('POST /api/uploads/lamina', () => {
+  const corpo = { projetoId: USER, lote: CHAVE, idArquivo: ARQ, nome: 'l1.jpg', tipo: 'image/jpeg', tamanho: 999 }
+
+  it('assina o PUT na pasta do lote', async () => {
+    const r = await assinarLamina(req('POST', corpo))
+    expect(r.status).toBe(200)
+    expect((await r.json()).key).toBe(`projetos/${USER}/versoes/${CHAVE}/${ARQ}-l1.jpg`)
+  })
+
+  it('403 fora da equipe de produção', async () => {
+    sessao.equipe = false
+    expect((await assinarLamina(req('POST', corpo))).status).toBe(403)
+    expect(r2.urlDeEnvio).not.toHaveBeenCalled()
+  })
+
+  it('400 para PNG', async () => {
+    expect((await assinarLamina(req('POST', { ...corpo, tipo: 'image/png' }))).status).toBe(400)
   })
 })

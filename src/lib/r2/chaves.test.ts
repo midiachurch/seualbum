@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chaveFotoPedido, lerChaveFotoPedido, lerExifConfirmacao, nomeSeguro, validarPedidoDeEnvio } from './chaves'
+import { chaveEhDoLote, chaveFotoPedido, chaveLamina, lerChaveFotoPedido, lerExifConfirmacao, nomeSeguro, validarEnvioLamina, validarPedidoDeEnvio } from './chaves'
 
 const USER = '11111111-1111-4111-8111-111111111111'
 const CHAVE = '22222222-2222-4222-8222-222222222222'
@@ -62,5 +62,23 @@ describe('lerExifConfirmacao', () => {
   it('descarta formatos estranhos', () => {
     expect(lerExifConfirmacao({ capturadaEm: '01/05/2026', camera: '  ' })).toEqual({ capturada_em: null, camera: null })
     expect(lerExifConfirmacao(null)).toEqual({ capturada_em: null, camera: null })
+  })
+})
+
+describe('lâminas no R2', () => {
+  const key = chaveLamina({ projetoId: USER, lote: CHAVE, idArquivo: ARQ, nome: 'Lâmina 01.jpg' })
+
+  it('monta a chave na pasta do lote e reconhece só ela', () => {
+    expect(key).toBe(`projetos/${USER}/versoes/${CHAVE}/${ARQ}-Lamina_01.jpg`)
+    expect(chaveEhDoLote(key, USER, CHAVE)).toBe(true)
+    expect(chaveEhDoLote(key, USER, ARQ)).toBe(false)
+    expect(chaveEhDoLote(`projetos/${USER}/versoes/${CHAVE}/../x.jpg`, USER, CHAVE)).toBe(false)
+  })
+
+  it('só aceita JPG de até 50 MB', () => {
+    const base = { projetoId: USER, lote: CHAVE, idArquivo: ARQ, nome: 'a.jpg', tipo: 'image/jpeg', tamanho: 10 }
+    expect(validarEnvioLamina(base).ok).toBe(true)
+    expect(validarEnvioLamina({ ...base, tipo: 'image/png' }).ok).toBe(false)
+    expect(validarEnvioLamina({ ...base, tamanho: 51 * 1024 * 1024 }).ok).toBe(false)
   })
 })
