@@ -225,7 +225,7 @@ export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   aguardando_aprovacao_cliente: 'Aguardando aprovação do cliente',
   alteracoes_solicitadas: 'Alterações solicitadas',
   em_ajustes: 'Em ajustes',
-  aprovado_aguardando_pagamento: 'Aprovado · lâminas extras a pagar',
+  aprovado_aguardando_pagamento: 'Aprovado · fechamento pendente',
   aprovado: 'Aprovado para impressão',
   enviado: 'Enviado',
   finalizado: 'Finalizado',

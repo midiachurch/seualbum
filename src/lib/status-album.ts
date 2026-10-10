@@ -36,7 +36,7 @@ const PRODUCAO: Record<ProjectStatusDb, StatusAlbum> = {
   alteracoes_solicitadas: { rotulo: 'Em ajustes', variante: 'default', grupo: 'andamento', temProva: true, aguardaDecisao: false },
   em_ajustes: { rotulo: 'Em ajustes', variante: 'default', grupo: 'andamento', temProva: true, aguardaDecisao: false },
   aprovado_aguardando_pagamento: {
-    rotulo: 'Lâminas extras a pagar',
+    rotulo: 'Fechamento pendente',
     variante: 'warning',
     grupo: 'andamento',
     temProva: true,

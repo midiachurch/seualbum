@@ -424,6 +424,9 @@ export function ProofViewer({
         return
       }
     }
+    // "Não, obrigado" depois de escolher algo: a tela final não pode citar
+    // (nem somar) adicionais que não foram enviados.
+    if (adicionais.length === 0) setEscolhidos({})
     setDecision('aprovado')
   }
 
