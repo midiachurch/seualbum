@@ -101,10 +101,19 @@ describe('fotos do projeto (/api/uploads/projeto-foto)', () => {
   const corpo = { projetoId: PROJETO, idArquivo: ARQ, nome: 'a.jpg', tipo: 'image/jpeg', tamanho: 2048 }
 
   it('assina o PUT na pasta de fotos do projeto, no bucket privado', async () => {
+    r2.metadadosDoObjeto.mockResolvedValueOnce(null)
     const r = await assinarFoto(req(corpo))
     expect(r.status).toBe(200)
     expect((await r.json()).key).toBe(KEY)
+    expect(r2.metadadosDoObjeto).toHaveBeenCalledWith(KEY)
     expect(r2.urlDeEnvio).toHaveBeenCalledWith(KEY, 'image/jpeg', 2048)
+  })
+
+  it('409 para chave que já existe no R2: ninguém sobrescreve a foto de outra pessoa', async () => {
+    // O cliente final enxerga as chaves das fotos do projeto e escolhe o idArquivo.
+    r2.metadadosDoObjeto.mockResolvedValueOnce({ tamanho: 10, contentType: 'image/jpeg' })
+    expect((await assinarFoto(req(corpo))).status).toBe(409)
+    expect(r2.urlDeEnvio).not.toHaveBeenCalled()
   })
 
   it('404 para quem não enxerga o projeto, sem assinar', async () => {
