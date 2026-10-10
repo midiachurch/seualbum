@@ -19,7 +19,7 @@ import {
   resolverComentarioAlbum,
   responderComentarioAlbum,
 } from '@/lib/actions/album-editor'
-import { createClient } from '@/lib/supabase/client'
+import { enviarArquivoAlbum } from '@/lib/upload-album'
 import { rotuloDaLamina, type DocumentoAlbum, type Geometria } from '@/lib/album/documento'
 import type { AprovacaoDoAlbum } from '@/lib/supabase/queries'
 import type { StatusAlbum } from '@/types/database'
@@ -105,8 +105,6 @@ export function AprovacaoPainel({
       if (links.ok) for (const [id, u] of Object.entries(links.urls)) mapa.set(id, u)
 
       const aprovacaoId = novoUuid()
-      const pasta = `${albumId}/aprovacoes/${aprovacaoId}`
-      const supabase = createClient()
       const laminas: { path: string; largura: number; altura: number; rotulo: string }[] = []
       const fila: { i: number; blob: Blob; largura: number; altura: number }[] = []
       for (let i = 0; i < documento.laminas.length; i++) {
@@ -128,9 +126,12 @@ export function AprovacaoPainel({
         Array.from({ length: UPLOADS_SIMULTANEOS }, async () => {
           while (pendentes.length > 0 && !falhou) {
             const item = pendentes.shift()!
-            const path = `${pasta}/${String(item.i + 1).padStart(3, '0')}.jpg`
-            const { error } = await supabase.storage.from('albuns_fotos').upload(path, item.blob, { contentType: 'image/jpeg', upsert: true })
-            if (error) {
+            // Lâmina no Cloudflare R2 (albuns/{albumId}/aprovacoes/{aprovacaoId}/001.jpg);
+            // `criarAprovacao` confere cada uma no R2 antes de criar o link.
+            let path: string
+            try {
+              path = await enviarArquivoAlbum(albumId, { destino: 'aprovacao', aprovacaoId, ordem: item.i + 1 }, item.blob)
+            } catch {
               falhou = true
               return
             }

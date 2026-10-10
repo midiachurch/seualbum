@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageUp, Star, X } from 'lucide-react'
-import { registerFoto } from '@/lib/actions/projetos'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
 import { cn } from '@/lib/utils'
 import type { Photo } from '@/types/platform'
@@ -16,8 +15,8 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
 /**
  * Aba "Minhas Fotos" (seção 12). Em modo de demonstração o upload é só
  * cosmético (`URL.createObjectURL`, sem envio real). Fora dele, cada arquivo
- * sobe de verdade para o Storage (`projetos_fotos`) e vira uma linha em
- * `fotos` via `registerFoto`.
+ * sobe de verdade para o Cloudflare R2 e vira uma linha em `fotos`
+ * (`bucket = 'r2'`) — ver `uploadProjetoFoto`.
  */
 export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: string; initialPhotos: Photo[] }) {
   const [photos, setPhotos] = useState<ManagedPhoto[]>(initialPhotos)
@@ -60,10 +59,9 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
 
       novas.forEach((foto) => {
         if (!DEMO_MODE && foto._file) {
-          uploadProjetoFoto(projetoId, foto._file)
-            .then(({ storagePath, url, meta }) => {
-              setPhotos((prev) => prev.map((p) => (p.id === foto.id ? { ...p, url, uploading: false, progress: 100 } : p)))
-              return registerFoto({ projetoId, storagePath, url, grupo: 'Novas fotos', capturadaEm: meta.capturadaEm, camera: meta.camera })
+          uploadProjetoFoto(projetoId, foto._file, 'Novas fotos')
+            .then(({ url }) => {
+              setPhotos((prev) => prev.map((p) => (p.id === foto.id ? { ...p, url: url || p.url, uploading: false, progress: 100 } : p)))
             })
             .catch(() => {
               setPhotos((prev) => prev.map((p) => (p.id === foto.id ? { ...p, uploading: false } : p)))

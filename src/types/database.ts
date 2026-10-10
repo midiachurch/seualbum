@@ -138,7 +138,11 @@ export type FotografoRow = {
   cidade: string | null
   plano_id: string | null
   status: 'ativo' | 'inativo'
+  /** Endereço público do logo (bucket `fotografo_logos` ou R2 público). É o que a tela do orçamento lê. */
   logo_url: string | null
+  /** Migration 0034: chave do logo e onde ela está ('r2' = bucket público do R2). Null = logo antigo, só `logo_url`. */
+  logo_path: string | null
+  logo_bucket: 'fotografo_logos' | 'r2' | null
   created_at: string
   updated_at: string
 }
@@ -303,7 +307,7 @@ export type BibliotecaAlbum = {
   >
 }
 
-/** Versões leves de uma foto (paths em `albuns_fotos`) + medidas feitas no navegador. */
+/** Versões leves de uma foto (chaves `albuns/…` no R2, ou paths antigos em `albuns_fotos`) + medidas feitas no navegador. */
 export type DerivadoFoto = {
   mini: string
   preview: string
@@ -386,7 +390,10 @@ export type AlbumLayoutRow = {
   sangria_mm: number
   margem_segura_mm: number
   documento: unknown
-  /** Só álbuns independentes: fotos no bucket `albuns_fotos`. */
+  /**
+   * Só álbuns independentes. `path` com prefixo `albuns/` está no Cloudflare R2;
+   * sem ele, é um arquivo antigo do bucket `albuns_fotos` (ver `bucketDoArquivoAlbum`).
+   */
   fotos: { id: string; path: string; nome: string; largura: number | null; altura: number | null }[]
   /** Calculada no banco: quantidade de lâminas do documento. */
   laminas_qtd: number
@@ -418,6 +425,8 @@ export type VersaoLaminaRow = {
 export type MediaAssetRow = {
   id: string
   storage_path: string
+  /** Migration 0034: 'r2' = `storage_path` é a chave no bucket público do R2. */
+  bucket: 'midia_vitrine' | 'r2'
   url: string | null
   nome: string
   tags: string[]

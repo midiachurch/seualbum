@@ -3,11 +3,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { Check, FolderPlus, LayoutGrid, Plus, Search, Star, Trash2, UploadCloud } from 'lucide-react'
 import { MIME_FOTO, urlParaMiniatura } from '@/components/album-editor/tipos'
-import { createClient } from '@/lib/supabase/client'
 import { listarFotosDoEditor, registrarFotosAlbum } from '@/lib/actions/album-editor'
-import { registerFoto } from '@/lib/actions/projetos'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
 import { gerarDerivados, registrarDerivados } from '@/lib/album/derivados'
+import { enviarArquivoAlbum } from '@/lib/upload-album'
 import type { FotoDoEditor } from '@/lib/supabase/queries'
 import type { DerivadoFoto } from '@/types/database'
 import { cn } from '@/lib/utils'
@@ -16,7 +15,6 @@ import { novoUuid } from '@/store/usePedidoWizardStore'
 
 const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
 const UPLOADS_SIMULTANEOS = 3
-const EXPIRACAO_SEGUNDOS = 8 * 60 * 60
 
 export type Prioridade = 'principal' | 'secundaria' | 'complementar'
 export type MetaFoto = { pasta?: string | null; favorita?: boolean; prioridade?: Prioridade | null; foco?: { fx: number; fy: number } | null }
@@ -25,16 +23,6 @@ type Orientacao = 'todas' | 'horizontal' | 'vertical' | 'quadrada' | 'panoramica
 type Ordem = 'nome' | 'captura' | 'orientacao' | 'envio'
 
 const ROTULO_PRIORIDADE: Record<Prioridade, string> = { principal: 'Principal', secundaria: 'Secundária', complementar: 'Complementar' }
-
-function nomeSeguro(nome: string) {
-  return (
-    nome
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-zA-Z0-9._-]+/g, '_')
-      .slice(-80) || 'foto'
-  )
-}
 
 function orientacaoDe(f: FotoDoEditor): Exclude<Orientacao, 'todas'> | null {
   if (!f.largura || !f.altura) return null
@@ -175,8 +163,7 @@ export function PainelFotos({
             const file = fila.shift()
             if (!file) break
             try {
-              const { storagePath, url, meta: exif } = await uploadProjetoFoto(projetoId, file)
-              await registerFoto({ projetoId, storagePath, url, grupo: 'Enviadas no editor', capturadaEm: exif.capturadaEm, camera: exif.camera })
+              await uploadProjetoFoto(projetoId, file, 'Enviadas no editor')
             } catch {
               falhas++
             }
@@ -188,7 +175,6 @@ export function PainelFotos({
       const r = await listarFotosDoEditor(albumId)
       if (r.ok) onFotosNovas(r.fotos, true)
     } else {
-      const supabase = createClient()
       const prontas: { id: string; path: string; nome: string; largura: number | null; altura: number | null }[] = []
       const derivados: Record<string, DerivadoFoto> = {}
       const locais = new Map<string, { urlMini: string; urlPreview: string; estouro: number | null; fx: number; fy: number }>()
@@ -198,9 +184,11 @@ export function PainelFotos({
             const file = fila.shift()
             if (!file) break
             const id = novoUuid()
-            const path = `${albumId}/${id}-${nomeSeguro(file.name)}`
-            const { error } = await supabase.storage.from('albuns_fotos').upload(path, file, { cacheControl: '3600', contentType: file.type })
-            if (error) {
+            // Original no Cloudflare R2 (albuns/{albumId}/…); registrado abaixo, depois de conferido no R2.
+            let path: string
+            try {
+              path = await enviarArquivoAlbum(albumId, { destino: 'foto', idArquivo: id, nome: file.name }, file)
+            } catch {
               falhas++
               avancar()
               continue
@@ -228,8 +216,7 @@ export function PainelFotos({
         if (!r.ok) setErro(r.erro)
         else {
           if (Object.keys(derivados).length > 0) await registrarDerivados(albumId, derivados)
-          const { data } = await supabase.storage.from('albuns_fotos').createSignedUrls(prontas.map((p) => p.path), EXPIRACAO_SEGUNDOS)
-          const url = new Map((data ?? []).map((d) => [d.path, d.signedUrl]))
+          const url = new Map(Object.entries(r.urls))
           onFotosNovas(
             prontas.map((p) => ({
               id: p.id,

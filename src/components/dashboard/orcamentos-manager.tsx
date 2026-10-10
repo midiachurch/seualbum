@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { MODAL_ACOES, Modal } from '@/components/ui/modal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { createOrcamento, deleteOrcamento, markOrcamentoEnviado, updateFotografoLogo, updateOrcamento } from '@/lib/actions/orcamentos'
+import { createOrcamento, deleteOrcamento, markOrcamentoEnviado, updateOrcamento } from '@/lib/actions/orcamentos'
 import { uploadFotografoLogo } from '@/lib/upload-fotografo-logo'
 import { formatBRL, formatDate } from '@/lib/utils'
 import type { ItemOrcamento, Orcamento, Produto } from '@/types/platform'
@@ -133,10 +133,13 @@ export function OrcamentosManager({
   }
 
   async function handleLogoUpload(file: File) {
+    if (DEMO_MODE) {
+      setLogo(URL.createObjectURL(file))
+      return
+    }
     try {
-      const url = await uploadFotografoLogo(fotografoId, file)
-      setLogo(url)
-      if (!DEMO_MODE) await updateFotografoLogo(url)
+      // Sobe para o R2 e já grava no perfil (a rota confirma no R2 antes).
+      setLogo(await uploadFotografoLogo(file))
     } catch {
       // upload de logo é cosmético — falha silenciosa não trava o fluxo principal de orçamentos.
     }
@@ -160,7 +163,7 @@ export function OrcamentosManager({
       <div className="flex items-center gap-4 rounded-2xl border bg-card p-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary">
           {logo ? (
-            // eslint-disable-next-line @next/next/no-img-element -- logo do estúdio, URL pública dinâmica do Storage.
+            // eslint-disable-next-line @next/next/no-img-element -- logo do estúdio, URL pública dinâmica (R2 ou Storage antigo).
             <img src={logo} alt="Logo do estúdio" className="h-full w-full object-contain" />
           ) : (
             <ImageUp className="h-5 w-5 text-muted-foreground" aria-hidden />

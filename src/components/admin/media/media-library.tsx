@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { deleteMediaAsset, registerMediaAsset } from '@/lib/actions/vitrine'
+import { deleteMediaAsset } from '@/lib/actions/vitrine'
 import { uploadMediaAsset } from '@/lib/upload-media-asset'
 import { formatDate } from '@/lib/utils'
 import { MEDIA_TAGS, type MediaAsset, type MediaTag } from '@/types/platform'
@@ -19,8 +19,8 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
 /**
  * Biblioteca de mídia central (seção 20) — estilo WordPress/Shopify. Upload
  * lê dimensões e tamanho reais do arquivo (via `Image()` e `file.size`). Fora
- * do modo de demonstração, o arquivo sobe de verdade para o bucket público
- * `midia_vitrine` e vira uma linha em `media_assets`.
+ * do modo de demonstração, o arquivo sobe de verdade para o bucket público do
+ * Cloudflare R2 e vira uma linha em `media_assets` (ver `uploadMediaAsset`).
  */
 export function MediaLibrary({ initialAssets }: { initialAssets: MediaAsset[] }) {
   const [assets, setAssets] = useState<MediaAsset[]>(initialAssets)
@@ -68,9 +68,10 @@ export function MediaLibrary({ initialAssets }: { initialAssets: MediaAsset[] })
           }
 
           try {
-            const { storagePath, url } = await uploadMediaAsset(file)
-            const id = await registerMediaAsset({ storagePath, url, nome: file.name, tags: ['Geral'], larguraPx, alturaPx, tamanhoKb })
-            setAssets((prev) => [{ id, url, nome: file.name, tags: ['Geral'], larguraPx, alturaPx, tamanhoKb, criadoEm: new Date().toISOString() }, ...prev])
+            const { id, url, tamanhoKb: kb } = await uploadMediaAsset(file, { tags: ['Geral'], larguraPx, alturaPx })
+            setAssets((prev) => [{ id, url, nome: file.name, tags: ['Geral'], larguraPx, alturaPx, tamanhoKb: kb, criadoEm: new Date().toISOString() }, ...prev])
+          } catch (e) {
+            console.error('[media-library] upload', e)
           } finally {
             URL.revokeObjectURL(previewUrl)
           }
@@ -82,10 +83,8 @@ export function MediaLibrary({ initialAssets }: { initialAssets: MediaAsset[] })
   function remove(asset: MediaAsset) {
     setAssets((prev) => prev.filter((a) => a.id !== asset.id))
     setSelected(null)
-    if (!DEMO_MODE) {
-      const storagePath = asset.url.split('/midia_vitrine/')[1] ?? ''
-      deleteMediaAsset(asset.id, storagePath).catch(() => {})
-    }
+    // O servidor lê onde o arquivo está (R2 ou o bucket antigo) pela linha de `media_assets`.
+    if (!DEMO_MODE) deleteMediaAsset(asset.id).catch(() => {})
   }
 
   return (

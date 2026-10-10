@@ -61,11 +61,3 @@ export async function lerMetadadosFoto(arquivo: File): Promise<MetadadosFoto> {
   const limite = new Promise<MetadadosFoto>((resolver) => setTimeout(() => resolver(VAZIO), TEMPO_MAXIMO_MS))
   return Promise.race([leitura, limite]).catch(() => VAZIO)
 }
-
-/** Metadados no formato do Storage (`user_metadata` do objeto). Só o que existe. */
-export function metadadosDoStorage(meta: MetadadosFoto): Record<string, string> | undefined {
-  const m: Record<string, string> = {}
-  if (meta.capturadaEm) m.capturadaEm = meta.capturadaEm
-  if (meta.camera) m.camera = meta.camera
-  return Object.keys(m).length > 0 ? m : undefined
-}

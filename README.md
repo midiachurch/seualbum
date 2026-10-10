@@ -64,6 +64,8 @@ Settings > Environment Variables**, em Production (e Preview, se usar).
 | `R2_ACCESS_KEY_ID`              | obrigatória | Token de API do R2 (R2 > Manage API Tokens), permissão Object Read & Write     |
 | `R2_SECRET_ACCESS_KEY`          | obrigatória | Segredo do mesmo token                                                         |
 | `R2_BUCKET`                     | obrigatória | Nome do bucket privado das fotos (ex.: `seualbum-fotos`)                       |
+| `R2_PUBLIC_BUCKET`              | obrigatória | Bucket **público** do R2 para vitrine e logos (ex.: `seualbum-publico`)        |
+| `R2_PUBLIC_URL`                 | obrigatória | Domínio público desse bucket, sem barra no final (ex.: `https://midia.seualbum.com.br`); lido também no build (`next/image`) |
 | `CRON_SECRET`                   | obrigatória | Segredo do Cron da Vercel (`/api/cron/limpar-fotos-r2`); a Vercel o envia sozinha |
 | `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
 
@@ -97,6 +99,50 @@ No painel da Cloudflare, o bucket precisa de uma regra de **CORS** que libere
 `PUT` e `GET` para a origem do site (`https://SEU-DOMINIO` e
 `http://localhost:3000`), com o header `Content-Type` permitido — o editor
 desenha as fotos num canvas e precisa do `GET` com CORS.
+
+### Demais arquivos no R2 (migration 0034)
+
+Todos os uploads novos seguem os mesmos 3 passos (assinar → `PUT` direto →
+confirmar com HeadObject). O banco guarda só a chave e uma marca `r2`. Os
+arquivos que já estavam no Supabase Storage continuam sendo lidos e apagados
+de lá (**leitura dupla**). Nenhum bucket do Supabase foi apagado.
+
+| O quê | Bucket antigo | Chave no R2 | Rota | Marca no banco |
+| --- | --- | --- | --- | --- |
+| Fotos do projeto (cliente, novo projeto, editor) | `projetos_fotos` | `projetos/{projeto}/fotos/{id}-{nome}` | `/api/uploads/projeto-foto` (+ `/confirmar`, cria a linha em `fotos`) | `fotos.bucket = 'r2'` |
+| Editor de álbum: fotos do avulso, versões leves, lâminas do link de aprovação | `albuns_fotos` | `albuns/{album}/{id}-{nome}`, `albuns/{album}/derivados/{foto}-mini.jpg`, `albuns/{album}/aprovacoes/{aprovacao}/001.jpg` | `/api/uploads/album` (`destino`: `foto`, `derivado`, `aprovacao`) | prefixo `albuns/` no caminho do JSON |
+| Biblioteca de mídia (banners, portfólio) | `midia_vitrine` (público) | `vitrine/{id}-{nome}` no bucket **público** | `/api/uploads/midia` (+ `/confirmar`, cria a linha em `media_assets`) | `media_assets.bucket = 'r2'` |
+| Logo do estúdio | `fotografo_logos` (público) | `logos/{fotografo}/{id}-{nome}` no bucket **público** | `/api/uploads/logo` (+ `/confirmar`) | `fotografos.logo_bucket = 'r2'` + `logo_path` |
+
+- **Álbuns:** os caminhos ficam em JSON (`album_layouts.fotos`/`derivados`,
+  `album_aprovacoes.laminas`), então a marca é o prefixo `albuns/`. Caminho
+  antigo começa pelo UUID do álbum e é lido de `albuns_fotos`. As Server Actions
+  `registrarFotosAlbum`, `salvarDerivados` e `criarAprovacao` conferem cada
+  chave no R2 antes de gravar. "Duplicar álbum" copia tudo para o R2: copia
+  dentro do R2 ou baixa do bucket antigo e reenvia. O link público
+  `/album/[token]` assina as lâminas do R2 pelo servidor, depois de a função
+  do banco validar o token.
+- **Vitrine e logos (públicos):** ficam num **segundo bucket**, com acesso
+  público pelo domínio próprio (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Fizemos
+  assim porque essas imagens aparecem em páginas abertas e cacheadas (home,
+  portfólio, orçamento) e são gravadas no banco como endereço. Um link
+  assinado expira (no máximo 7 dias no S3/R2), quebraria a página em cache e
+  não aproveitaria o CDN. O acesso público do R2 vale para o bucket inteiro,
+  e não para um prefixo. Por isso as fotos de clientes nunca dividem bucket
+  com estes arquivos. `media_assets.url` e `fotografos.logo_url` guardam o
+  endereço público só por compatibilidade: a biblioteca monta o endereço pela
+  chave, e a tela pública do orçamento continua lendo `logo_url` (RPC
+  `get_orcamento_publico`). SVG não é aceito (pode carregar script).
+- **Configuração:** crie o bucket público e ligue um Custom Domain. Dê ao
+  token Object Read & Write nos dois buckets. O bucket público precisa da
+  mesma regra de CORS (`PUT` com `Content-Type`).
+- **Antes do deploy:** aplique a 0034. Sem ela, só os uploads da vitrine e do
+  logo falham (409). As leituras não dependem dela.
+- **Copiar o que já existe (opcional):**
+  `node --env-file=.env.local scripts/copiar-storage-para-r2.mjs` lista o que
+  seria copiado. Com `--aplicar`, copia, confere no R2 e aponta as linhas para
+  a chave nova. Ele nunca apaga nada do Supabase. As lâminas antigas de
+  `versoes_laminas` ficam no `projetos_fotos`.
 
 ## Prova do álbum (revisão e aprovação)
 
@@ -144,7 +190,8 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: aplicar as migrations 0030, 0031 e 0032 no Supabase; levar para o R2 os
-demais buckets (projetos, álbuns, vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+Pendente: aplicar a migration 0034 no Supabase; criar o bucket público do R2
+(`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
+`scripts/copiar-storage-para-r2.mjs`. Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
