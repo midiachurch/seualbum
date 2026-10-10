@@ -528,6 +528,8 @@ export type FaturaRow = {
   dispensada_motivo: string | null
   dispensada_por: string | null
   dispensada_em: string | null
+  /** Migration 0035: Checkout Session do Stripe aberta para esta fatura. */
+  stripe_checkout_session_id?: string | null
 }
 
 /** Upsell B2B2C (migration 0026): catálogo de adicionais e itens da fatura. */
@@ -862,6 +864,24 @@ export type Database = {
       }
       /** Checkout simulado das lâminas extras (Stripe congelado) — só o fotógrafo dono. */
       pagar_fatura_simulada: { Args: { p_fatura_id: string; p_forma: FormaPagamentoDb }; Returns: undefined }
+      /** Webhook do Stripe (0026b): confirma a fatura paga — só service_role, idempotente. */
+      confirmar_pagamento_fatura: { Args: { p_fatura_id: string; p_forma: FormaPagamentoDb }; Returns: undefined }
+      /** Checkout real (0035): o banco diz se a fatura pode ser paga e por quanto — só o estúdio dono. */
+      preparar_checkout_fatura: {
+        Args: { p_fatura_id: string }
+        Returns: {
+          fatura_id: string
+          projeto_id: string
+          projeto_nome: string
+          projeto_numero: number
+          valor_total: number
+          stripe_checkout_session_id: string | null
+        }[]
+      }
+      /** Checkout real (0035): guarda a Checkout Session aberta na fatura. */
+      registrar_checkout_fatura: { Args: { p_fatura_id: string; p_session_id: string }; Returns: undefined }
+      /** 0035: modo de pagamento simulado ligado em private.app_config. */
+      pagamento_simulado_ativo: { Args: Record<string, never>; Returns: boolean }
       /** Upsell (0026): ofertas para a tela de aprovação (casal: revenda; estúdio: custo + revenda). */
       ofertas_da_prova: {
         Args: { p_projeto_id: string }

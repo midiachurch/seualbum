@@ -185,6 +185,41 @@ a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
   lâmina por `POST /api/uploads/lamina` (URL assinada, JPG até 50 MB);
   `criarVersaoComLaminas` confere cada chave no R2 antes de criar a versão.
 
+## Pagamento das faturas de fechamento (migration 0035)
+
+Quando a prova é aprovada com lâminas extras e/ou adicionais, o banco emite a
+fatura de fechamento (0023/0026) e o álbum fica em "aprovado — aguardando
+pagamento". Quem paga é o estúdio, em **Meus álbuns > Fechamento pendente**:
+
+- **Modo simulado ligado** (`private.app_config.pagamento_simulado = 'true'`,
+  padrão da 0023): o botão abre o modal simulado de sempre
+  (`pagar_fatura_simulada`).
+- **Modo simulado desligado** (`'false'`): "Pagar" abre o Stripe Checkout
+  (`iniciarPagamentoFaturaAction`), no mesmo estilo dos pedidos: mesma conta,
+  BRL, Pix e cartão conforme o painel do Stripe, volta para
+  `/dashboard/meus-albuns?fechamento=sucesso|cancelado` na mesma origem do
+  checkout dos pedidos.
+
+Fluxo do checkout real:
+
+1. `preparar_checkout_fatura` (RPC): o banco confere o estúdio dono, a fatura
+   `pendente` e nenhum adicional do casal aguardando decisão, e devolve o valor.
+   O valor nunca vem do navegador.
+2. A Checkout Session leva `metadata.fatura_id` (nunca `pedido_id`); o id dela
+   fica em `faturas.stripe_checkout_session_id` (`registrar_checkout_fatura`)
+   para reaproveitar a sessão aberta em vez de abrir outra.
+3. `/api/webhooks/pagamento` separa as sessões pelo metadata: com `fatura_id`,
+   confere o valor pago contra a fatura e chama `confirmar_pagamento_fatura`
+   com a service role (idempotente). Cartão confirma em
+   `checkout.session.completed`; Pix em `checkout.session.async_payment_succeeded`.
+   A volta do Checkout também confirma (quem chegar primeiro).
+4. Fatura já paga = `ja_processado`. Fatura encerrada antes do pagamento
+   (cortesia/cancelada) ou valor divergente = registrado no log e respondido 2xx
+   (não adianta o Stripe reenviar): conferir e estornar à mão no Stripe.
+
+Para ligar: aplicar a 0035 e depois
+`update private.app_config set value = 'false' where key = 'pagamento_simulado';`.
+
 ## Scripts
 
 | Comando             | O que faz                          |
@@ -240,12 +275,13 @@ Fluxo de adicionais testado ponta a ponta no Supabase local (`supabase init` ger
 `supabase test db` roda os testes pgTAP de `supabase/tests/`, e
 `SUPABASE_E2E_URL=http://127.0.0.1:54321 npx vitest run src/lib/actions/adicionais.e2e.test.ts`
 roda as Server Actions contra o mesmo banco (sem a variável, o arquivo é pulado).
-As faturas de fechamento ainda são pagas só pelo modo simulado
-(`private.app_config.pagamento_simulado`): o webhook do Stripe confirma pedidos,
-não faturas.
+As faturas de fechamento são pagas pelo Stripe Checkout quando o modo simulado
+está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
+`supabase/tests/checkout_fatura.test.sql` cobre as travas da 0035.
 
-Pendente: aplicar as migrations 0033 e 0034 no Supabase; criar o bucket público do R2
+Pendente: aplicar as migrations 0033, 0034 e 0035 no Supabase; criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
-`scripts/copiar-storage-para-r2.mjs`. Também: checkout real das faturas de fechamento e deploy na Vercel
+`scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
+estiver pronto e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
