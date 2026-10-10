@@ -28,7 +28,9 @@ test('casal revisa pelo painel e aprova pelo fluxo da prova', async ({ page }) =
   await expect(destaque).toContainText('0 de 4 lâminas revisadas')
   await destaque.getByRole('link', { name: 'Ver painel de aprovação' }).click()
 
-  await expect(page.getByRole('tab', { name: 'Aprovação', selected: true })).toBeVisible()
+  // Navegação no cliente: no `next dev` a primeira visita compila a rota.
+  await expect(page).toHaveURL(/\?aba=aprovacao/, { timeout: 60_000 })
+  await expect(page.getByRole('tab', { name: 'Aprovação', selected: true })).toBeVisible({ timeout: 60_000 })
   await page.getByRole('button', { name: 'Marcar Lâmina 2 como ok' }).click()
   await expect(page.getByText('1 de 4 lâminas revisadas')).toBeVisible()
 
