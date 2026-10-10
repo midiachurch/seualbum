@@ -135,6 +135,9 @@ export function ProofViewer({
   const [approveModalOpen, setApproveModalOpen] = useState(false)
   const [ofertaAberta, setOfertaAberta] = useState(false)
   const [escolhidos, setEscolhidos] = useState<Record<string, number>>({})
+  // O que foi de fato enviado na aprovação. A tela final lê daqui, e não de
+  // `ofertas`: a action revalida a página e as ofertas voltam vazias.
+  const [enviados, setEnviados] = useState<{ nome: string; quantidade: number; preco: number }[]>([])
   const [adjustModalOpen, setAdjustModalOpen] = useState(false)
   const [decision, setDecision] = useState<'aprovado' | 'ajustes_enviados' | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -424,9 +427,14 @@ export function ProofViewer({
         return
       }
     }
-    // "Não, obrigado" depois de escolher algo: a tela final não pode citar
-    // (nem somar) adicionais que não foram enviados.
-    if (adicionais.length === 0) setEscolhidos({})
+    // Só o que foi enviado: "Não, obrigado" depois de escolher algo não cita
+    // (nem soma) adicionais na tela final.
+    setEnviados(
+      adicionais.map((a) => {
+        const oferta = ofertas.find((o) => o.id === a.adicionalId)
+        return { nome: oferta?.nome ?? 'Adicional', quantidade: a.quantidade, preco: oferta?.preco ?? 0 }
+      }),
+    )
     setDecision('aprovado')
   }
 
@@ -459,11 +467,13 @@ export function ProofViewer({
   const temExcedente = perfil === 'fotografo' && (excedente?.excedente ?? 0) > 0
   const itensEscolhidos = ofertas.filter((o) => (escolhidos[o.id] ?? 0) > 0)
   const totalEscolhido = itensEscolhidos.reduce((soma, o) => soma + o.preco * (escolhidos[o.id] ?? 0), 0)
+  const totalEnviado = enviados.reduce((soma, o) => soma + o.preco * o.quantidade, 0)
+  const resumoEnviados = (separador: string) => enviados.map((o) => `${o.quantidade}× ${o.nome}`).join(separador)
   if (!leituraEquipe && (locked || decision === 'aprovado')) {
     // Fotógrafo com lâminas extras e/ou adicionais: aprovado, mas o arquivo só
     // segue para a gráfica depois do fechamento — a tela diz isso e leva direto.
     const pagamentoPendente =
-      perfil === 'fotografo' && (aguardandoPagamento || (decision === 'aprovado' && (temExcedente || itensEscolhidos.length > 0)))
+      perfil === 'fotografo' && (aguardandoPagamento || (decision === 'aprovado' && (temExcedente || enviados.length > 0)))
     if (pagamentoPendente) {
       return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center">
@@ -473,7 +483,7 @@ export function ProofViewer({
           <h1 className="text-xl font-bold tracking-tight text-[#171717]">Álbum aprovado!</h1>
           <p className="max-w-sm break-words text-sm text-[#595959]">
             Falta o fechamento no seu painel para o arquivo seguir para a gráfica
-            {decision === 'aprovado' && (temExcedente || itensEscolhidos.length > 0) ? (
+            {decision === 'aprovado' && (temExcedente || enviados.length > 0) ? (
               <>
                 {': '}
                 <strong className="text-[#171717]">
@@ -481,11 +491,11 @@ export function ProofViewer({
                     temExcedente && excedente
                       ? `${excedente.excedente} ${excedente.excedente === 1 ? 'lâmina extra' : 'lâminas extras'}`
                       : null,
-                    ...itensEscolhidos.map((o) => `${escolhidos[o.id]}× ${o.nome}`),
+                    enviados.length > 0 ? resumoEnviados(' + ') : null,
                   ]
                     .filter(Boolean)
                     .join(' + ')}{' '}
-                  ({formatBRL((temExcedente && excedente ? excedente.valor : 0) + totalEscolhido)})
+                  ({formatBRL((temExcedente && excedente ? excedente.valor : 0) + totalEnviado)})
                 </strong>
               </>
             ) : null}
@@ -509,11 +519,9 @@ export function ProofViewer({
         </span>
         <h1 className="text-xl font-bold tracking-tight text-[#171717]">Álbum aprovado!</h1>
         <p className="max-w-xs text-sm text-[#595959]">
-          {perfil === 'cliente' && decision === 'aprovado' && itensEscolhidos.length > 0
+          {perfil === 'cliente' && decision === 'aprovado' && enviados.length > 0
             ? // White label: o casal não vê cobrança — o estúdio confirma os adicionais com ele.
-              `Seu álbum foi aprovado! Enviamos ao seu fotógrafo o pedido de ${itensEscolhidos
-                .map((o) => `${escolhidos[o.id]}× ${o.nome}`)
-                .join(' e ')} — ele confirma os detalhes com você.`
+              `Seu álbum foi aprovado! Enviamos ao seu fotógrafo o pedido de ${resumoEnviados(' e ')} — ele confirma os detalhes com você.`
             : 'Seu álbum foi aprovado e enviado para a produção gráfica! Nenhuma alteração pode ser feita a partir de agora.'}
         </p>
         <Button variant="brand" className="min-h-[44px]" onClick={() => router.push(voltarHref)}>
