@@ -366,6 +366,42 @@ supabase stop
 - O Vitest ignora `e2e/`. Falhas deixam trace e screenshot em `test-results/`
   (`npx playwright show-trace <arquivo>`).
 
+### Testes E2E do editor de álbum (Smart Album)
+
+`e2e/editor/` tem config própria (`playwright.editor.config.ts`; o
+`playwright.config.ts` ignora a pasta) porque precisa de um **R2 falso**: o
+editor sobe fotos, versões leves e lâminas direto para o R2, e as Server
+Actions conferem cada chave lá (HeadObject). Nada vai para o Cloudflare:
+
+- `e2e/editor/r2-falso/servidor.mjs` é um S3 mínimo em memória (porta 56490,
+  `E2E_PORTA_R2_FALSO`), subido pelo Playwright;
+- o `next dev` dos testes (porta 3107, `E2E_PORTA_APP`) sobe com
+  `NODE_OPTIONS=--import ./e2e/editor/r2-falso/desviar.mjs`, que desvia o SDK
+  S3 de `*.r2.cloudflarestorage.com` para o falso; no navegador, um
+  `context.route` faz o mesmo com as URLs assinadas (PUT e GET).
+
+```bash
+supabase start                    # o mesmo Supabase local dos outros E2E
+npx playwright install chromium   # uma vez
+E2E_SUPABASE_URL=http://127.0.0.1:54321 npm run test:e2e:editor
+supabase stop
+```
+
+Para não disputar portas com outro stack aberto, dá para subir um Supabase
+só para isso a partir de uma pasta temporária: `supabase init` nela, trocar
+`project_id` e as portas (ex.: API 56421, banco 56422) no `config.toml`,
+apontar `supabase/migrations` para as do repositório (symlink),
+`supabase start --workdir <pasta>` e passar `E2E_SUPABASE_URL=http://127.0.0.1:56421`.
+O `global-setup` cria o admin `admin-editor@e2e.local` (service role local) e
+guarda a sessão em `e2e/editor/.auth/`; falhas ficam em `e2e/editor/.resultados/`.
+
+Specs: `avulso.spec.ts` (envio de fotos + Auto Build cria as lâminas; trocar
+fotos arrastando + desfazer/refazer; texto + troca de fonte; verificação de
+impressão acusa DPI baixo; visualização em livro; ZIP de produção com um JPEG
+por lâmina) e `projeto.spec.ts` ("Publicar versão" no editor do projeto cria
+a versão com as lâminas no R2 e ela aparece na prova da equipe); `hub.spec.ts` (regressão: o hub de álbuns hidrata sem erro
+mesmo com o relógio do navegador diferente do servidor).
+
 O GitHub Actions (`.github/workflows/ci.yml`) roda `tsc --noEmit` e o Vitest
 em todo pull request e push no `main`, com Node 24 (o mesmo da Vercel) e sem
 segredos.

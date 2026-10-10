@@ -32,7 +32,10 @@ export function Visualizacao({
   )
   const criadas = useRef<string[]>([])
   const indiceRef = useRef(indice)
-  indiceRef.current = indice
+  // Espelha o índice para o atalho de teclado fora do render.
+  useEffect(() => {
+    indiceRef.current = indice
+  }, [indice])
 
   useEffect(() => {
     let cancelado = false

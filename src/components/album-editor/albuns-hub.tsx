@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowRight, BookOpen, FolderKanban, Loader2, MoreVertical, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -63,6 +63,19 @@ const COR_GRUPO: Record<Grupo, string> = {
 
 const CHAVE_ULTIMO = 'seualbum:ultimo-album'
 
+// Último álbum aberto, lido do localStorage sem efeito (null no servidor e sem armazenamento).
+function assinarArmazenamento(aviso: () => void) {
+  window.addEventListener('storage', aviso)
+  return () => window.removeEventListener('storage', aviso)
+}
+function lerUltimo(): string | null {
+  try {
+    return window.localStorage.getItem(CHAVE_ULTIMO)
+  } catch {
+    return null
+  }
+}
+
 /**
  * Projetos → Álbuns: todos os álbuns do editor (avulsos e de projeto). Os
  * avulsos são criados aqui; os de projeto nascem ao abrir o editor pela fila
@@ -80,15 +93,9 @@ export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: 
   const [menu, setMenu] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
-  const [ultimo, setUltimo] = useState<string | null>(null)
-
-  useEffect(() => {
-    try {
-      setUltimo(window.localStorage.getItem(CHAVE_ULTIMO))
-    } catch {
-      // sem armazenamento local
-    }
-  }, [])
+  // Instante de corte do filtro de data, calculado ao escolher o período (render puro).
+  const [limite, setLimite] = useState<number | null>(null)
+  const ultimo = useSyncExternalStore(assinarArmazenamento, lerUltimo, () => null)
 
   const hrefDe = (a: AlbumResumo) => (a.projeto ? `/admin/projetos/${a.projeto.id}/editor` : `/admin/albuns/${a.id}`)
   const abrir = (a: AlbumResumo, extra = '') => {
@@ -111,7 +118,6 @@ export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: 
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase()
-    const limite = periodo ? Date.now() - Number(periodo) * 86_400_000 : null
     const filtrada = albuns.filter((a) => {
       if (filtro === 'arquivados' ? !a.arquivado : a.arquivado) return false
       if (filtro !== 'todos' && filtro !== 'arquivados' && grupoDe(a) !== filtro) return false
@@ -126,7 +132,7 @@ export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: 
       if (ordem === 'recentes') return y.criadoEm.localeCompare(x.criadoEm)
       return y.atualizadoEm.localeCompare(x.atualizadoEm)
     })
-  }, [albuns, filtro, busca, cliente, periodo, ordem])
+  }, [albuns, filtro, busca, cliente, limite, ordem])
 
   async function acao(a: AlbumResumo, tipo: 'renomear' | 'duplicar' | 'arquivar') {
     setMenu(null)
@@ -228,7 +234,11 @@ export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: 
             </option>
           ))}
         </select>
-        <select value={periodo} onChange={(e) => setPeriodo(e.target.value as typeof periodo)} className="h-10 rounded-md border border-input bg-background px-3 text-sm" aria-label="Filtrar por data">
+        <select value={periodo} onChange={(e) => {
+            const p = e.target.value as typeof periodo
+            setPeriodo(p)
+            setLimite(p ? Date.now() - Number(p) * 86_400_000 : null)
+          }} className="h-10 rounded-md border border-input bg-background px-3 text-sm" aria-label="Filtrar por data">
           <option value="">Qualquer data</option>
           <option value="7">Editados nos últimos 7 dias</option>
           <option value="30">Últimos 30 dias</option>
@@ -298,7 +308,10 @@ export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: 
                       <>Cliente: {a.clienteNome ?? '—'}</>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">Editado {haQuanto(a.atualizadoEm)}</p>
+                  {/* Tempo relativo depende do relógio: servidor e navegador divergem no minuto. */}
+                  <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+                    Editado {haQuanto(a.atualizadoEm)}
+                  </p>
                   <div className="mt-auto flex items-center justify-between pt-2">
                     <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', COR_GRUPO[grupo])}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
@@ -435,13 +448,18 @@ function NovoAlbum({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar: 
   const valido = nome.trim().length >= 2 && cm !== null && nPaginas >= 2 && nPaginas <= 400
 
   // Fotos estimadas → sugestão de páginas pelo ritmo do estilo (até o designer mexer nas páginas).
-  useEffect(() => {
-    const n = Number(fotosEstimadas)
+  // Roda nos handlers de fotos e de estilo, não num efeito.
+  function sugerirPaginas(fotos: string, est: EstiloId | 'personalizado') {
+    const n = Number(fotos)
     if (paginasTocadas || !(n > 0)) return
-    const ritmo = estiloPorId(estilo === 'personalizado' ? 'classico' : estilo).ritmo
+    const ritmo = estiloPorId(est === 'personalizado' ? 'classico' : est).ritmo
     const media = ritmo.reduce((a, b) => a + b, 0) / ritmo.length
     setPaginas(String(Math.max(2, Math.min(400, Math.ceil(n / media) * 2))))
-  }, [fotosEstimadas, estilo, paginasTocadas])
+  }
+  function escolherEstilo(est: EstiloId | 'personalizado') {
+    setEstilo(est)
+    sugerirPaginas(fotosEstimadas, est)
+  }
 
   const modelo = useMemo(() => {
     if (estilo === 'personalizado') return null
@@ -540,11 +558,11 @@ function NovoAlbum({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar: 
           <Label>Modelo inicial</Label>
           <div className="flex flex-wrap gap-2">
             {ESTILOS.map((e) => (
-              <button key={e.id} type="button" onClick={() => setEstilo(e.id)} className={chip(estilo === e.id)} title={e.descricao}>
+              <button key={e.id} type="button" onClick={() => escolherEstilo(e.id)} className={chip(estilo === e.id)} title={e.descricao}>
                 {e.nome}
               </button>
             ))}
-            <button type="button" onClick={() => setEstilo('personalizado')} className={chip(estilo === 'personalizado')}>
+            <button type="button" onClick={() => escolherEstilo('personalizado')} className={chip(estilo === 'personalizado')}>
               Personalizado
             </button>
           </div>
@@ -555,7 +573,10 @@ function NovoAlbum({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar: 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="sa-fotos">Quantidade aproximada de fotos</Label>
-            <Input id="sa-fotos" type="number" min={0} value={fotosEstimadas} onChange={(e) => setFotosEstimadas(e.target.value)} placeholder="120" />
+            <Input id="sa-fotos" type="number" min={0} value={fotosEstimadas} onChange={(e) => {
+                setFotosEstimadas(e.target.value)
+                sugerirPaginas(e.target.value, estilo)
+              }} placeholder="120" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sa-paginas">Quantidade inicial de páginas</Label>

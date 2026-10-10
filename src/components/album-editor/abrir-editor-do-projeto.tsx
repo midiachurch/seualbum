@@ -29,12 +29,9 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
   const [orientacao, setOrientacao] = useState<AlbumOrientationValue>('quadrado')
   const [enviando, setEnviando] = useState(false)
 
-  const abrir = useCallback(
-    async (escolha?: { formato: string; orientacao: AlbumOrientationValue }) => {
-      setEnviando(true)
-      setErro(null)
-      // `criarLayoutDoProjeto` é idempotente: duas chamadas devolvem o mesmo documento.
-      const r = await criarLayoutDoProjeto(projetoId, escolha)
+  type Resultado = Awaited<ReturnType<typeof criarLayoutDoProjeto>>
+  const tratar = useCallback(
+    (r: Resultado, escolha?: { formato: string; orientacao: AlbumOrientationValue }) => {
       setEnviando(false)
       if (r.ok) {
         router.refresh()
@@ -48,12 +45,20 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
       }
       setErro(r.erro)
     },
-    [projetoId, router],
+    [router],
   )
 
+  // `criarLayoutDoProjeto` é idempotente: duas chamadas devolvem o mesmo documento.
+  function abrir(escolha: { formato: string; orientacao: AlbumOrientationValue }) {
+    setEnviando(true)
+    setErro(null)
+    void criarLayoutDoProjeto(projetoId, escolha).then((r) => tratar(r, escolha))
+  }
+
+  // Primeira tentativa ao montar; o estado só muda quando a resposta chega.
   useEffect(() => {
-    void abrir()
-  }, [abrir])
+    void criarLayoutDoProjeto(projetoId).then((r) => tratar(r))
+  }, [projetoId, tratar])
 
   const cm = laminaEmCm({ formato, orientacao })
   const chip = (ativo: boolean) => cn('min-h-[40px] rounded-full border px-4 text-sm', ativo ? 'border-white bg-white text-[#171717]' : 'border-white/30 hover:bg-white/10')

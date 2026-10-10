@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Ellipse, Group, Image as KImage, Layer, Line, Path, Rect, Stage, Text as KText, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { MIME_FOTO, type FotoNoCanvas, type Selecao } from '@/components/album-editor/tipos'
@@ -41,25 +41,21 @@ const ZOOM_MAX = 8
 const cacheDeImagens = new Map<string, HTMLImageElement>()
 
 function useImagem(url: string | null, onCarregada?: (img: HTMLImageElement) => void) {
-  const [img, setImg] = useState<HTMLImageElement | null>(() => (url ? (cacheDeImagens.get(url) ?? null) : null))
-  const aoCarregar = useRef(onCarregada)
-  aoCarregar.current = onCarregada
+  // Imagem já carregada no cache vale direto; senão, a que o evento `load` entregou para esta URL.
+  const [carregada, setCarregada] = useState<{ url: string; img: HTMLImageElement } | null>(null)
+  const aoCarregar = useEffectEvent((img: HTMLImageElement) => onCarregada?.(img))
   useEffect(() => {
-    if (!url) {
-      setImg(null)
-      return
-    }
+    if (!url) return
     const pronta = cacheDeImagens.get(url)
     if (pronta?.complete && pronta.naturalWidth) {
-      setImg(pronta)
-      aoCarregar.current?.(pronta)
+      aoCarregar(pronta)
       return
     }
     const nova = pronta ?? new Image()
     if (!url.startsWith('blob:')) nova.crossOrigin = 'anonymous'
     const ok = () => {
-      setImg(nova)
-      aoCarregar.current?.(nova)
+      setCarregada({ url, img: nova })
+      aoCarregar(nova)
     }
     nova.addEventListener('load', ok)
     if (!pronta) {
@@ -68,7 +64,10 @@ function useImagem(url: string | null, onCarregada?: (img: HTMLImageElement) => 
     }
     return () => nova.removeEventListener('load', ok)
   }, [url])
-  return img
+  if (!url) return null
+  const pronta = cacheDeImagens.get(url)
+  if (pronta?.complete && pronta.naturalWidth) return pronta
+  return carregada?.url === url ? carregada.img : null
 }
 
 /** Caminho de retângulo com cantos arredondados (clip e contornos do quadro). */
@@ -111,7 +110,7 @@ function fimDeTransformacao(no: Konva.Node, w: number, h: number, redimensionaAl
 }
 
 function eventosComuns(
-  c: Comum,
+  c: Omit<Comum, 'registrarNo'>,
   w: number,
   h: number,
   mover: (x: number, y: number) => void,
@@ -162,6 +161,7 @@ function QuadroNoCanvas({
   onAlterar,
   onDimensoes,
   onEscolherFoco,
+  registrarNo,
   ...c
 }: Comum & {
   quadro: Quadro
@@ -207,7 +207,7 @@ function QuadroNoCanvas({
   if (q.oculto) return null
   return (
     <Group
-      ref={c.registrarNo}
+      ref={registrarNo}
       x={q.x + q.w / 2}
       y={q.y + q.h / 2}
       offsetX={q.w / 2}
@@ -288,13 +288,13 @@ function QuadroNoCanvas({
   )
 }
 
-function FormaNoCanvas({ forma: f, onAlterar, ...c }: Comum & { forma: FormaDoc; onAlterar: (patch: Partial<FormaDoc>) => void }) {
+function FormaNoCanvas({ forma: f, onAlterar, registrarNo, ...c }: Comum & { forma: FormaDoc; onAlterar: (patch: Partial<FormaDoc>) => void }) {
   if (f.oculto) return null
   const traco = f.espessura
   const ornamento = f.forma === 'ornamento' ? ornamentoPorId(f.ornamento) : null
   return (
     <Group
-      ref={c.registrarNo}
+      ref={registrarNo}
       x={f.x + f.w / 2}
       y={f.y + f.h / 2}
       offsetX={f.w / 2}

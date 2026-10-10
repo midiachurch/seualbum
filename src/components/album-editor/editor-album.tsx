@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -162,6 +162,16 @@ function trocarLamina(doc: DocumentoAlbum, indice: number, fn: (l: LaminaDoc) =>
 
 /** Cópia local do que ainda não foi salvo (fechar a aba sem conexão não perde o trabalho). */
 const chaveCopia = (id: string) => `seualbum:rascunho:${id}`
+/** Assinatura de online/offline para o indicador de conexão (useSyncExternalStore). */
+function assinarConexao(aviso: () => void) {
+  window.addEventListener('online', aviso)
+  window.addEventListener('offline', aviso)
+  return () => {
+    window.removeEventListener('online', aviso)
+    window.removeEventListener('offline', aviso)
+  }
+}
+
 function lerCopia(id: string): Copia | null {
   try {
     const bruto = window.localStorage.getItem(chaveCopia(id))
@@ -232,7 +242,7 @@ export function EditorAlbum({
   const [estado, setEstado] = useState<EstadoSalvo>(album.travado ? 'travado' : 'salvo')
   const [mensagem, setMensagem] = useState<string | null>(null)
   const [copiaEncontrada, setCopiaEncontrada] = useState<Copia | null>(null)
-  const [online, setOnline] = useState(true)
+  const online = useSyncExternalStore(assinarConexao, () => navigator.onLine, () => true)
   const [sincronizado, setSincronizado] = useState(false)
   const [telaCheia, setTelaCheia] = useState(false)
   const [boasVindas, setBoasVindas] = useState(album.revisao > 0)
@@ -248,7 +258,10 @@ export function EditorAlbum({
   /* ---------------------------- histórico ---------------------------- */
   const ultimoGrupo = useRef<{ chave: string; em: number } | null>(null)
   const travadoRef = useRef(travado)
-  travadoRef.current = travado
+  // Espelhos para callbacks estáveis: atualizados no commit, antes dos efeitos e de qualquer evento.
+  useLayoutEffect(() => {
+    travadoRef.current = travado
+  }, [travado])
   const aplicar = useCallback((fn: (d: DocumentoAlbum) => DocumentoAlbum, rotulo: string, grupo?: string) => {
     if (travadoRef.current) return
     setHist((h) => {
@@ -284,7 +297,9 @@ export function EditorAlbum({
   const revisao = useRef(album.revisao)
   const salvoRef = useRef<DocumentoAlbum>(doc)
   const docRef = useRef(doc)
-  docRef.current = doc
+  useLayoutEffect(() => {
+    docRef.current = doc
+  }, [doc])
   const emVoo = useRef<Promise<boolean> | null>(null)
   const parado = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -343,21 +358,17 @@ export function EditorAlbum({
   }, [doc, salvar, album.id])
 
   // Conexão: perdeu → guarda local; voltou → sincroniza e avisa.
+  // (O indicador `online` vem de useSyncExternalStore; aqui só a sincronização.)
   useEffect(() => {
-    setOnline(navigator.onLine)
-    const caiu = () => setOnline(false)
     const voltou = async () => {
-      setOnline(true)
       const ok = await salvar()
       if (ok) {
         setSincronizado(true)
         setTimeout(() => setSincronizado(false), 4000)
       }
     }
-    window.addEventListener('offline', caiu)
     window.addEventListener('online', voltou)
     return () => {
-      window.removeEventListener('offline', caiu)
       window.removeEventListener('online', voltou)
     }
   }, [salvar])
@@ -370,7 +381,9 @@ export function EditorAlbum({
       // sem armazenamento local
     }
     const c = lerCopia(album.id)
-    if (c && c.revisao === album.revisao && JSON.stringify(c.documento) !== JSON.stringify(normalizarDocumento(album.documento))) setCopiaEncontrada(c)
+    if (c && c.revisao === album.revisao && JSON.stringify(c.documento) !== JSON.stringify(normalizarDocumento(album.documento)))
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- motivo: o localStorage só existe no navegador; ler no render quebraria a hidratação do SSR
+      setCopiaEncontrada(c)
     else gravarCopia(album.id, null)
     const t = setTimeout(() => setBoasVindas(false), 5000)
     return () => clearTimeout(t)
@@ -514,9 +527,13 @@ export function EditorAlbum({
     const r = await listarAprovacoesAlbum(album.id)
     if (r.ok) setAprovacoes(r.aprovacoes)
   }, [album.id, album.projeto])
+  // Ao abrir: o estado só muda quando a lista chega.
   useEffect(() => {
-    void carregarComentarios()
-  }, [carregarComentarios])
+    if (album.projeto) return
+    void listarAprovacoesAlbum(album.id).then((r) => {
+      if (r.ok) setAprovacoes(r.aprovacoes)
+    })
+  }, [album.id, album.projeto])
   const aprovacaoAtual = aprovacoes.find((a) => a.status !== 'cancelado') ?? null
   const comentariosAbertos = useMemo(() => (aprovacaoAtual?.comentarios ?? []).filter((c) => c.origem === 'cliente' && !c.resolvido), [aprovacaoAtual])
   const comentariosPorLamina = useMemo(() => {
@@ -839,6 +856,7 @@ export function EditorAlbum({
   useEffect(() => {
     try {
       const bruto = window.localStorage.getItem(CHAVE_USO)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- motivo: o localStorage só existe no navegador; ler no render quebraria a hidratação do SSR
       if (bruto) setUsoLocal(JSON.parse(bruto))
     } catch {
       // sem armazenamento local

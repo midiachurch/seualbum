@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, CheckCircle2, MapPin, MessageSquare, PencilLine, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,19 @@ export type AlbumPublico = {
 
 const CHAVE_NOME = 'seualbum:nome-cliente'
 
+// Nome lembrado neste aparelho, lido do localStorage sem efeito (null no servidor).
+function assinarArmazenamento(aviso: () => void) {
+  window.addEventListener('storage', aviso)
+  return () => window.removeEventListener('storage', aviso)
+}
+function lerNomeSalvo(): string | null {
+  try {
+    return window.localStorage.getItem(CHAVE_NOME)
+  } catch {
+    return null
+  }
+}
+
 /**
  * O que o cliente vê pelo link: o álbum virando as páginas, comentários
  * presos ao ponto da lâmina (toque para marcar) e as duas decisões —
@@ -35,7 +48,10 @@ export function AprovacaoCliente({ album }: { album: AlbumPublico }) {
   const [comentarios, setComentarios] = useState(album.comentarios)
   const [pin, setPin] = useState<{ x: number; y: number } | null>(null)
   const [texto, setTexto] = useState('')
-  const [nome, setNome] = useState('')
+  // null = ainda não digitado aqui: vale o nome lembrado ou o do álbum.
+  const [nomeDigitado, setNome] = useState<string | null>(null)
+  const nomeSalvo = useSyncExternalStore(assinarArmazenamento, lerNomeSalvo, () => null)
+  const nome = nomeDigitado ?? nomeSalvo ?? album.cliente ?? ''
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [decisao, setDecisao] = useState<'aprovado' | 'alteracoes' | null>(null)
@@ -43,14 +59,6 @@ export function AprovacaoCliente({ album }: { album: AlbumPublico }) {
   const aberto = album.status === 'aguardando'
   const primeiro = album.laminas[0]
   const proporcao = primeiro ? primeiro.largura / primeiro.altura : 2
-
-  useEffect(() => {
-    try {
-      setNome(window.localStorage.getItem(CHAVE_NOME) ?? album.cliente ?? '')
-    } catch {
-      setNome(album.cliente ?? '')
-    }
-  }, [album.cliente])
 
   function lembrarNome(n: string) {
     setNome(n)
