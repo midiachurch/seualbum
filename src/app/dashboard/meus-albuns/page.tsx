@@ -327,16 +327,34 @@ function AcaoDoAlbum({
   }
   if (album.temProva && order.projetos) {
     return (
-      <Button asChild size="sm" variant={album.aguardaDecisao ? 'brand' : 'outline'} className={classeBotao}>
-        <Link href={`/dashboard/albuns/${order.projetos.id}/prova`}>
-          {album.aguardaDecisao ? 'Revisar prova' : 'Ver prova'}
+      <span className={bloco ? 'block' : 'inline-flex items-center gap-3'}>
+        <Button asChild size="sm" variant={album.aguardaDecisao ? 'brand' : 'outline'} className={classeBotao}>
+          <Link href={`/dashboard/albuns/${order.projetos.id}/prova`}>
+            {album.aguardaDecisao ? 'Revisar prova' : 'Ver prova'}
+          </Link>
+        </Button>
+        <Link
+          href={`/dashboard/albuns/${order.projetos.id}/mensagens`}
+          className={bloco ? 'mt-3 block text-center text-sm font-medium underline underline-offset-2' : 'text-xs font-medium underline underline-offset-2'}
+        >
+          Mensagens
         </Link>
-      </Button>
+      </span>
     )
   }
   // O card de pagamento já aparece no topo; no card do celular não repete.
   if (aguardandoPagamento) {
     return bloco ? null : <span className="text-xs font-medium text-[#171717]">Aguardando pagamento</span>
+  }
+  if (order.projetos) {
+    return (
+      <Link
+        href={`/dashboard/albuns/${order.projetos.id}/mensagens`}
+        className={bloco ? 'mt-4 block text-center text-sm font-medium underline underline-offset-2' : 'text-xs font-medium underline underline-offset-2'}
+      >
+        Mensagens
+      </Link>
+    )
   }
   return bloco ? null : <span className="text-xs text-muted-foreground">—</span>
 }

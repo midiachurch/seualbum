@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { SeloNaoLidas } from '@/components/mensagens/selo-nao-lidas'
 
 const NAV = [
   { href: '/dashboard', label: 'Visão geral' },
@@ -10,6 +11,7 @@ const NAV = [
   { href: '/dashboard/meus-albuns', label: 'Meus álbuns' },
   { href: '/dashboard/orcamentos', label: 'Meus orçamentos' },
   { href: '/dashboard/catalogo', label: 'Catálogo' },
+  { href: '/dashboard/mensagens', label: 'Mensagens' },
 ]
 
 function ativo(pathname: string, href: string) {
@@ -31,11 +33,12 @@ export function DashboardNavDesktop() {
           href={item.href}
           aria-current={ativo(pathname, item.href) ? 'page' : undefined}
           className={cn(
-            'text-sm font-medium transition-colors hover:text-[#171717]',
+            'inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-[#171717]',
             ativo(pathname, item.href) ? 'text-[#171717]' : 'text-[#595959]',
           )}
         >
           {item.label}
+          {item.href === '/dashboard/mensagens' ? <SeloNaoLidas /> : null}
         </Link>
       ))}
     </nav>
@@ -57,11 +60,12 @@ export function DashboardNavMobile() {
               href={item.href}
               aria-current={ativo(pathname, item.href) ? 'page' : undefined}
               className={cn(
-                'inline-flex min-h-[44px] items-center rounded-full px-4 text-sm font-medium transition-colors',
+                'inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-colors',
                 ativo(pathname, item.href) ? 'bg-[#171717] text-white' : 'text-[#595959] hover:bg-[#F5F5F5]',
               )}
             >
               {item.label}
+              {item.href === '/dashboard/mensagens' ? <SeloNaoLidas invertido={ativo(pathname, item.href)} /> : null}
             </Link>
           </li>
         ))}

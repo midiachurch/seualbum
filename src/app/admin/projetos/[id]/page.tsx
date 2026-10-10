@@ -5,6 +5,8 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProjectWorkspace } from '@/components/admin/projects/project-workspace'
 import { CobrancaLaminasCard } from '@/components/admin/projects/cobranca-laminas-card'
+import { PainelMensagensProjeto } from '@/components/mensagens/painel-mensagens-projeto'
+import { abrirFio, buscarFio, opcoesDeLaminas } from '@/lib/mensagens-servidor'
 import {
   getClients,
   getComunicacoesLog,
@@ -21,7 +23,7 @@ import { hasPermission } from '@/types/platform'
 export const metadata: Metadata = { title: 'Projeto' }
 
 export default async function ProjetoDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePlatformAccess(['projetos', 'design'])
+  const { user } = await requirePlatformAccess(['projetos', 'design'])
   const role = await getPlatformRole()
   // Designer: produção pura (fotos, briefing, versões, pins) — sem status
   // manual, sem atribuição, sem dados do cliente nem caixa de e-mails.
@@ -39,10 +41,14 @@ export default async function ProjetoDetailPage({ params }: { params: Promise<{ 
   ])
   if (!project) notFound()
   // Cobrança é assunto comercial: o designer não vê (nem a RLS deixa — 0021/0023).
-  const [communicationLog, faturas, resumo] = await Promise.all([
+  const [communicationLog, faturas, resumo, fioEquipe, fioCliente] = await Promise.all([
     getComunicacoesLog(id),
     modoDesigner ? Promise.resolve([]) : getFaturasDoProjeto(id),
     modoDesigner ? Promise.resolve(null) : getResumoExcedente(id),
+    // Mensagens (0037): designer só no projeto atribuído a ele (senão, null);
+    // o fio do cliente com o estúdio é só leitura e só para a operação.
+    abrirFio('estudio_equipe', { projetoId: id }),
+    modoDesigner ? Promise.resolve(null) : buscarFio('cliente_estudio', id),
   ])
 
   const client = clients.find((c) => c.id === project.clientId)
@@ -79,6 +85,39 @@ export default async function ProjetoDetailPage({ params }: { params: Promise<{ 
         canAssign={canAssign}
         canApproveInternal={canApproveInternal}
         modoDesigner={modoDesigner}
+        painelMensagens={
+          <PainelMensagensProjeto
+            meuId={user.id}
+            perfil="equipe"
+            laminas={opcoesDeLaminas(project, { somenteLiberadas: false })}
+            abas={[
+              {
+                valor: 'equipe',
+                rotulo: 'Estúdio ↔ equipe',
+                fio: fioEquipe,
+                vazio: modoDesigner
+                  ? 'Só o designer responsável por este projeto participa da conversa com o estúdio.'
+                  : 'Não foi possível abrir a conversa com o estúdio.',
+              },
+              ...(modoDesigner
+                ? []
+                : [
+                    {
+                      valor: 'cliente',
+                      rotulo: 'Cliente ↔ estúdio (suporte)',
+                      fio: fioCliente
+                        ? {
+                            ...fioCliente,
+                            somenteLeitura: true,
+                            aviso: 'Conversa interna do estúdio com o cliente final. A equipe só lê, para dar suporte.',
+                          }
+                        : null,
+                      vazio: 'O estúdio e o cliente ainda não conversaram sobre este projeto.',
+                    },
+                  ]),
+            ]}
+          />
+        }
       />
     </div>
   )

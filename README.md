@@ -220,6 +220,41 @@ Fluxo do checkout real:
 Para ligar: aplicar a 0035 e depois
 `update private.app_config set value = 'false' where key = 'pagamento_simulado';`.
 
+## Mensagens (migration 0037)
+
+Conversas de verdade entre o estúdio, a equipe e o cliente final (antes só
+havia o histórico `projeto_atividades`, a caixa de saída `comunicacoes_log` e
+os alertas `notificacoes_crm`).
+
+- **Canais** (`conversas.canal`): `estudio_equipe` — o estúdio ↔ equipe
+  seualbum, um fio **geral** por estúdio e um por projeto; `cliente_estudio` —
+  o cliente final ↔ o estúdio, um por projeto. A operação (admin/gestor/
+  operador) **lê** o fio do cliente para suporte, marcado como interno, mas não
+  escreve; nem o cliente nem o estúdio veem que a equipe leu.
+- **Quem vê** (`pode_ver_conversa`): o estúdio dono, o cliente do projeto (só o
+  fio dele), a operação, e o designer só no fio com a equipe dos projetos em
+  que é o `responsavel_id`. Estúdios e clientes são isolados entre si (pgTAP
+  `supabase/tests/mensagens.test.sql`).
+- **Mensagens**: o navegador manda só o texto (e, opcionalmente, uma lâmina do
+  próprio projeto); autor, lado, nome e data são gravados pelo gatilho. O
+  estúdio aparece com o nome do estúdio (white-label para o cliente).
+  "Apagar" é exclusão lógica (a linha fica, o texto some).
+- **Lidas**: `conversa_leituras` guarda até onde cada um leu; não lidas por
+  fio em `contar_mensagens_nao_lidas` e o total do selo em
+  `total_mensagens_nao_lidas`. Para a equipe, só conta o que o estúdio
+  escreveu.
+- **Sistema**: prova publicada, aprovada e ajustes solicitados viram mensagem
+  de sistema no fio do projeto com a equipe (gatilho em `projetos.status`).
+- **Ao vivo**: `mensagens` entra na publicação `supabase_realtime`; o fio
+  aberto e os selos assinam `postgres_changes` (a RLS vale para quem assina).
+  Sem Realtime, o fio consulta a cada 15s e o selo a cada 30s.
+- **Telas**: `/admin/mensagens` (filtros por estúdio, projeto e não lidas; aba
+  de suporte cliente ↔ estúdio), `/dashboard/mensagens` (abas "Equipe
+  seualbum" e "Meus clientes"), aba **Mensagens** em `/admin/projetos/[id]`,
+  `/dashboard/albuns/[id]/mensagens` (link em Meus álbuns) e aba Mensagens em
+  `/cliente/projetos/[id]` (atalho `/cliente/mensagens` no menu do cliente).
+- Server Actions em `src/lib/actions/mensagens.ts`. Anexos ainda não.
+
 ## Scripts
 
 | Comando             | O que faz                          |
@@ -279,7 +314,7 @@ As faturas de fechamento são pagas pelo Stripe Checkout quando o modo simulado
 está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
 `supabase/tests/checkout_fatura.test.sql` cobre as travas da 0035.
 
-Pendente: aplicar as migrations 0035 e 0036 no Supabase (0033 e 0034 já aplicadas); criar o bucket público do R2
+Pendente: aplicar as migrations 0035, 0036 e 0037 (mensagens) no Supabase (0033 e 0034 já aplicadas); criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel
