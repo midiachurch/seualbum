@@ -601,6 +601,39 @@ export type NotificacaoCrmRow = {
   resolvida_por: string | null
 }
 
+/** Mensagens interligadas (migration 0037). */
+export type ConversaRow = {
+  id: string
+  canal: 'estudio_equipe' | 'cliente_estudio'
+  fotografo_id: string
+  projeto_id: string | null
+  ultima_mensagem_em: string | null
+  ultima_mensagem_previa: string | null
+  created_at: string
+}
+
+export type MensagemRow = {
+  id: string
+  conversa_id: string
+  /** null = mensagem do sistema (ou autor removido). */
+  autor_id: string | null
+  autor_nome: string
+  autor_papel: 'equipe' | 'fotografo' | 'cliente' | 'sistema'
+  tipo: 'texto' | 'sistema'
+  corpo: string
+  lamina_id: string | null
+  versao_id: string | null
+  created_at: string
+  apagada_em: string | null
+  apagada_por: string | null
+}
+
+export type ConversaLeituraRow = {
+  conversa_id: string
+  usuario_id: string
+  lida_ate: string
+}
+
 export type OrcamentoRow = {
   id: string
   fotografo_id: string
@@ -820,6 +853,26 @@ export type Database = {
         Update: Partial<FaturaRow>
         Relationships: []
       }
+      conversas: {
+        Row: ConversaRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      /** Autor, papel, nome e data são definidos pelo banco (gatilho da 0037). */
+      mensagens: {
+        Row: MensagemRow
+        Insert: Pick<MensagemRow, 'conversa_id' | 'corpo'> & Partial<Pick<MensagemRow, 'autor_id' | 'lamina_id' | 'versao_id'>>
+        /** Só exclusão lógica. */
+        Update: Pick<MensagemRow, 'apagada_em'>
+        Relationships: []
+      }
+      conversa_leituras: {
+        Row: ConversaLeituraRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       orcamentos: {
         Row: OrcamentoRow
         Insert: Pick<OrcamentoRow, 'fotografo_id' | 'cliente_final_nome'> &
@@ -909,6 +962,38 @@ export type Database = {
       marcar_alerta_crm: { Args: { p_id: string; p_status: NotificacaoCrmStatus }; Returns: undefined }
       /** Cortesia: admin/gestor dispensa a cobrança e libera para impressão. */
       dispensar_fatura: { Args: { p_fatura_id: string; p_motivo: string }; Returns: undefined }
+      /** Mensagens (0037): busca ou cria o fio, conferindo o acesso. */
+      abrir_conversa: {
+        Args: { p_canal: 'estudio_equipe' | 'cliente_estudio'; p_fotografo_id?: string | null; p_projeto_id?: string | null }
+        Returns: string
+      }
+      marcar_conversa_lida: { Args: { p_conversa_id: string }; Returns: string }
+      contar_mensagens_nao_lidas: { Args: Record<string, never>; Returns: { conversa_id: string; nao_lidas: number }[] }
+      total_mensagens_nao_lidas: { Args: Record<string, never>; Returns: number }
+      listar_conversas: {
+        Args: {
+          p_canal?: 'estudio_equipe' | 'cliente_estudio' | null
+          p_fotografo_id?: string | null
+          p_projeto_id?: string | null
+          p_somente_nao_lidas?: boolean
+          p_limite?: number
+        }
+        Returns: {
+          id: string
+          canal: 'estudio_equipe' | 'cliente_estudio'
+          fotografo_id: string
+          estudio: string
+          estudio_logo_url: string | null
+          projeto_id: string | null
+          projeto_nome: string | null
+          projeto_numero: number | null
+          cliente_nome: string | null
+          ultima_mensagem_em: string | null
+          ultima_mensagem_previa: string | null
+          nao_lidas: number
+          created_at: string
+        }[]
+      }
       get_orcamento_publico: {
         Args: { p_hash: string }
         Returns: {
