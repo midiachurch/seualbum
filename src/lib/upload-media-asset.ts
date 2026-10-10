@@ -1,27 +1,24 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
+import { enviarEConfirmarR2 } from '@/lib/upload-r2'
+import type { MediaTag } from '@/types/platform'
+import { novoUuid } from '@/store/usePedidoWizardStore'
 
 /**
- * Upload direto do navegador para o bucket público `midia_vitrine` (RLS:
- * escrita só admin/gestor). Como o bucket é público, a URL final não precisa
- * de assinatura — é o mesmo endereço servido pelo CDN do Storage.
+ * Envia um arquivo da biblioteca de mídia para o bucket PÚBLICO do Cloudflare
+ * R2 e já o registra em `media_assets` (`bucket = 'r2'`), em 3 passos (ver
+ * /api/uploads/midia). A URL devolvida é o endereço público permanente
+ * (R2_PUBLIC_URL) — sem assinatura, com cache do CDN.
  */
-export async function uploadMediaAsset(file: File) {
-  const supabase = createClient()
-  const path = `${Date.now()}-${file.name}`
-
-  const { error: uploadError } = await supabase.storage.from('midia_vitrine').upload(path, file, {
-    cacheControl: '31536000',
-    upsert: false,
-  })
-  if (uploadError) throw uploadError
-
-  const { data } = supabase.storage.from('midia_vitrine').getPublicUrl(path)
-  return { storagePath: path, url: data.publicUrl }
-}
-
-export async function removeMediaAsset(storagePath: string) {
-  const supabase = createClient()
-  await supabase.storage.from('midia_vitrine').remove([storagePath])
+export async function uploadMediaAsset(
+  file: File,
+  dados: { tags: MediaTag[]; larguraPx: number; alturaPx: number },
+): Promise<{ id: string; url: string; tamanhoKb: number }> {
+  const r = await enviarEConfirmarR2(
+    '/api/uploads/midia',
+    { idArquivo: novoUuid(), nome: file.name, tipo: file.type, tamanho: file.size },
+    file,
+    { nome: file.name, ...dados },
+  )
+  return { id: String(r.id), url: String(r.url ?? ''), tamanhoKb: Number(r.tamanhoKb) || Math.round(file.size / 1024) }
 }

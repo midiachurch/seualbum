@@ -1,15 +1,16 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { LADO_MINI, LADO_PREVIEW, medirEstouro, medirFoco, medirMonocromia, reduzirParaJpg } from '@/lib/album/ajustes'
 import { salvarDerivados } from '@/lib/actions/album-editor'
+import { enviarArquivoAlbum } from '@/lib/upload-album'
 import type { DerivadoFoto } from '@/types/database'
 
 /**
  * Versões leves de uma foto, geradas no navegador: miniatura (biblioteca,
  * fita, listas) e prévia (canvas e visualização), mais as medidas que o
  * editor precisa (dimensões, estouro, ponto de interesse). O original fica
- * intocado no Storage e só é usado na exportação.
+ * intocado e só é usado na exportação. As versões leves vão para o
+ * Cloudflare R2 (`albuns/{albumId}/derivados/…`, /api/uploads/album).
  */
 
 export type DerivadoGerado = DerivadoFoto & { urlMini: string; urlPreview: string }
@@ -55,16 +56,19 @@ function blobParaImagem(blob: Blob): Promise<HTMLImageElement> {
 /** Gera e sobe as versões leves; devolve o registro (paths) e URLs locais para uso imediato. */
 export async function gerarDerivados(albumId: string, fotoId: string, fonte: HTMLImageElement | ImageBitmap): Promise<DerivadoGerado> {
   const m = await medir(fonte)
-  const supabase = createClient()
-  const base = `${albumId}/derivados/${fotoId}`
-  const [a, b] = await Promise.all([
-    supabase.storage.from('albuns_fotos').upload(`${base}-mini.jpg`, m.mini, { contentType: 'image/jpeg', upsert: true, cacheControl: '31536000' }),
-    supabase.storage.from('albuns_fotos').upload(`${base}-preview.jpg`, m.preview, { contentType: 'image/jpeg', upsert: true, cacheControl: '31536000' }),
-  ])
-  if (a.error || b.error) throw new Error('Não foi possível enviar as versões leves.')
+  let mini: string
+  let preview: string
+  try {
+    ;[mini, preview] = await Promise.all([
+      enviarArquivoAlbum(albumId, { destino: 'derivado', fotoId, variante: 'mini' }, m.mini),
+      enviarArquivoAlbum(albumId, { destino: 'derivado', fotoId, variante: 'preview' }, m.preview),
+    ])
+  } catch {
+    throw new Error('Não foi possível enviar as versões leves.')
+  }
   return {
-    mini: `${base}-mini.jpg`,
-    preview: `${base}-preview.jpg`,
+    mini,
+    preview,
     largura: m.largura,
     altura: m.altura,
     estouro: m.estouro,

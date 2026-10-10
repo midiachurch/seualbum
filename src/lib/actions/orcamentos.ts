@@ -93,15 +93,3 @@ export async function deleteOrcamento(id: string) {
 
   revalidatePath('/dashboard/orcamentos')
 }
-
-/** Logo do estúdio, usada na tela pública do orçamento — upload direto pro perfil do fotógrafo. */
-export async function updateFotografoLogo(logoUrl: string) {
-  assertRealMode()
-  const { supabase, user } = await exigirEstudio()
-  if (!supabase) throw new Error('Sem conexão com o banco.')
-
-  const { error } = await supabase.from('fotografos').update({ logo_url: logoUrl }).eq('id', user.id)
-  if (error) throw new Error(error.message)
-
-  revalidatePath('/dashboard/orcamentos')
-}

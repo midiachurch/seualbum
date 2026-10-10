@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { VisualOptionCards } from '@/components/admin/projects/visual-option-cards'
 import { UploadDropzone } from '@/components/admin/projects/upload-dropzone'
-import { createProjeto, registerFoto } from '@/lib/actions/projetos'
+import { createProjeto } from '@/lib/actions/projetos'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
 import {
   ALBUM_COVER_OPTIONS,
@@ -158,8 +158,7 @@ export function NewProjectWizard({
 
       await Promise.all(
         arquivos.map(async (file) => {
-          const { storagePath, url } = await uploadProjetoFoto(projeto.id, file)
-          await registerFoto({ projetoId: projeto.id, storagePath, url, grupo: 'Fotos do briefing' })
+          await uploadProjetoFoto(projeto.id, file, 'Fotos do briefing')
         }),
       )
 

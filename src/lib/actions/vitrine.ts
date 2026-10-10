@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { requireModuleAction } from '@/lib/supabase/queries'
 import { isDemoMode } from '@/lib/demo-mode'
-import type { MediaTag } from '@/types/platform'
+import { BUCKET_R2 } from '@/lib/r2/chaves'
+import { r2PublicoConfigurado, removerObjetos } from '@/lib/r2/cliente'
 
 /**
  * Server Actions da Vitrine e Biblioteca de Mídia — só chamadas fora do modo
@@ -16,48 +17,31 @@ function assertRealMode() {
   if (isDemoMode()) throw new Error('Ação indisponível em modo de demonstração.')
 }
 
-export async function registerMediaAsset(input: {
-  storagePath: string
-  url: string
-  nome: string
-  tags: MediaTag[]
-  larguraPx: number
-  alturaPx: number
-  tamanhoKb: number
-}) {
-  assertRealMode()
-  const { supabase } = await requireModuleAction('midia', 'criar')
-  if (!supabase) throw new Error('Sem conexão com o banco.')
+// O upload (e o registro em `media_assets`) é feito por /api/uploads/midia:
+// navegador → bucket público do R2 → confirmação com HeadObject.
 
-  const { data: userData } = await supabase.auth.getUser()
-  const { data, error } = await supabase
-    .from('media_assets')
-    .insert({
-      storage_path: input.storagePath,
-      url: input.url,
-      nome: input.nome,
-      tags: input.tags,
-      largura_px: input.larguraPx,
-      altura_px: input.alturaPx,
-      tamanho_kb: input.tamanhoKb,
-      criado_por: userData.user?.id ?? null,
-    })
-    .select('id')
-    .single()
-  if (error || !data) throw new Error(error?.message ?? 'Não foi possível registrar o arquivo.')
-
-  revalidatePath('/admin/midia')
-  return data.id as string
-}
-
-export async function deleteMediaAsset(id: string, storagePath: string) {
+/**
+ * Exclui da biblioteca. O arquivo sai de onde estiver, conforme a linha:
+ * `bucket = 'r2'` no bucket público do R2; os antigos, do `midia_vitrine`.
+ */
+export async function deleteMediaAsset(id: string) {
   assertRealMode()
   const { supabase } = await requireModuleAction('midia', 'excluir')
   if (!supabase) throw new Error('Sem conexão com o banco.')
 
-  await supabase.storage.from('midia_vitrine').remove([storagePath])
+  const { data: asset } = await supabase.from('media_assets').select('*').eq('id', id).maybeSingle()
   const { error } = await supabase.from('media_assets').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  if (asset?.storage_path) {
+    if (asset.bucket === BUCKET_R2) {
+      if (r2PublicoConfigurado()) {
+        await removerObjetos([asset.storage_path], 'publico').catch((e) => console.error('[deleteMediaAsset] R2', e instanceof Error ? e.message : e))
+      }
+    } else {
+      await supabase.storage.from('midia_vitrine').remove([asset.storage_path])
+    }
+  }
 
   revalidatePath('/admin/midia')
 }

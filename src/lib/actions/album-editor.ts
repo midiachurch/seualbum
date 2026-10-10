@@ -7,8 +7,18 @@ import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } f
 import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
 import { laminaEmCm, normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
 import { prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
-import { BUCKET_R2 } from '@/lib/r2/chaves'
-import { assinarLeituras, lerObjeto } from '@/lib/r2/cliente'
+import {
+  BUCKET_ALBUNS_LEGADO,
+  BUCKET_R2,
+  bucketDoArquivoAlbum,
+  chaveDerivadoAlbum,
+  chaveEhDerivadoDoAlbum,
+  chaveEhFotoDoAlbum,
+  chaveEhLaminaDaAprovacao,
+  chaveFotoAlbum,
+  ehChaveAlbumR2,
+} from '@/lib/r2/chaves'
+import { assinarLeituras, copiarObjeto, enviarObjeto, metadadosDoObjeto, r2Configurado, removerObjetos } from '@/lib/r2/cliente'
 import type { AlbumConfig, AlbumOrientationValue } from '@/types/platform'
 import type { AlbumLayoutRow, AlbumTemplateRow, BibliotecaAlbum, DerivadoFoto } from '@/types/database'
 
@@ -57,22 +67,55 @@ async function fotosDoProjeto(supabase: NonNullable<Awaited<ReturnType<typeof re
   return data
 }
 
-/**
- * O álbum avulso guarda as fotos em `albuns_fotos` (Supabase). Foto de projeto
- * que está no R2 é baixada e reenviada — uma por vez, para não estourar a
- * memória da função com fotos de 50 MB.
+type Supabase = NonNullable<Awaited<ReturnType<typeof requireEdicaoDeProducao>>['supabase']>
+
+const CONFERENCIAS_SIMULTANEAS = 8
+
+/*
+ * Os arquivos do editor de álbum ficam no Cloudflare R2 (`albuns/{albumId}/…`,
+ * /api/uploads/album). Caminhos sem o prefixo `albuns/` são de antes da
+ * migração e continuam no bucket `albuns_fotos` do Supabase: são lidos e
+ * apagados de lá, mas nada novo é gravado nele.
  */
-async function copiarDoR2(
-  supabase: NonNullable<Awaited<ReturnType<typeof requireEdicaoDeProducao>>['supabase']>,
-  key: string,
-  destino: string,
-): Promise<{ error: unknown }> {
+
+/** Quantas chaves NÃO existem no R2 (HeadObject, 8 por vez). Lança se o R2 falhar. */
+async function faltandoNoR2(keys: string[]) {
+  let faltando = 0
+  for (let i = 0; i < keys.length; i += CONFERENCIAS_SIMULTANEAS) {
+    const lote = await Promise.all(keys.slice(i, i + CONFERENCIAS_SIMULTANEAS).map((key) => metadadosDoObjeto(key)))
+    faltando += lote.filter((m) => m === null).length
+  }
+  return faltando
+}
+
+/** Apaga arquivos do álbum onde quer que estejam (R2 ou o bucket antigo). Nunca lança. */
+async function removerArquivosDoAlbum(supabase: Supabase, paths: string[]) {
+  const doR2 = paths.filter((p) => ehChaveAlbumR2(p))
+  const antigos = paths.filter((p) => !ehChaveAlbumR2(p))
+  if (doR2.length > 0) {
+    await removerObjetos(doR2).catch((e) => console.error('[album-editor] remover do R2', e instanceof Error ? e.message : e))
+  }
+  for (let i = 0; i < antigos.length; i += 500) await supabase.storage.from(BUCKET_ALBUNS_LEGADO).remove(antigos.slice(i, i + 500))
+}
+
+/**
+ * Copia um arquivo para o R2 (duplicar álbum). Origem no R2: cópia no próprio
+ * R2, sem baixar. Origem num bucket antigo do Supabase (`projetos_fotos`,
+ * `pedidos_fotos`, `albuns_fotos`): baixa e reenvia — uma por vez, para não
+ * estourar a memória da função com fotos grandes.
+ */
+async function copiarParaR2(supabase: Supabase, origem: { bucket: string; path: string }, destino: string): Promise<{ error: unknown }> {
   try {
-    const { bytes, contentType } = await lerObjeto(key)
-    const { error } = await supabase.storage.from('albuns_fotos').upload(destino, bytes, { contentType, upsert: true })
-    return { error }
+    if (origem.bucket === BUCKET_R2) {
+      await copiarObjeto(origem.path, destino)
+      return { error: null }
+    }
+    const { data, error } = await supabase.storage.from(origem.bucket).download(origem.path)
+    if (error || !data) return { error: error ?? new Error('arquivo vazio') }
+    await enviarObjeto(destino, new Uint8Array(await data.arrayBuffer()), data.type || 'image/jpeg')
+    return { error: null }
   } catch (e) {
-    console.error('[duplicarAlbum] copiar do R2', key, e instanceof Error ? e.message : e)
+    console.error('[duplicarAlbum] copiar para o R2', origem.bucket, origem.path, e instanceof Error ? e.message : e)
     return { error: e }
   }
 }
@@ -305,24 +348,37 @@ export async function atualizarDadosAlbum(
 
 /* --------------------------------- fotos --------------------------------- */
 
-/** Depois do upload direto ao Storage: registra as fotos no álbum avulso. */
+/**
+ * Depois do upload direto ao R2 (/api/uploads/album): confere cada chave no
+ * R2 e registra as fotos no álbum avulso. Devolve links assinados (8h) para o
+ * editor mostrar as fotos na hora.
+ */
 export async function registrarFotosAlbum(
   id: string,
   fotos: { id: string; path: string; nome: string; largura: number | null; altura: number | null }[],
-): Promise<Resultado> {
+): Promise<Resultado<{ urls: Record<string, string> }>> {
   const demo = indisponivel()
   if (demo) return demo
   if (!UUID_RE.test(id) || !Array.isArray(fotos) || fotos.length === 0 || fotos.length > 500) return { ok: false, erro: 'Envio inválido.' }
   const { supabase } = await requireEdicaoDeProducao()
   if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
+  if (!r2Configurado()) return { ok: false, erro: 'Armazenamento de fotos não configurado. Fale com o suporte técnico.' }
 
   const dimensao = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 100_000 ? v : null)
   const novas: AlbumLayoutRow['fotos'] = []
   for (const f of fotos) {
-    const nomeArq = typeof f?.path === 'string' ? f.path.slice(id.length + 1) : ''
-    if (!f.path?.startsWith(`${id}/`) || !nomeArq || nomeArq.includes('/') || nomeArq.includes('..')) return { ok: false, erro: 'Arquivo fora da pasta do álbum.' }
+    // Só chaves na pasta DESTE álbum no R2: nunca registrar arquivo alheio.
+    if (!chaveEhFotoDoAlbum(f?.path, id)) return { ok: false, erro: 'Arquivo fora da pasta do álbum.' }
     if (!UUID_RE.test(f.id)) return { ok: false, erro: 'Foto inválida.' }
+    const nomeArq = f.path.split('/').pop()!
     novas.push({ id: f.id, path: f.path, nome: String(f.nome ?? '').slice(0, 120) || nomeArq, largura: dimensao(f.largura), altura: dimensao(f.altura) })
+  }
+  try {
+    const faltando = await faltandoNoR2(novas.map((f) => f.path))
+    if (faltando > 0) return { ok: false, erro: `${faltando} foto(s) não chegaram ao armazenamento. Envie de novo.` }
+  } catch (e) {
+    console.error('[registrarFotosAlbum] R2', e)
+    return { ok: false, erro: 'Não foi possível conferir as fotos no armazenamento. Tente de novo.' }
   }
 
   const { data: atual } = await supabase
@@ -340,7 +396,8 @@ export async function registrarFotosAlbum(
     console.error('[registrarFotosAlbum]', error.message)
     return { ok: false, erro: 'As fotos subiram, mas não foi possível registrá-las. Tente de novo.' }
   }
-  return { ok: true }
+  const assinadas = await assinarLeituras(novas.map((f) => f.path), 8 * 60 * 60)
+  return { ok: true, urls: Object.fromEntries(assinadas) }
 }
 
 /** Fotos atualizadas (depois de um upload no editor de um projeto). */
@@ -370,7 +427,7 @@ export async function removerFotoAlbum(id: string, fotoId: string): Promise<Resu
 
   const { error } = await supabase.from('album_layouts').update({ fotos: atual.fotos.filter((f) => f.id !== fotoId) }).eq('id', id)
   if (error) return { ok: false, erro: 'Não foi possível remover a foto.' }
-  await supabase.storage.from('albuns_fotos').remove([foto.path])
+  await removerArquivosDoAlbum(supabase, [foto.path])
   return { ok: true }
 }
 
@@ -391,7 +448,7 @@ export async function renovarLinksDasFotos(id: string): Promise<Resultado<{ urls
 
   const pares: { id: string; bucket: string; path: string }[] = album.projeto_id
     ? (await fotosDoProjeto(supabase, album.projeto_id)).map((f) => ({ id: f.id, bucket: f.bucket ?? 'projetos_fotos', path: f.storage_path }))
-    : album.fotos.map((f) => ({ id: f.id, bucket: 'albuns_fotos', path: f.path }))
+    : album.fotos.map((f) => ({ id: f.id, bucket: bucketDoArquivoAlbum(f.path), path: f.path }))
 
   const urls: Record<string, string> = {}
   const porBucket = new Map<string, typeof pares>()
@@ -506,24 +563,26 @@ export async function duplicarAlbum(id: string): Promise<Resultado<{ id: string 
         largura: null,
         altura: null,
       }))
-    : origem.fotos.map((f) => ({ id: f.id, bucket: 'albuns_fotos', path: f.path, nome: f.nome, largura: f.largura, altura: f.altura }))
+    : origem.fotos.map((f) => ({ id: f.id, bucket: bucketDoArquivoAlbum(f.path), path: f.path, nome: f.nome, largura: f.largura, altura: f.altura }))
 
+  // A cópia vai sempre para o R2, venha a foto de onde vier (R2 ou bucket antigo).
   const copiadas: AlbumLayoutRow['fotos'] = []
   let falhas = 0
   for (const f of fontes) {
-    const destino = `${novo.id}/${f.id}-${f.path.split('/').pop()}`
-    const { error: e } = f.bucket === BUCKET_R2 ? await copiarDoR2(supabase, f.path, destino) : await supabase.storage.from(f.bucket).copy(f.path, destino, { destinationBucket: 'albuns_fotos' })
+    const destino = chaveFotoAlbum({ albumId: novo.id, idArquivo: f.id, nome: f.path.split('/').pop() ?? 'foto' })
+    const { error: e } = await copiarParaR2(supabase, f, destino)
     if (e) falhas++
     else copiadas.push({ id: f.id, path: destino, nome: f.nome, largura: f.largura, altura: f.altura })
   }
   // Versões leves também (cada álbum tem as suas: excluir um não quebra o outro).
   const derivados: Record<string, DerivadoFoto> = {}
   for (const [fotoId, d] of Object.entries(origem.derivados ?? {})) {
-    const mini = `${novo.id}/derivados/${fotoId}-mini.jpg`
-    const preview = `${novo.id}/derivados/${fotoId}-preview.jpg`
+    if (!UUID_RE.test(fotoId)) continue
+    const mini = chaveDerivadoAlbum({ albumId: novo.id, fotoId, variante: 'mini' })
+    const preview = chaveDerivadoAlbum({ albumId: novo.id, fotoId, variante: 'preview' })
     const [a, b] = await Promise.all([
-      supabase.storage.from('albuns_fotos').copy(d.mini, mini),
-      supabase.storage.from('albuns_fotos').copy(d.preview, preview),
+      copiarParaR2(supabase, { bucket: bucketDoArquivoAlbum(d.mini), path: d.mini }, mini),
+      copiarParaR2(supabase, { bucket: bucketDoArquivoAlbum(d.preview), path: d.preview }, preview),
     ])
     if (!a.error && !b.error) derivados[fotoId] = { ...d, mini, preview }
   }
@@ -572,16 +631,21 @@ export async function criarAprovacao(
     return { ok: false, erro: 'Este álbum já foi aprovado. Reabra-o (ou crie uma nova versão) antes de enviar outra rodada.' }
   }
 
-  const pasta = `${id}/aprovacoes/${aprovacaoId}`
-  const { data: noStorage } = await supabase.storage.from('albuns_fotos').list(pasta, { limit: 250 })
-  const existentes = new Set((noStorage ?? []).map((o) => `${pasta}/${o.name}`))
   const limpas = laminas.map((l) => ({
-    path: String(l.path),
-    largura: Math.max(1, Math.floor(Number(l.largura) || 1)),
-    altura: Math.max(1, Math.floor(Number(l.altura) || 1)),
-    rotulo: String(l.rotulo ?? '').slice(0, 60),
+    path: String(l?.path),
+    largura: Math.max(1, Math.floor(Number(l?.largura) || 1)),
+    altura: Math.max(1, Math.floor(Number(l?.altura) || 1)),
+    rotulo: String(l?.rotulo ?? '').slice(0, 60),
   }))
-  if (limpas.some((l) => !l.path.startsWith(`${pasta}/`) || !existentes.has(l.path))) return { ok: false, erro: 'Alguma lâmina não chegou ao Storage. Envie de novo.' }
+  // Cada lâmina precisa estar na pasta DESTA aprovação no R2 e existir lá.
+  if (limpas.some((l) => !chaveEhLaminaDaAprovacao(l.path, id, aprovacaoId))) return { ok: false, erro: 'Lâmina fora da pasta desta aprovação.' }
+  if (!r2Configurado()) return { ok: false, erro: 'Armazenamento de lâminas não configurado. Fale com o suporte técnico.' }
+  try {
+    if ((await faltandoNoR2(limpas.map((l) => l.path))) > 0) return { ok: false, erro: 'Alguma lâmina não chegou ao armazenamento. Envie de novo.' }
+  } catch (e) {
+    console.error('[criarAprovacao] R2', e)
+    return { ok: false, erro: 'Não foi possível conferir as lâminas no armazenamento. Tente de novo.' }
+  }
 
   const { data: ultima } = await supabase
     .from('album_aprovacoes')
@@ -723,7 +787,7 @@ export async function excluirAlbumAvulso(id: string): Promise<Resultado> {
     ...Object.values(atual.derivados ?? {}).flatMap((d) => [d.mini, d.preview]),
     ...((aprovacoes ?? []) as { laminas: { path: string }[] }[]).flatMap((a) => a.laminas.map((l) => l.path)),
   ]
-  for (let i = 0; i < paths.length; i += 500) await supabase.storage.from('albuns_fotos').remove(paths.slice(i, i + 500))
+  await removerArquivosDoAlbum(supabase, paths)
   revalidatePath('/admin/albuns')
   return { ok: true }
 }
@@ -745,12 +809,15 @@ export async function salvarDerivados(id: string, novos: Record<string, Derivado
   const { supabase } = await requireEdicaoDeProducao()
   if (!supabase) return { ok: false, erro: 'Sem conexão com o banco.' }
 
-  const pasta = `${id}/derivados/`
+  if (!r2Configurado()) return { ok: false, erro: 'Armazenamento de fotos não configurado.' }
+
   const num = (v: unknown, min: number, max: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : null)
   const limpos: Record<string, DerivadoFoto> = {}
   for (const [fotoId, d] of entradas) {
     if (fotoId.length > 64 || !d || typeof d.mini !== 'string' || typeof d.preview !== 'string') continue
-    if (!d.mini.startsWith(pasta) || !d.preview.startsWith(pasta) || d.mini.includes('..') || d.preview.includes('..')) continue
+    // Só as chaves desta foto, na pasta de versões leves DESTE álbum no R2.
+    if (!chaveEhDerivadoDoAlbum(d.mini, id) || d.mini !== chaveDerivadoAlbum({ albumId: id, fotoId, variante: 'mini' })) continue
+    if (d.preview !== chaveDerivadoAlbum({ albumId: id, fotoId, variante: 'preview' })) continue
     const largura = num(d.largura, 1, 100_000)
     const altura = num(d.altura, 1, 100_000)
     if (!largura || !altura) continue
@@ -765,6 +832,21 @@ export async function salvarDerivados(id: string, novos: Record<string, Derivado
       pb: typeof d.pb === 'boolean' ? d.pb : null,
     }
   }
+  // Só registra o que de fato está no R2 (as duas versões da foto).
+  try {
+    const ids = Object.keys(limpos)
+    for (let i = 0; i < ids.length; i += CONFERENCIAS_SIMULTANEAS) {
+      const lote = ids.slice(i, i + CONFERENCIAS_SIMULTANEAS)
+      const existem = await Promise.all(lote.map(async (fotoId) => (await faltandoNoR2([limpos[fotoId].mini, limpos[fotoId].preview])) === 0))
+      lote.forEach((fotoId, j) => {
+        if (!existem[j]) delete limpos[fotoId]
+      })
+    }
+  } catch (e) {
+    console.error('[salvarDerivados] R2', e)
+    return { ok: false, erro: 'Não foi possível conferir as versões leves no armazenamento.' }
+  }
+  if (Object.keys(limpos).length === 0) return { ok: false, erro: 'As versões leves não chegaram ao armazenamento.' }
   const { data: atual } = await supabase.from('album_layouts').select('derivados').eq('id', id).maybeSingle<Pick<AlbumLayoutRow, 'derivados'>>()
   if (!atual) return { ok: false, erro: 'Álbum não encontrado.' }
   const { error } = await supabase.from('album_layouts').update({ derivados: { ...(atual.derivados ?? {}), ...limpos } }).eq('id', id)

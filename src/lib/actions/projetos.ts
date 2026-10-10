@@ -490,40 +490,6 @@ export async function marcarComentarioResolvido(
   return { ok: true, resolvidoEm: data.resolvido_em }
 }
 
-/** Registra no banco uma foto já enviada ao Storage pelo navegador (ver upload-dropzone/client-photos-manager). */
-export async function registerFoto(input: {
-  projetoId: string
-  storagePath: string
-  url: string
-  grupo?: string
-  /** EXIF lido no navegador (lib/exif) — relógio da câmera, sem fuso. */
-  capturadaEm?: string | null
-  camera?: string | null
-}) {
-  assertRealMode()
-  const { supabase } = await requireUser()
-  if (!supabase) throw new Error('Sem conexão com o banco.')
-
-  const capturadaEm =
-    typeof input.capturadaEm === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/.test(input.capturadaEm)
-      ? input.capturadaEm
-      : null
-  const { data: userData } = await supabase.auth.getUser()
-  const { error } = await supabase.from('fotos').insert({
-    projeto_id: input.projetoId,
-    storage_path: input.storagePath,
-    url: input.url,
-    grupo: input.grupo ?? null,
-    enviado_por: userData.user?.id ?? null,
-    capturada_em: capturadaEm,
-    camera: typeof input.camera === 'string' ? input.camera.slice(0, 80) : null,
-  })
-  if (error) throw new Error(error.message)
-
-  revalidatePath(`/admin/projetos/${input.projetoId}`)
-  revalidatePath(`/cliente/projetos/${input.projetoId}`)
-}
-
 export async function toggleTeamMemberStatus(memberId: string, novoStatus: 'ativo' | 'inativo') {
   assertRealMode()
   const { supabase } = await requireModuleAction('equipe', 'criar')

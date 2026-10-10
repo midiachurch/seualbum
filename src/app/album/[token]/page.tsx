@@ -3,8 +3,12 @@ import type { Metadata } from 'next'
 import { AprovacaoCliente, type AlbumPublico } from '@/components/album-editor/aprovacao-cliente'
 import { createPublicClient } from '@/lib/supabase/server'
 import { isDemoMode } from '@/lib/demo-mode'
+import { BUCKET_ALBUNS_LEGADO, ehChaveAlbumR2 } from '@/lib/r2/chaves'
+import { assinarLeituras } from '@/lib/r2/cliente'
 
 export const metadata: Metadata = { title: 'Aprovação do álbum', robots: { index: false, follow: false } }
+
+const EXPIRACAO_S = 6 * 60 * 60
 
 type Bruto = {
   id: string
@@ -21,8 +25,10 @@ type Bruto = {
 
 /**
  * Link de aprovação de um álbum avulso — sem login. O token do endereço é a
- * única credencial: a função do banco devolve a aprovação, e as lâminas são
- * assinadas com o cliente anônimo (a policy só libera os arquivos dela).
+ * única credencial: a função do banco devolve a aprovação, e só as lâminas
+ * dela são assinadas. No Cloudflare R2 (`albuns/…`), pelo servidor — o token
+ * já foi conferido pela função; as antigas, no bucket `albuns_fotos`, com o
+ * cliente anônimo (a policy só libera os arquivos dela).
  */
 export default async function AprovacaoPublicaPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -32,11 +38,13 @@ export default async function AprovacaoPublicaPage({ params }: { params: Promise
   const bruto = data as Bruto | null
   if (!bruto) notFound()
 
-  const { data: assinadas } = await supabase.storage.from('albuns_fotos').createSignedUrls(
-    bruto.laminas.map((l) => l.path),
-    6 * 60 * 60,
-  )
-  const url = new Map((assinadas ?? []).map((a) => [a.path, a.signedUrl]))
+  const paths = bruto.laminas.map((l) => l.path)
+  const url = new Map<string | null, string>(await assinarLeituras(paths.filter((p) => ehChaveAlbumR2(p)), EXPIRACAO_S))
+  const antigas = paths.filter((p) => !ehChaveAlbumR2(p))
+  if (antigas.length > 0) {
+    const { data: assinadas } = await supabase.storage.from(BUCKET_ALBUNS_LEGADO).createSignedUrls(antigas, EXPIRACAO_S)
+    for (const a of assinadas ?? []) if (a.signedUrl) url.set(a.path, a.signedUrl)
+  }
 
   const album: AlbumPublico = {
     token,

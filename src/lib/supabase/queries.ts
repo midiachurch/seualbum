@@ -21,8 +21,8 @@ import {
 } from '@/lib/mappers'
 import { MOCK_BANNERS, MOCK_MEDIA_ASSETS, MOCK_PORTFOLIO_COLLECTIONS } from '@/lib/mock-vitrine-data'
 import { getSlaInfo } from '@/lib/sla'
-import { BUCKET_R2 } from '@/lib/r2/chaves'
-import { assinarLeituras } from '@/lib/r2/cliente'
+import { BUCKET_R2, bucketDoArquivoAlbum } from '@/lib/r2/chaves'
+import { assinarLeituras, urlPublica } from '@/lib/r2/cliente'
 import {
   canAccess,
   EQUIPE_ROLES,
@@ -936,7 +936,7 @@ export async function getMediaAssets(): Promise<MediaAsset[]> {
     console.error('[getMediaAssets]', error.message)
     return []
   }
-  return ((data ?? []) as MediaAssetRow[]).map(mapMediaAsset)
+  return ((data ?? []) as MediaAssetRow[]).map((row) => mapMediaAsset({ ...row, url: urlDaMidia(row) }))
 }
 
 /** Todos os banners (inclusive inativos) — uso do admin. */
@@ -1075,6 +1075,17 @@ export async function getPublicPagina(slug: string): Promise<import('@/types/pla
   }
 }
 
+/**
+ * Endereço público de um arquivo da biblioteca de mídia. No R2 (`bucket = 'r2'`,
+ * migration 0034) é montado pela chave e por R2_PUBLIC_URL — trocar o domínio
+ * público não quebra as imagens. Arquivo antigo (`midia_vitrine`): o `url`
+ * gravado no upload (endereço público do Supabase Storage).
+ */
+function urlDaMidia(row: Pick<MediaAssetRow, 'url' | 'storage_path' | 'bucket'>): string | null {
+  if (row.bucket === BUCKET_R2) return urlPublica(row.storage_path) ?? row.url
+  return row.url
+}
+
 /** URLs das imagens usadas pelos banners/portfólio públicos, num mapa id -> url. */
 export async function getPublicMediaUrlMap(ids: string[]): Promise<Map<string, string>> {
   const uniq = Array.from(new Set(ids.filter(Boolean)))
@@ -1083,9 +1094,12 @@ export async function getPublicMediaUrlMap(ids: string[]): Promise<Map<string, s
 
   try {
     const supabase = createPublicClient()
-    const { data, error } = await supabase.from('media_assets').select('id, url').in('id', uniq)
+    // `*` e não a lista de colunas: antes da 0034 não existe `bucket` (vira arquivo antigo).
+    const { data, error } = await supabase.from('media_assets').select('*').in('id', uniq)
     if (error) throw error
-    return new Map(((data ?? []) as { id: string; url: string | null }[]).map((r) => [r.id, r.url ?? '']))
+    return new Map(
+      ((data ?? []) as Pick<MediaAssetRow, 'id' | 'url' | 'storage_path' | 'bucket'>[]).map((r) => [r.id, urlDaMidia(r) ?? '']),
+    )
   } catch (error) {
     console.error('[getPublicMediaUrlMap]', error)
     return new Map()
@@ -1621,14 +1635,15 @@ async function fotosAvulsasParaEditor(
   supabase: NonNullable<Awaited<ReturnType<typeof requireUser>>['supabase']>,
   fotos: AlbumLayoutRow['fotos'],
 ): Promise<FotoDoEditor[]> {
+  // `albuns/…` no R2; caminho antigo no bucket `albuns_fotos` (ver bucketDoArquivoAlbum).
   const urls = await assinarArquivos(
     supabase,
-    fotos.map((f) => ({ bucket: 'albuns_fotos', path: f.path })),
+    fotos.map((f) => ({ bucket: bucketDoArquivoAlbum(f.path), path: f.path })),
     EXPIRACAO_EDITOR_SEGUNDOS,
   )
   return fotos.map((f) => ({
     id: f.id,
-    url: urls.get(`albuns_fotos:${f.path}`) ?? '',
+    url: urls.get(`${bucketDoArquivoAlbum(f.path)}:${f.path}`) ?? '',
     nome: f.nome,
     largura: f.largura,
     altura: f.altura,
@@ -1649,7 +1664,8 @@ async function completarFotos(
     const d = derivados[f.id]
     return d ? [d.mini, d.preview] : []
   })
-  const urls = await assinarArquivos(supabase, paths.map((path) => ({ bucket: 'albuns_fotos', path })), EXPIRACAO_EDITOR_SEGUNDOS)
+  const urls = await assinarArquivos(supabase, paths.map((path) => ({ bucket: bucketDoArquivoAlbum(path), path })), EXPIRACAO_EDITOR_SEGUNDOS)
+  const urlDe = (path: string) => urls.get(`${bucketDoArquivoAlbum(path)}:${path}`) ?? null
   return fotos.map((f) => {
     const d = derivados[f.id]
     const meta = biblioteca.fotos?.[f.id]
@@ -1663,8 +1679,8 @@ async function completarFotos(
       fy: meta?.foco?.fy ?? d?.fy ?? null,
       monocromatica: d?.pb ?? null,
       focoManual: Boolean(meta?.foco),
-      urlMini: d ? (urls.get(`albuns_fotos:${d.mini}`) ?? null) : null,
-      urlPreview: d ? (urls.get(`albuns_fotos:${d.preview}`) ?? null) : null,
+      urlMini: d ? urlDe(d.mini) : null,
+      urlPreview: d ? urlDe(d.preview) : null,
       temDerivados: Boolean(d),
       favorita: meta?.favorita ?? f.favorita,
       prioridade: meta?.prioridade ?? null,
