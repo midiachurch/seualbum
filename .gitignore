@@ -28,4 +28,6 @@ site-piloto/
 # Playwright (npm run test:e2e)
 /test-results/
 /playwright-report/
+/e2e/editor/.resultados/
+/e2e/editor/.auth/
 /blob-report/
