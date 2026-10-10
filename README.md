@@ -126,6 +126,7 @@ a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
 | `npm run dev`       | Servidor de desenvolvimento        |
 | `npm run build`     | Build de produção                  |
 | `npm run typecheck` | `tsc --noEmit`                     |
+| `npm test`          | Testes (Vitest)                    |
 
 ## Estado atual
 
@@ -144,6 +145,15 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: levar para o R2 os demais buckets (projetos, álbuns, vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+Fluxo de adicionais testado ponta a ponta no Supabase local (`supabase init` gera o
+`supabase/config.toml`, que não é versionado; depois `supabase start`):
+`supabase test db` roda os testes pgTAP de `supabase/tests/`, e
+`SUPABASE_E2E_URL=http://127.0.0.1:54321 npx vitest run src/lib/actions/adicionais.e2e.test.ts`
+roda as Server Actions contra o mesmo banco (sem a variável, o arquivo é pulado).
+As faturas de fechamento ainda são pagas só pelo modo simulado
+(`private.app_config.pagamento_simulado`): o webhook do Stripe confirma pedidos,
+não faturas.
+
+Pendente: aplicar a migration 0033 no Supabase; levar para o R2 os demais buckets (projetos, álbuns, vitrine, logos); checkout real das faturas de fechamento; deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
