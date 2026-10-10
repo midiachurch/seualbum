@@ -212,6 +212,17 @@ describe('GET /api/cron/limpar-fotos-r2', () => {
     expect((await limpar(req('GET', undefined, url, { authorization: 'Bearer outro' }))).status).toBe(401)
   })
 
+  it('401 com CRON_SECRET ausente ou vazio, mesmo com cabeçalho (falha fechada)', async () => {
+    for (const valor of [undefined, '']) {
+      if (valor === undefined) delete process.env.CRON_SECRET
+      else process.env.CRON_SECRET = valor
+      for (const authorization of ['Bearer undefined', 'Bearer ', 'Bearer']) {
+        expect((await limpar(req('GET', undefined, url, { authorization }))).status).toBe(401)
+      }
+    }
+    expect(r2.removerObjetos).not.toHaveBeenCalled()
+  })
+
   it('apaga primeiro no R2, depois no índice', async () => {
     banco.expiradas = [KEY]
     const r = await limpar(req('GET', undefined, url, auth))
