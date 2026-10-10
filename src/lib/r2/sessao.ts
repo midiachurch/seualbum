@@ -2,6 +2,7 @@ import 'server-only'
 
 import { NextResponse } from 'next/server'
 import { isDemoMode } from '@/lib/demo-mode'
+import { pastaPedidoR2 } from '@/lib/r2/chaves'
 import { r2Configurado, r2PublicoConfigurado } from '@/lib/r2/cliente'
 import { createClient } from '@/lib/supabase/server'
 import { EQUIPE_ROLES, hasPermission, type PlatformRole } from '@/types/platform'
@@ -137,11 +138,24 @@ export async function estudioParaUploadDeLogo(): Promise<Acesso> {
   return { ok: true, supabase: s.supabase, userId: s.userId }
 }
 
-/** O rascunho já virou pedido? Depois disso as fotos ficam travadas (migration 0011). */
-export async function rascunhoJaEnviado(supabase: Supabase, chave: string) {
+/**
+ * O rascunho já virou pedido? Depois disso as fotos ficam travadas (migration 0011).
+ * Também conta como enviado o rascunho cujas fotos já estão num projeto: se o
+ * pedido for apagado depois da conversão, o arquivo no R2 continua sendo a
+ * foto do projeto (`fotos.storage_path`) e não pode ser trocado nem apagado.
+ */
+export async function rascunhoJaEnviado(supabase: Supabase, chave: string, userId: string) {
   const { data, error } = await supabase.from('orders').select('id').eq('chave_idempotencia', chave).maybeSingle()
   if (error) throw error
-  return Boolean(data)
+  if (data) return true
+  const { data: emUso, error: erroFotos } = await supabase
+    .from('fotos')
+    .select('id')
+    .eq('bucket', 'r2')
+    .like('storage_path', `${pastaPedidoR2(userId, chave)}/%`)
+    .limit(1)
+  if (erroFotos) throw erroFotos
+  return (emUso ?? []).length > 0
 }
 
 export async function lerJson(request: Request): Promise<unknown> {
