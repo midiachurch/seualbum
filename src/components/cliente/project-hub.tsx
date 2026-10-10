@@ -37,11 +37,14 @@ export function ProjectHub({
   project,
   photographer,
   initialTab,
+  painelAprovacao,
   painelMensagens,
 }: {
   project: Project
   photographer: Photographer | undefined
   initialTab: string
+  /** Aba "Aprovação": painel de aprovação da prova (versões, checklist, apontamentos). */
+  painelAprovacao?: React.ReactNode
   /** Aba "Mensagens" (0037): o fio com o estúdio, montado pela página. */
   painelMensagens?: React.ReactNode
 }) {
@@ -73,6 +76,7 @@ export function ProjectHub({
       <SimpleTabs
         defaultValue={initialTab}
         tabs={[
+          ...(painelAprovacao ? [{ value: 'aprovacao', label: 'Aprovação', content: painelAprovacao }] : []),
           {
             value: 'visao-geral',
             label: 'Visão geral',

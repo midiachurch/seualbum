@@ -58,6 +58,7 @@ import type {
   FotoRow,
   PedidoFotoR2Row,
   ProvaComentarioRow,
+  ProvaLaminaRevisaoRow,
   VersaoLaminaRow,
   FotografoRow,
   MediaAssetRow,
@@ -71,7 +72,21 @@ import type {
   ProjetoRow,
   Profile,
 } from '@/types/database'
-import type { Banner, Fatura, FaturaItem, MediaAsset, OfertaAdicional, Orcamento, OrcamentoPublico, PortfolioCollection, Produto, ResumoExcedente } from '@/types/platform'
+import type {
+  Banner,
+  Fatura,
+  FaturaItem,
+  MarcaEstudio,
+  MediaAsset,
+  OfertaAdicional,
+  Orcamento,
+  OrcamentoPublico,
+  PortfolioCollection,
+  ProofComment,
+  Produto,
+  ResumoExcedente,
+  RevisaoLamina,
+} from '@/types/platform'
 
 async function getDemoSession() {
   const raw = (await cookies()).get(DEMO_COOKIE)?.value
@@ -705,43 +720,111 @@ export async function getApontamentosPendentes(projetoIds: string[]): Promise<Ma
   return mapa
 }
 
-/** Comentários da prova digital, de todas as versões — só usado na tela de aprovação do cliente. */
-export async function getProofComments(projetoId: string): Promise<import('@/types/platform').ProofComment[]> {
-  if (isDemoMode()) {
-    const project = MOCK_PROJECTS.find((p) => p.id === projetoId)
-    if (!project) return []
-    return project.approvals
-      .filter((a) => a.status === 'alteracao_solicitada' && a.comentario)
-      .map((a) => ({ id: a.id, pageIndex: 0, versao: a.versao, texto: a.comentario as string, autor: a.usuario, data: a.data }))
-  }
-
-  const { supabase } = await requireUser()
-  if (!supabase) return []
-  const [{ data, error }, { data: profiles }] = await Promise.all([
-    supabase.from('prova_comentarios').select('*').eq('projeto_id', projetoId).order('created_at', { ascending: true }),
-    supabase.from('profiles').select('id, nome_completo'),
-  ])
-  if (error) {
-    console.error('[getProofComments]', error.message)
-    return []
-  }
-  const autores = new Map(((profiles ?? []) as Pick<Profile, 'id' | 'nome_completo'>[]).map((p) => [p.id, p.nome_completo]))
-  return ((data ?? []) as ProvaComentarioRow[]).map((r) => ({
+/** Linha de `prova_comentarios` → comentário da prova (numeric chega como string pelo PostgREST). */
+function mapearComentarioDaProva(r: ProvaComentarioRow, autores: Map<string, string>): ProofComment {
+  return {
     id: r.id,
     pageIndex: r.page_index,
     versao: r.versao,
     texto: r.texto,
     autor: (r.autor_id && autores.get(r.autor_id)) || 'Você',
+    autorId: r.autor_id,
     data: r.created_at,
     laminaId: r.lamina_id,
-    // numeric do Postgres chega como string pelo PostgREST.
     posicaoX: r.posicao_x === null ? null : Number(r.posicao_x),
     posicaoY: r.posicao_y === null ? null : Number(r.posicao_y),
     areaLargura: r.area_largura == null ? null : Number(r.area_largura),
     areaAltura: r.area_altura == null ? null : Number(r.area_altura),
     resolvido: r.resolvido ?? false,
     resolvidoEm: r.resolvido_em ?? null,
-  }))
+  }
+}
+
+/** Comentários da prova digital, de todas as versões — tela de aprovação e painel do cliente. */
+export async function getProofComments(projetoId: string): Promise<ProofComment[]> {
+  return (await getComentariosDasProvas([projetoId])).get(projetoId) ?? []
+}
+
+/** Comentários da prova de vários projetos (painel do cliente), por projeto, em ordem de criação. */
+export async function getComentariosDasProvas(projetoIds: string[]): Promise<Map<string, ProofComment[]>> {
+  const porProjeto = new Map<string, ProofComment[]>()
+  if (projetoIds.length === 0) return porProjeto
+  if (isDemoMode()) {
+    for (const project of MOCK_PROJECTS.filter((p) => projetoIds.includes(p.id))) {
+      porProjeto.set(
+        project.id,
+        project.approvals
+          .filter((a) => a.status === 'alteracao_solicitada' && a.comentario)
+          .map((a) => ({ id: a.id, pageIndex: 0, versao: a.versao, texto: a.comentario as string, autor: a.usuario, data: a.data })),
+      )
+    }
+    return porProjeto
+  }
+
+  const { supabase } = await requireUser()
+  if (!supabase) return porProjeto
+  const [{ data, error }, { data: profiles }] = await Promise.all([
+    supabase.from('prova_comentarios').select('*').in('projeto_id', projetoIds).order('created_at', { ascending: true }),
+    supabase.from('profiles').select('id, nome_completo'),
+  ])
+  if (error) {
+    console.error('[getComentariosDasProvas]', error.message)
+    return porProjeto
+  }
+  const autores = new Map(((profiles ?? []) as Pick<Profile, 'id' | 'nome_completo'>[]).map((p) => [p.id, p.nome_completo]))
+  for (const r of (data ?? []) as ProvaComentarioRow[]) {
+    porProjeto.set(r.projeto_id, [...(porProjeto.get(r.projeto_id) ?? []), mapearComentarioDaProva(r, autores)])
+  }
+  return porProjeto
+}
+
+/**
+ * Checklist de lâminas do cliente logado (migration 0039), por projeto.
+ * `null` = a tabela ainda não existe (0039 não aplicada): o painel e a prova
+ * escondem o checklist em vez de oferecer um botão que falharia.
+ */
+export async function getRevisoesDasProvas(projetoIds: string[]): Promise<Map<string, RevisaoLamina[]> | null> {
+  const porProjeto = new Map<string, RevisaoLamina[]>()
+  if (isDemoMode() || projetoIds.length === 0) return porProjeto
+  const { supabase, user } = await requireUser()
+  if (!supabase) return porProjeto
+  const { data, error } = await supabase
+    .from('prova_laminas_revisao')
+    .select('projeto_id, lamina_id, versao, estado')
+    .in('projeto_id', projetoIds)
+    .eq('usuario_id', user.id)
+  if (error) {
+    // PGRST205 (PostgREST) / 42P01 (Postgres): tabela inexistente.
+    if (error.code === 'PGRST205' || error.code === '42P01') return null
+    console.error('[getRevisoesDasProvas]', error.message)
+    return porProjeto
+  }
+  for (const r of (data ?? []) as Pick<ProvaLaminaRevisaoRow, 'projeto_id' | 'lamina_id' | 'versao' | 'estado'>[]) {
+    porProjeto.set(r.projeto_id, [
+      ...(porProjeto.get(r.projeto_id) ?? []),
+      { laminaId: r.lamina_id, versao: r.versao, estado: r.estado },
+    ])
+  }
+  return porProjeto
+}
+
+/**
+ * Nome e logo dos estúdios do cliente logado (white label, migration 0039).
+ * Sem a 0039, ou fora do papel cliente, devolve vazio — o portal mostra a
+ * marca padrão.
+ */
+export async function getMarcasDoCliente(): Promise<MarcaEstudio[]> {
+  if (isDemoMode()) {
+    return MOCK_PHOTOGRAPHERS.map((f) => ({ fotografoId: f.id, estudio: f.estudio, logoUrl: f.logoUrl ?? null }))
+  }
+  const { supabase } = await requireUser()
+  if (!supabase) return []
+  const { data, error } = await supabase.rpc('marca_do_estudio_cliente')
+  if (error) {
+    console.error('[getMarcasDoCliente]', error.message)
+    return []
+  }
+  return (data ?? []).map((m) => ({ fotografoId: m.fotografo_id, estudio: m.estudio, logoUrl: m.logo_url }))
 }
 
 export async function getProject(id: string): Promise<Project | null> {

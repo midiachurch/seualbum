@@ -1,15 +1,29 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ProofViewer } from '@/components/cliente/proof/proof-viewer'
-import { getCurrentClient, getOfertasDaProva, getProject, getProofComments } from '@/lib/supabase/queries'
+import {
+  getCurrentClient,
+  getOfertasDaProva,
+  getProject,
+  getProofComments,
+  getRevisoesDasProvas,
+} from '@/lib/supabase/queries'
 
 export const metadata: Metadata = { title: 'Prova digital' }
 
 const STATUS_TRAVADO = ['aprovado_aguardando_pagamento', 'aprovado', 'enviado', 'finalizado', 'arquivado']
 
-export default async function ClienteProvaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClienteProvaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  /** Atalhos do painel de aprovação: `?acao=aprovar|ajustes`, `?lamina=N` (1 = primeira) e `?versao=N`. */
+  searchParams: Promise<{ acao?: string; lamina?: string; versao?: string }>
+}) {
   const client = await getCurrentClient()
   const { id } = await params
+  const { acao, lamina, versao } = await searchParams
 
   const project = await getProject(id)
   if (!project || project.clientId !== client?.id) notFound()
@@ -22,7 +36,16 @@ export default async function ClienteProvaPage({ params }: { params: Promise<{ i
   // aparecem aqui. O banco decide a cobrança quando o cliente aprova.
   const podeDecidir = project.status === 'aguardando_aprovacao_cliente'
   // Upsell (0026): adicionais que o estúdio oferece, pelo preço de revenda dele.
-  const [comments, ofertas] = await Promise.all([getProofComments(id), podeDecidir ? getOfertasDaProva(id) : Promise.resolve([])])
+  const [comments, ofertas, revisoes] = await Promise.all([
+    getProofComments(id),
+    podeDecidir ? getOfertasDaProva(id) : Promise.resolve([]),
+    getRevisoesDasProvas([id]),
+  ])
+
+  const numeroDaLamina = Number(lamina)
+  const laminaInicial = Number.isInteger(numeroDaLamina) && numeroDaLamina >= 1 ? numeroDaLamina - 1 : undefined
+  const acaoInicial = acao === 'aprovar' || acao === 'ajustes' ? acao : undefined
+  const versaoInicial = Number.isInteger(Number(versao)) && Number(versao) >= 1 ? Number(versao) : undefined
 
   return (
     <ProofViewer
@@ -34,6 +57,10 @@ export default async function ClienteProvaPage({ params }: { params: Promise<{ i
       locked={locked}
       podeDecidir={podeDecidir}
       ofertas={ofertas}
+      versaoInicial={versaoInicial}
+      acaoInicial={acaoInicial}
+      laminaInicial={laminaInicial}
+      revisoes={revisoes ? (revisoes.get(id) ?? []) : undefined}
     />
   )
 }

@@ -425,6 +425,7 @@ export async function clientApprove(projetoId: string, versao: number, adicionai
   if (error) throw new Error(error.message)
 
   revalidatePath(`/cliente/projetos/${projetoId}`)
+  revalidatePath('/cliente')
 }
 
 export async function clientRequestChanges(projetoId: string, versao: number, comentario: string) {
@@ -439,6 +440,7 @@ export async function clientRequestChanges(projetoId: string, versao: number, co
   if (error) throw new Error(error.message)
 
   revalidatePath(`/cliente/projetos/${projetoId}`)
+  revalidatePath('/cliente')
 }
 
 export async function addProofComment(

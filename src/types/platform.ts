@@ -498,6 +498,27 @@ export type ProofComment = {
   texto: string
   autor: string
   data: string
+  /** Quem escreveu (perfil); o painel do cliente destaca os dele. */
+  autorId?: string | null
+}
+
+/**
+ * Checklist do cliente na prova (migration 0039): 'vista' = abriu a lâmina;
+ * 'aprovada' = marcou "Esta lâmina está ok". Sem linha = ainda não vista.
+ */
+export type EstadoRevisaoLamina = 'vista' | 'aprovada'
+
+export type RevisaoLamina = {
+  laminaId: string
+  versao: number
+  estado: EstadoRevisaoLamina
+}
+
+/** Nome e logo do estúdio (white label) no portal do cliente (0039). */
+export type MarcaEstudio = {
+  fotografoId: string
+  estudio: string
+  logoUrl: string | null
 }
 
 /* ------------------------------------------------------------------------ */

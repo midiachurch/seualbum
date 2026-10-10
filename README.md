@@ -251,6 +251,36 @@ em diagramação: projetos da esteira (de "fotos recebidas" a "aprovado") e
   `src/lib/actions/diagramacao.test.ts` e o pgTAP
   `supabase/tests/controle_diagramacao.test.sql`.
 
+## Painel de aprovação do cliente (migration 0039)
+
+O cliente final acompanha tudo em `/cliente`, com a marca do estúdio (nome e
+logo, pela função `marca_do_estudio_cliente()`):
+
+- **Painel (`/cliente`):** a prova que espera resposta aparece em destaque,
+  com o prazo (`data_limite_aprovacao`) e "N de M lâminas revisadas". Os cards
+  mostram o status em linguagem de cliente (`src/lib/prova/painel.ts`):
+  aguardando sua aprovação, em ajustes pelo estúdio, aprovado, em produção na
+  gráfica (com o código de rastreio quando despachado) e entregue.
+- **Aba "Aprovação" (`/cliente/projetos/[id]`):** checklist das lâminas da
+  versão atual (aprovada, com comentários, vista, ainda não vista), lista de
+  apontamentos (aberto ou "resolvido pelo estúdio na versão N"), linha do
+  tempo das versões (o que mudou em cada versão parcial) e as duas decisões.
+  "Aprovar álbum" abre a prova já no modal de aprovação (`?acao=aprovar`),
+  no mesmo fluxo com upsell. "Pedir ajustes" envia todos os comentários da
+  versão como um pedido `alteracao_solicitada`, no mesmo formato da prova.
+  A aba "Mensagens" (0037) fica no mesmo `ProjectHub` (`painelMensagens`).
+- **Checklist:** `prova_laminas_revisao` guarda uma linha por lâmina e pessoa.
+  A prova marca "vista" ao abrir a lâmina, e o botão "Esta lâmina está ok"
+  (na prova ou no painel) a marca como aprovada. Projeto e versão vêm da
+  lâmina (trigger). Pela RLS, só o cliente dono grava, só na versão liberada
+  mais recente e só com a prova aguardando decisão. Estúdio e equipe só leem.
+  Sem a 0039 aplicada, o painel funciona sem o checklist.
+- **Atalhos da prova:** `?lamina=N`, `?versao=N` e `?acao=aprovar|ajustes`.
+
+pgTAP: `supabase/tests/painel_aprovacao_cliente.test.sql`. Actions contra o
+banco local:
+`SUPABASE_E2E_URL=http://127.0.0.1:54321 npx vitest run src/lib/actions/painel-cliente.e2e.test.ts`.
+
 ## Pagamento das faturas de fechamento (migration 0035)
 
 Quando a prova é aprovada com lâminas extras e/ou adicionais, o banco emite a
@@ -362,7 +392,8 @@ supabase stop
 - Specs: `login.spec.ts` (cada papel cai na sua área) e `adicionais.spec.ts`
   (casal desiste do adicional; casal pede, estúdio aceita e paga no Pix
   simulado e a gráfica recebe; estúdio recusa e o álbum é liberado sem
-  cobrança).
+  cobrança). `painel-aprovacao.spec.ts` (painel do cliente: checklist e
+  "Aprovar álbum" pelo fluxo da prova; exige a 0039 no banco local).
 - O Vitest ignora `e2e/`. Falhas deixam trace e screenshot em `test-results/`
   (`npx playwright show-trace <arquivo>`).
 
@@ -454,7 +485,7 @@ está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
 `supabase/tests/r2_uploads_pendentes.test.sql` as reservas e a função de
 referências da 0040.
 
-Pendente: aplicar as migrations 0037, 0038 e 0040 no Supabase (0033 a 0036 já aplicadas); criar o bucket público do R2
+Pendente: aplicar as migrations 0037, 0038, 0039 e 0040 no Supabase (0033 a 0036 já aplicadas); criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel

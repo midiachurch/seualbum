@@ -30,9 +30,19 @@ import { MODAL_ACOES, Modal } from '@/components/ui/modal'
 import { ComparadorVersoes } from '@/components/cliente/proof/comparador-versoes'
 import { addProofComment, clientApprove, clientRequestChanges, marcarComentarioResolvido } from '@/lib/actions/projetos'
 import { fotografoAprovar, fotografoComentar, fotografoPedirAjustes } from '@/lib/actions/prova-fotografo'
+import { marcarLaminaRevisada } from '@/lib/actions/painel-cliente'
 import { AREA_MINIMA } from '@/lib/apontamento'
 import { cn, formatBRL, formatDate, rolagemSuave } from '@/lib/utils'
-import type { DesignVersion, ItemEscolhido, Lamina, OfertaAdicional, ProofComment, ResumoExcedente } from '@/types/platform'
+import type {
+  DesignVersion,
+  EstadoRevisaoLamina,
+  ItemEscolhido,
+  Lamina,
+  OfertaAdicional,
+  ProofComment,
+  ResumoExcedente,
+  RevisaoLamina,
+} from '@/types/platform'
 
 // Inlined (não importado de '@/lib/demo-mode') porque essa checagem roda no
 // navegador: NEXT_PUBLIC_SUPABASE_URL já vem embutida no bundle no build.
@@ -64,6 +74,12 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
  * (`versoes_laminas`), num carrossel com scroll-snap (arrastar no celular,
  * setas/teclado no desktop). Tocar numa lâmina marca um PIN: o comentário
  * guarda a lâmina e a posição em % — o pin cai no mesmo ponto em qualquer tela.
+ *
+ * Painel de aprovação (migration 0039): com `revisoes` (só o cliente final), a
+ * lâmina aberta conta como "vista" e o botão "Esta lâmina está ok" a marca
+ * como aprovada no checklist. `acaoInicial`/`laminaInicial` vêm dos atalhos do
+ * painel (/cliente/projetos/[id]): abrir direto o "Aprovar álbum" (mesmo
+ * fluxo, com o upsell), o "Solicitar ajustes" ou uma lâmina.
  */
 const ACOES = {
   cliente: { aprovar: clientApprove, pedirAjustes: clientRequestChanges, comentar: addProofComment },
@@ -87,6 +103,9 @@ export function ProofViewer({
   podeDecidir = true,
   versaoInicial,
   finalizarHref,
+  acaoInicial,
+  laminaInicial,
+  revisoes: revisoesIniciais,
 }: {
   projectId: string
   projectName: string
@@ -113,6 +132,12 @@ export function ProofViewer({
   versaoInicial?: number
   /** Equipe, com o cliente esperando ajustes: leva para subir a próxima versão. */
   finalizarHref?: string
+  /** Atalho do painel do cliente: abre já o modal de aprovar ou de pedir ajustes. */
+  acaoInicial?: 'aprovar' | 'ajustes'
+  /** Atalho do painel do cliente: abre já esta lâmina (índice na versão mais recente). */
+  laminaInicial?: number
+  /** Checklist do cliente na versão atual (0039). Ausente = sem checklist. */
+  revisoes?: RevisaoLamina[]
 }) {
   const router = useRouter()
   const acoes = ACOES[perfil]
@@ -123,7 +148,8 @@ export function ProofViewer({
   const versoesOrdenadas = useMemo(() => [...versions].sort((a, b) => a.numero - b.numero), [versions])
   const versaoMaisRecente = versoesOrdenadas[versoesOrdenadas.length - 1]?.numero ?? 1
 
-  const [pageIndex, setPageIndex] = useState(0)
+  const podeAbrirAcao = perfil !== 'equipe' && podeDecidir && !locked
+  const [pageIndex, setPageIndex] = useState(laminaInicial !== undefined && laminaInicial >= 0 ? laminaInicial : 0)
   const [versaoSelecionada, setVersaoSelecionada] = useState(
     versaoInicial && versoesOrdenadas.some((v) => v.numero === versaoInicial) ? versaoInicial : versaoMaisRecente,
   )
@@ -132,22 +158,30 @@ export function ProofViewer({
   const [pinRascunho, setPinRascunho] = useState<PinRascunho | null>(null)
   const [destacado, setDestacado] = useState<string | null>(null)
   const [mobileCommentsOpen, setMobileCommentsOpen] = useState(false)
-  const [approveModalOpen, setApproveModalOpen] = useState(false)
+  const [approveModalOpen, setApproveModalOpen] = useState(podeAbrirAcao && acaoInicial === 'aprovar')
   const [ofertaAberta, setOfertaAberta] = useState(false)
   const [escolhidos, setEscolhidos] = useState<Record<string, number>>({})
   // O que foi de fato enviado na aprovação. A tela final lê daqui, e não de
   // `ofertas`: a action revalida a página e as ofertas voltam vazias.
   const [enviados, setEnviados] = useState<{ nome: string; quantidade: number; preco: number }[]>([])
-  const [adjustModalOpen, setAdjustModalOpen] = useState(false)
+  const [adjustModalOpen, setAdjustModalOpen] = useState(podeAbrirAcao && acaoInicial === 'ajustes')
   const [decision, setDecision] = useState<'aprovado' | 'ajustes_enviados' | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [proporcoes, setProporcoes] = useState<Record<string, number>>({})
   const [alternando, setAlternando] = useState<string | null>(null)
   const [comparando, setComparando] = useState(false)
-  const [vista, setVista] = useState<'galeria' | 'lamina'>('galeria')
+  const [vista, setVista] = useState<'galeria' | 'lamina'>(laminaInicial !== undefined && laminaInicial >= 0 ? 'lamina' : 'galeria')
   const [soAlteradas, setSoAlteradas] = useState(false)
   const [areaRascunho, setAreaRascunho] = useState<PinRascunho | null>(null)
+  const checklistAtivo = perfil === 'cliente' && revisoesIniciais !== undefined
+  const [revisoes, setRevisoes] = useState<Record<string, EstadoRevisaoLamina>>(() =>
+    Object.fromEntries((revisoesIniciais ?? []).map((r) => [r.laminaId, r.estado])),
+  )
+  const vistasPedidasRef = useRef(new Set<string>())
+  // Versão em que o reset abaixo já rodou: a montagem (e o duplo efeito do
+  // StrictMode) não conta como troca de versão.
+  const versaoMontadaRef = useRef(versaoSelecionada)
 
   const carrosselRef = useRef<HTMLDivElement>(null)
   const campoRef = useRef<HTMLTextAreaElement>(null)
@@ -192,8 +226,10 @@ export function ProofViewer({
   const commentsForPage = comentariosDaLamina(emComparacao ? (laminasAnteriores[pageIndex] ?? null) : laminaAtual, pageIndex)
   const pendentesDaVersao = comentariosDaVersao.filter((c) => !c.resolvido).length
 
-  // Troca de versão: volta para a primeira lâmina.
+  // Troca de versão: volta para a primeira lâmina (na montagem, vale a `laminaInicial`).
   useEffect(() => {
+    if (versaoMontadaRef.current === versaoSelecionada) return
+    versaoMontadaRef.current = versaoSelecionada
     setPageIndex(0)
     setPinRascunho(null)
     setSoAlteradas(false)
@@ -213,6 +249,51 @@ export function ProofViewer({
     // Só na troca de vista; depois o índice segue o scroll.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista])
+
+  // Checklist (0039): a lâmina aberta na versão atual conta como vista — uma
+  // vez por lâmina; falha aqui não atrapalha a revisão.
+  const laminaVista =
+    checklistAtivo && interativo && vista === 'lamina' && !emComparacao && laminaAtual && !revisoes[laminaAtual.id]
+      ? laminaAtual.id
+      : null
+  useEffect(() => {
+    if (!laminaVista || vistasPedidasRef.current.has(laminaVista)) return
+    vistasPedidasRef.current.add(laminaVista)
+    void (async () => {
+      try {
+        const r = DEMO_MODE ? { ok: true as const } : await marcarLaminaRevisada(projectId, laminaVista, 'vista')
+        if (r.ok) setRevisoes((prev) => (prev[laminaVista] ? prev : { ...prev, [laminaVista]: 'vista' }))
+      } catch {
+        // Sem rede: fica como não vista; a próxima abertura tenta de novo.
+        vistasPedidasRef.current.delete(laminaVista)
+      }
+    })()
+  }, [laminaVista, projectId])
+
+  async function alternarLaminaOk(lamina: Lamina) {
+    const antes = revisoes[lamina.id]
+    const aprovar = antes !== 'aprovada'
+    const voltar = () =>
+      setRevisoes((prev) => {
+        const novo = { ...prev }
+        if (antes) novo[lamina.id] = antes
+        else delete novo[lamina.id]
+        return novo
+      })
+    setRevisoes((prev) => ({ ...prev, [lamina.id]: aprovar ? 'aprovada' : 'vista' }))
+    setErroAcao(null)
+    if (DEMO_MODE) return
+    try {
+      const r = await marcarLaminaRevisada(projectId, lamina.id, aprovar ? 'aprovada' : 'desfazer')
+      if (!r.ok) {
+        voltar()
+        setErroAcao(r.erro)
+      }
+    } catch {
+      voltar()
+      setErroAcao('Não foi possível salvar. Tente de novo.')
+    }
+  }
 
   function abrirLamina(indice: number, comentarioId?: string) {
     setPageIndex(indice)
@@ -944,6 +1025,12 @@ export function ProofViewer({
                               Alterada
                             </span>
                           ) : null}
+                          {checklistAtivo && !versaoAntiga && revisoes[l.id] === 'aprovada' ? (
+                            <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]">
+                              <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+                              Ok
+                            </span>
+                          ) : null}
                         </span>
                         <span className="mt-1.5 flex items-center justify-between gap-2 text-xs">
                           <span className="font-medium text-white/80">{l.ehCapa && i === 0 ? 'Capa' : `Lâmina ${i + 1}`}</span>
@@ -1094,6 +1181,22 @@ export function ProofViewer({
             >
               <LayoutGrid className="h-4 w-4" aria-hidden />
               Galeria
+            </button>
+          ) : null}
+          {checklistAtivo && interativo && !naGaleria && !emComparacao && laminaAtual ? (
+            <button
+              type="button"
+              onClick={() => void alternarLaminaOk(laminaAtual)}
+              aria-pressed={revisoes[laminaAtual.id] === 'aprovada'}
+              className={cn(
+                'absolute right-3 top-3 z-10 flex min-h-[40px] items-center gap-1.5 rounded-full px-3 text-xs font-semibold',
+                revisoes[laminaAtual.id] === 'aprovada'
+                  ? 'bg-emerald-400 text-[#0A0A0A] hover:bg-emerald-300'
+                  : 'bg-black/60 text-white hover:bg-black/80',
+              )}
+            >
+              <CheckCircle2 className="h-4 w-4" aria-hidden />
+              {revisoes[laminaAtual.id] === 'aprovada' ? 'Lâmina ok' : 'Esta lâmina está ok'}
             </button>
           ) : null}
           {!naGaleria && totalLaminas > 1 && pageIndex > 0 ? (
