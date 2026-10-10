@@ -185,6 +185,43 @@ a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
   lâmina por `POST /api/uploads/lamina` (URL assinada, JPG até 50 MB);
   `criarVersaoComLaminas` confere cada chave no R2 antes de criar a versão.
 
+## Controle da diagramação (migration 0038)
+
+O dashboard (`/admin`) tem a seção **Diagramação** e o menu ganhou
+**Diagramação** (`/admin/diagramacao`), o centro de controle de todos os álbuns
+em diagramação: projetos da esteira (de "fotos recebidas" a "aprovado") e
+álbuns avulsos do editor.
+
+- **Dashboard:** KPIs (em diagramação, com o cliente, ajustes pedidos,
+  aprovados nos últimos 30 dias, atrasados), carga por diagramador (atribuídos,
+  em andamento, atrasados, entrega média em 90 dias) e os mais urgentes com
+  "Abrir editor" / "Ver prova". Tudo vem de uma RPC, `diagramacao_resumo`,
+  agregada no banco sobre a view `diagramacao_itens` (security_invoker: só a
+  equipe vê linhas).
+- **Centro de controle:** tabela ou quadro por etapa, com filtros (etapa,
+  responsável, estúdio, prioridade, tipo, só atrasados, ocultar em espera) e,
+  por linha, responsável, estúdio/cliente, prazo, prioridade, versão da prova,
+  apontamentos abertos e última atividade. Ações: atribuir (também em massa),
+  mudar prazo, prioridade (também em massa), pôr em espera/retomar, abrir o
+  editor, ver a prova e, no avulso, copiar o link de aprovação ou abrir o
+  editor no painel de compartilhar para publicá-lo.
+- **Quem faz o quê:** admin/gestor atribuem, priorizam e pausam; o operador só
+  consulta e abre editor/prova; o designer continua na própria fila
+  (`/admin/design`). A trigger `guardar_controle_diagramacao` repete a trava no
+  banco (prioridade e espera em `projetos`; responsável, prazo, prioridade e
+  espera em `album_layouts`).
+- **Prazo e atraso:** no projeto, o prazo é o SLA interno
+  (`data_limite_producao`); "atrasado" = prazo vencido numa etapa da equipe e
+  fora de espera. Prova parada com o cliente além de `data_limite_aprovacao`
+  aparece à parte ("cliente atrasado").
+- **Templates de lâmina** (`/admin/diagramacao/templates`, admin/gestor):
+  renomear e desativar. Desativado some do editor sem ser apagado.
+- **Sem a 0038:** o dashboard e o centro de controle mostram um aviso pedindo a
+  migration; o resto do admin funciona.
+- **Testes:** `src/lib/diagramacao/regras.test.ts`,
+  `src/lib/actions/diagramacao.test.ts` e o pgTAP
+  `supabase/tests/controle_diagramacao.test.sql`.
+
 ## Pagamento das faturas de fechamento (migration 0035)
 
 Quando a prova é aprovada com lâminas extras e/ou adicionais, o banco emite a
@@ -279,7 +316,7 @@ As faturas de fechamento são pagas pelo Stripe Checkout quando o modo simulado
 está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
 `supabase/tests/checkout_fatura.test.sql` cobre as travas da 0035.
 
-Pendente: aplicar as migrations 0035 e 0036 no Supabase (0033 e 0034 já aplicadas); criar o bucket público do R2
+Pendente: aplicar as migrations 0035, 0036 e 0038 no Supabase (0033 e 0034 já aplicadas); criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel
