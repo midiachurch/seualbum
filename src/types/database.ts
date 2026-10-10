@@ -10,6 +10,7 @@ import type {
   Briefing,
   PlatformRole,
 } from '@/types/platform'
+import type { DiagramacaoItemRow, PrioridadeDiagramacao, ResumoDiagramacao } from '@/lib/diagramacao/regras'
 
 export type BillingType = 'avulso' | 'assinatura'
 export type OrderStatus =
@@ -187,6 +188,11 @@ export type ProjetoRow = {
   /** Franquia congelada no pedido (migration 0023): lâminas do plano e preço da extra. */
   laminas_inclusas: number | null
   preco_lamina_extra: number | null
+  /** Controle da diagramação (0038) — ausentes enquanto a migration não for aplicada. */
+  prioridade?: PrioridadeDiagramacao
+  em_espera?: boolean
+  em_espera_motivo?: string | null
+  em_espera_desde?: string | null
   created_at: string
   updated_at: string
 }
@@ -356,6 +362,8 @@ export type AlbumTemplateRow = {
   usos: number
   ultimo_uso: string | null
   criado_por: string | null
+  /** 0038: desativado pela gestão some do editor (ausente antes da migration = ativo). */
+  ativo?: boolean
   created_at: string
 }
 
@@ -400,6 +408,13 @@ export type AlbumLayoutRow = {
   miniatura: string | null
   revisao: number
   criado_por: string | null
+  /** Controle da diagramação do avulso (0038) — ausentes antes da migration. */
+  responsavel_id?: string | null
+  prazo?: string | null
+  prioridade?: PrioridadeDiagramacao
+  em_espera?: boolean
+  em_espera_motivo?: string | null
+  em_espera_desde?: string | null
   created_at: string
   updated_at: string
 }
@@ -718,7 +733,7 @@ export type Database = {
       album_templates: {
         Row: AlbumTemplateRow
         Insert: Pick<AlbumTemplateRow, 'nome' | 'quadros' | 'assinatura' | 'n_fotos'> & Partial<Pick<AlbumTemplateRow, 'favorito' | 'criado_por'>>
-        Update: Partial<Pick<AlbumTemplateRow, 'nome' | 'favorito' | 'usos' | 'ultimo_uso'>>
+        Update: Partial<Pick<AlbumTemplateRow, 'nome' | 'favorito' | 'usos' | 'ultimo_uso' | 'ativo'>>
         Relationships: []
       }
       album_aprovacao_comentarios: {
@@ -828,7 +843,10 @@ export type Database = {
         Relationships: []
       }
     }
-    Views: Record<never, never>
+    Views: {
+      /** Centro de controle da diagramação (0038), security_invoker: só a equipe vê linhas. */
+      diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
+    }
     Functions: {
       /** Grava o documento do editor se a revisão bater; null = conflito (0027). */
       salvar_album_layout: { Args: { p_id: string; p_documento: unknown; p_revisao: number }; Returns: number | null }
@@ -839,6 +857,8 @@ export type Database = {
         Returns: string
       }
       album_aprovacao_decidir: { Args: { p_token: string; p_decisao: 'aprovado' | 'alteracoes'; p_autor: string; p_mensagem: string | null }; Returns: string }
+      /** 0038: KPIs, carga por diagramador e itens mais urgentes — só a equipe. */
+      diagramacao_resumo: { Args: { p_urgentes?: number }; Returns: ResumoDiagramacao }
       is_admin: { Args: Record<string, never>; Returns: boolean }
       is_equipe: { Args: Record<string, never>; Returns: boolean }
       is_gestor_ou_admin: { Args: Record<string, never>; Returns: boolean }

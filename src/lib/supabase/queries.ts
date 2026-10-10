@@ -1915,5 +1915,6 @@ export async function getTemplatesDaEquipe(): Promise<AlbumTemplateRow[]> {
     if (!/album_templates|schema cache/i.test(error.message)) console.error('[getTemplatesDaEquipe]', error.message)
     return []
   }
-  return (data ?? []) as AlbumTemplateRow[]
+  // Desativado pela gestão (0038) some do editor; sem a coluna, todos valem.
+  return ((data ?? []) as AlbumTemplateRow[]).filter((t) => t.ativo !== false)
 }
