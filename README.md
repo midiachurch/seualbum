@@ -279,7 +279,7 @@ As faturas de fechamento são pagas pelo Stripe Checkout quando o modo simulado
 está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
 `supabase/tests/checkout_fatura.test.sql` cobre as travas da 0035.
 
-Pendente: aplicar as migrations 0033, 0034 e 0035 no Supabase; criar o bucket público do R2
+Pendente: aplicar as migrations 0035 e 0036 no Supabase (0033 e 0034 já aplicadas); criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel
