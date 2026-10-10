@@ -17,6 +17,7 @@ import {
   chaveEhLaminaDaAprovacao,
   chaveFotoAlbum,
   ehChaveAlbumR2,
+  tipoDeImagemPermitido,
 } from '@/lib/r2/chaves'
 import { assinarLeituras, copiarObjeto, enviarObjeto, metadadosDoObjeto, r2Configurado, removerObjetos } from '@/lib/r2/cliente'
 import type { AlbumOrientationValue } from '@/types/platform'
@@ -112,7 +113,8 @@ async function copiarParaR2(supabase: Supabase, origem: { bucket: string; path: 
     }
     const { data, error } = await supabase.storage.from(origem.bucket).download(origem.path)
     if (error || !data) return { error: error ?? new Error('arquivo vazio') }
-    await enviarObjeto(destino, new Uint8Array(await data.arrayBuffer()), data.type || 'image/jpeg')
+    // O tipo do Supabase vem de quem enviou: no bucket privado só entra imagem da lista.
+    await enviarObjeto(destino, new Uint8Array(await data.arrayBuffer()), tipoDeImagemPermitido(data.type, origem.path))
     return { error: null }
   } catch (e) {
     console.error('[duplicarAlbum] copiar para o R2', origem.bucket, origem.path, e instanceof Error ? e.message : e)
