@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { RetencaoCard } from '@/components/admin/crm/retencao-card'
+import { ResumoDiagramacaoSecao } from '@/components/admin/diagramacao/resumo-diagramacao'
+import { getResumoDiagramacao } from '@/lib/supabase/diagramacao'
 import {
   getAlertasCrm,
   getClients,
@@ -24,7 +26,7 @@ export default async function AdminDashboardPage() {
   // Faturamento é assunto da gestão: o operador também abre o dashboard, mas
   // não vê os números financeiros.
   const veFinanceiro = role === 'admin' || role === 'gestor'
-  const [metrics, clients, photographers, activity, alerts, financeiro, alertasCrm] = await Promise.all([
+  const [metrics, clients, photographers, activity, alerts, financeiro, alertasCrm, diagramacao] = await Promise.all([
     getDashboardMetrics(),
     getClients(),
     getPhotographers(),
@@ -33,6 +35,8 @@ export default async function AdminDashboardPage() {
     veFinanceiro ? getMetricasFinanceiras() : Promise.resolve(null),
     // CRM de retenção: assunto comercial, também só da gestão (RLS 0024).
     veFinanceiro ? getAlertasCrm() : Promise.resolve([]),
+    // Controle do diagramador (0038): KPIs, carga e urgentes numa RPC só.
+    getResumoDiagramacao(),
   ])
   const now = Date.now()
 
@@ -75,6 +79,8 @@ export default async function AdminDashboardPage() {
           </div>
         ))}
       </section>
+
+      <ResumoDiagramacaoSecao resumo={diagramacao.dados} semMigracao={diagramacao.semMigracao} />
 
       {financeiro ? <IndicadoresFinanceiros m={financeiro} /> : null}
 
