@@ -37,10 +37,13 @@ export function ProjectHub({
   project,
   photographer,
   initialTab,
+  painelMensagens,
 }: {
   project: Project
   photographer: Photographer | undefined
   initialTab: string
+  /** Aba "Mensagens" (0037): o fio com o estúdio, montado pela página. */
+  painelMensagens?: React.ReactNode
 }) {
   const stage = clientStageOf(project.status)
 
@@ -105,6 +108,7 @@ export function ProjectHub({
               </dl>
             ),
           },
+          ...(painelMensagens ? [{ value: 'mensagens', label: 'Mensagens', content: painelMensagens }] : []),
         ]}
       />
     </div>

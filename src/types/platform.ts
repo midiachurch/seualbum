@@ -36,6 +36,8 @@ export type ModuleKey =
   | 'midia'
   | 'vitrine'
   | 'configuracoes'
+  /** Caixa de mensagens com os estúdios (/admin/mensagens, migration 0037). */
+  | 'mensagens'
 
 export type ModulePermissions = Partial<Record<ModuleKey, PermissionAction[]>>
 
@@ -57,6 +59,7 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, ModulePermissions> = {
     midia: ALL,
     vitrine: ALL,
     configuracoes: ALL,
+    mensagens: ALL,
   },
   gestor: {
     dashboard: ['visualizar'],
@@ -71,17 +74,21 @@ export const ROLE_PERMISSIONS: Record<PlatformRole, ModulePermissions> = {
     // de mídia sem precisar do papel de admin.
     midia: ['visualizar', 'criar', 'editar', 'excluir'],
     vitrine: ['visualizar', 'criar', 'editar', 'excluir'],
+    mensagens: ['visualizar', 'criar'],
   },
   operador: {
     dashboard: ['visualizar'],
     projetos: ['visualizar', 'editar'],
     design: ['visualizar', 'editar'],
+    mensagens: ['visualizar', 'criar'],
   },
   // Foco total na produção: só a própria fila. Sem dashboard (financeiro),
   // sem clientes/fotógrafos/pedidos — e a RLS confirma (migration 0021).
   // Sobe versões e resolve pins; a aprovação interna continua com o gestor.
   designer: {
     design: ['visualizar', 'editar'],
+    // Só os fios dos projetos atribuídos a ele (RLS da 0037).
+    mensagens: ['visualizar'],
   },
   fotografo: {},
   cliente: {},
