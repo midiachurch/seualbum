@@ -194,6 +194,30 @@ a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
 | `npm run typecheck` | `tsc --noEmit`                     |
 | `npm test`          | Testes (Vitest)                    |
 
+O GitHub Actions (`.github/workflows/ci.yml`) roda `tsc --noEmit` e o Vitest
+em todo pull request e push no `main`, com Node 24 (o mesmo da Vercel) e sem
+segredos.
+
+### Verificar produção
+
+Depois de cada deploy:
+
+```bash
+node scripts/verificar-producao.mjs                      # padrão: https://seualbum.vercel.app
+node scripts/verificar-producao.mjs https://SEU-DOMINIO --vercel
+```
+
+Só faz requisições sem login e sem efeito colateral (GETs e chamadas com
+segredo ausente ou assinatura falsa) e imprime uma tabela PASS/FAIL: home e
+login abrem; o cron e o webhook de status recusam chamada sem segredo; o
+webhook do Stripe responde 400 a assinatura falsa (503 = falta
+`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`); `/auth/callback` sem `code`
+redireciona para o login; os uploads sem sessão dão 401 (503 = R2 não
+configurado; 404 = o deploy ainda não tem a rota). Sai com código 1 se algo
+falhar. `--vercel` roda `npx vercel@50 env ls production` (exige `vercel login`
+e `vercel link`) e lista só os **nomes** das variáveis obrigatórias da tabela
+acima que faltam em Production.
+
 ## Estado atual
 
 Implementado: landing e vitrine, autenticação com 6 papéis (admin, gestor,

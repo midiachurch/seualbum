@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Tipos e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mesma versão de Node da Vercel (Project Settings > Node.js Version: 24.x).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Checar tipos
+        run: npx tsc --noEmit
+
+      # Lint desligado por enquanto: a configuração do ESLint está sendo refeita.
+      # - name: Lint
+      #   run: npm run lint
+
+      # Sem segredos: os testes definem as próprias variáveis de ambiente, e o
+      # e2e do Supabase local é pulado sem SUPABASE_E2E_URL.
+      - name: Testes (Vitest)
+        run: npx vitest run
