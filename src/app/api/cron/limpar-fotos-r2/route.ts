@@ -77,6 +77,9 @@ export async function GET(request: NextRequest) {
     const { error } = await admin.from('r2_uploads_pendentes').delete().lt('expira_em', agora.toISOString())
     if (error) console.error('[cron:limpar-fotos-r2] reservas vencidas', error.message)
   }
+  // Apagar órfãos só com R2_VARREDURA_ORFAOS=apagar. Sem ela a varredura só
+  // conta, para conferir o resultado em produção antes de ligar.
+  const apagarOrfaos = !dryRun && process.env.R2_VARREDURA_ORFAOS === 'apagar'
   let orfaos: Awaited<ReturnType<typeof varrerOrfaos>>
   try {
     const alvos: Alvo[] = r2PublicoConfigurado() ? ['privado', 'publico'] : ['privado']
@@ -90,7 +93,7 @@ export async function GET(request: NextRequest) {
         },
         remover: (keys, alvo) => removerObjetos(keys, alvo),
       },
-      { alvos, agora, dryRun },
+      { alvos, agora, dryRun: !apagarOrfaos },
     )
   } catch (e) {
     console.error('[cron:limpar-fotos-r2] órfãos', e instanceof Error ? e.message : e)

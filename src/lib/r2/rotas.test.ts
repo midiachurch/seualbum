@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * Rotas do R2 de ponta a ponta, com o Supabase e o SDK do R2 simulados:
@@ -295,6 +295,18 @@ describe('GET /api/cron/limpar-fotos-r2', () => {
   })
 
   describe('órfãos (migration 0040)', () => {
+    beforeEach(() => vi.stubEnv('R2_VARREDURA_ORFAOS', 'apagar'))
+    afterEach(() => vi.unstubAllEnvs())
+
+    it('sem R2_VARREDURA_ORFAOS=apagar só conta, não apaga', async () => {
+      vi.stubEnv('R2_VARREDURA_ORFAOS', '')
+      r2.objetos.privado = [{ key: ORFA, gravadoEm: VELHO }]
+      banco.semReferencia = [ORFA]
+      const r = await limpar(req('GET', undefined, url, auth))
+      expect(r.status).toBe(200)
+      expect(r2.removerObjetos).not.toHaveBeenCalled()
+    })
+
     const NOVO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
     const REFERENCIADA = `projetos/${CHAVE}/fotos/${ARQ}-em-uso.jpg`
     const RECENTE = `projetos/${CHAVE}/fotos/${ARQ}-recente.jpg`

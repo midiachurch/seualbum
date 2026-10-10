@@ -67,6 +67,7 @@ Settings > Environment Variables**, em Production (e Preview, se usar).
 | `R2_PUBLIC_BUCKET`              | obrigatória | Bucket **público** do R2 para vitrine e logos (ex.: `seualbum-publico`)        |
 | `R2_PUBLIC_URL`                 | obrigatória | Domínio público desse bucket, sem barra no final (ex.: `https://midia.seualbum.com.br`); lido também no build (`next/image`) |
 | `CRON_SECRET`                   | obrigatória | Segredo do Cron da Vercel (`/api/cron/limpar-fotos-r2`); a Vercel o envia sozinha |
+| `R2_VARREDURA_ORFAOS`           | opcional    | `apagar` liga a remoção de órfãos no cron; sem ela a varredura só conta (confira o log antes de ligar) |
 | `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
 
 ## Cloudflare R2 (fotos)
@@ -95,6 +96,8 @@ Limpeza: o Cron da Vercel (`vercel.json`, diário às 06:17 UTC) chama
 há mais de 72h que nunca viraram pedido. O bucket `pedidos_fotos` do Supabase
 não é mais lido nem escrito; o que sobrou nele pode ser apagado à mão.
 
+Por segurança, a remoção só acontece com `R2_VARREDURA_ORFAOS=apagar`; sem ela o cron
+só conta e registra no log quantos órfãos encontrou.
 Na mesma chamada (migration 0040), a **varredura de órfãos** tira as reservas
 de envio vencidas e apaga do R2 os objetos que sobraram de foto apagada,
 projeto excluído ou envio nunca confirmado. É conservadora: só olha os
