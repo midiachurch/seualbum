@@ -247,7 +247,9 @@ reset role;
 
 select pg_temp.entrar('a0000000-0000-4000-8000-000000000001');
 select is(
-  (select sum(quantidade)::int from public.fatura_itens where adicional_id = (select copia from ids) and situacao = 'confirmado'),
+  (select sum(i.quantidade)::int from public.fatura_itens i join public.faturas f on f.id = i.fatura_id
+   where i.adicional_id = (select copia from ids) and i.situacao = 'confirmado'
+     and f.projeto_id = 'e1000000-0000-4000-8000-000000000001'),
   2, 'admin conta as unidades vendidas da cópia'
 );
 reset role;
