@@ -17,6 +17,66 @@ import { requireUser } from '@/lib/supabase/queries'
 
 export type IniciarPagamentoResult = { ok: true; url: string } | { ok: false; erro: string }
 
+type SessaoAnterior = { tipo: 'reusar'; url: string } | { tipo: 'processando' } | { tipo: 'nova' } | { tipo: 'erro' }
+
+/**
+ * O que fazer com a Checkout Session já guardada no pedido/fatura antes de
+ * abrir outra. Regra: nunca deixar duas sessões pagáveis ao mesmo tempo.
+ *   - aberta, do mesmo item (e do mesmo valor, quando informado) → reusar;
+ *   - aberta com outro valor → expira no Stripe antes de abrir a nova (senão
+ *     a antiga continua pagável e cai em `valor_divergente`/pagamento duplo);
+ *   - concluída e paga, ou Pix aguardando compensação → processando;
+ *   - concluída mas com o pagamento falho/expirado (Pix vencido: o
+ *     PaymentIntent volta a `requires_payment_method`) → nova; antes, ficava
+ *     "em processamento" para sempre e o estúdio não conseguia mais pagar;
+ *   - falha ao consultar/expirar no Stripe → erro (fail closed: não abre uma
+ *     segunda sessão sem saber se a primeira ainda está aberta).
+ */
+async function avaliarSessaoAnterior(
+  stripe: ReturnType<typeof getStripe>,
+  sessionId: string,
+  chave: 'pedido_id' | 'fatura_id',
+  id: string,
+  valorCentavos?: number,
+): Promise<SessaoAnterior> {
+  let anterior
+  try {
+    anterior = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['payment_intent'] })
+  } catch (e) {
+    // Sessão que não existe nesta conta/modo (troca de chave test → live): segue.
+    if ((e as { code?: string } | null)?.code === 'resource_missing') return { tipo: 'nova' }
+    console.error('[pagamento] consultar sessão anterior', sessionId, e)
+    return { tipo: 'erro' }
+  }
+  if (anterior.metadata?.[chave] !== id) return { tipo: 'nova' }
+
+  if (anterior.status === 'open') {
+    if (anterior.url && (valorCentavos === undefined || anterior.amount_total === valorCentavos)) {
+      return { tipo: 'reusar', url: anterior.url }
+    }
+    try {
+      await stripe.checkout.sessions.expire(anterior.id)
+      return { tipo: 'nova' }
+    } catch (e) {
+      // Pode ter sido concluída agora mesmo — não arrisca uma segunda cobrança.
+      console.error('[pagamento] expirar sessão anterior', sessionId, e)
+      return { tipo: 'erro' }
+    }
+  }
+
+  if (anterior.status === 'complete') {
+    const intent = anterior.payment_intent
+    const falhou =
+      anterior.payment_status !== 'paid' &&
+      intent !== null &&
+      typeof intent === 'object' &&
+      (intent.status === 'requires_payment_method' || intent.status === 'canceled')
+    return falhou ? { tipo: 'nova' } : { tipo: 'processando' }
+  }
+
+  return { tipo: 'nova' }
+}
+
 /** Origem de quem chamou — funciona em localhost, pelo IP da rede no celular e em produção. */
 async function origemDaRequisicao() {
   const h = await headers()
@@ -67,18 +127,13 @@ export async function iniciarPagamentoAction(pedidoId: string): Promise<IniciarP
   // Clique duplo ou volta do Checkout sem pagar: reaproveita a sessão aberta
   // em vez de criar outra (duas sessões abertas = risco de pagar duas vezes).
   if (pedido.stripe_checkout_session_id) {
-    try {
-      const anterior = await stripe.checkout.sessions.retrieve(pedido.stripe_checkout_session_id)
-      if (anterior.status === 'open' && anterior.url && anterior.metadata?.pedido_id === pedido.id) {
-        return { ok: true, url: anterior.url }
-      }
-      // Pix gerado e ainda não compensado: não abre um segundo checkout.
-      if (anterior.status === 'complete' && anterior.metadata?.pedido_id === pedido.id) {
-        return { ok: false, erro: 'Pagamento em processamento. Assim que for confirmado, o pedido entra na fila.' }
-      }
-    } catch (e) {
-      console.warn('[iniciarPagamentoAction] sessão anterior indisponível', e)
+    const anterior = await avaliarSessaoAnterior(stripe, pedido.stripe_checkout_session_id, 'pedido_id', pedido.id)
+    if (anterior.tipo === 'reusar') return { ok: true, url: anterior.url }
+    // Pix gerado e ainda não compensado: não abre um segundo checkout.
+    if (anterior.tipo === 'processando') {
+      return { ok: false, erro: 'Pagamento em processamento. Assim que for confirmado, o pedido entra na fila.' }
     }
+    if (anterior.tipo === 'erro') return { ok: false, erro: 'Não foi possível abrir o pagamento. Tente de novo em instantes.' }
   }
 
   const origem = await origemDaRequisicao()
@@ -173,20 +228,19 @@ export async function iniciarPagamentoFaturaAction(faturaId: string): Promise<In
   // Clique duplo ou volta do Checkout sem pagar: reaproveita a sessão aberta
   // se ainda for do mesmo valor (duas sessões abertas = risco de pagar duas vezes).
   if (fatura.stripe_checkout_session_id) {
-    try {
-      const anterior = await stripe.checkout.sessions.retrieve(fatura.stripe_checkout_session_id)
-      if (anterior.metadata?.fatura_id === fatura.fatura_id) {
-        if (anterior.status === 'open' && anterior.url && anterior.amount_total === valorCentavos) {
-          return { ok: true, url: anterior.url }
-        }
-        // Pix gerado e ainda não compensado: não abre um segundo checkout.
-        if (anterior.status === 'complete') {
-          return { ok: false, erro: 'Pagamento em processamento. Assim que for confirmado, o álbum segue para impressão.' }
-        }
-      }
-    } catch (e) {
-      console.warn('[iniciarPagamentoFaturaAction] sessão anterior indisponível', e)
+    const anterior = await avaliarSessaoAnterior(
+      stripe,
+      fatura.stripe_checkout_session_id,
+      'fatura_id',
+      fatura.fatura_id,
+      valorCentavos,
+    )
+    if (anterior.tipo === 'reusar') return { ok: true, url: anterior.url }
+    // Pix gerado e ainda não compensado: não abre um segundo checkout.
+    if (anterior.tipo === 'processando') {
+      return { ok: false, erro: 'Pagamento em processamento. Assim que for confirmado, o álbum segue para impressão.' }
     }
+    if (anterior.tipo === 'erro') return { ok: false, erro: 'Não foi possível abrir o pagamento. Tente de novo em instantes.' }
   }
 
   const origem = await origemDaRequisicao()

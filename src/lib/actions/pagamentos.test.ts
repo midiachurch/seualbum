@@ -22,6 +22,9 @@ const stripe = vi.hoisted(() => ({
   criadas: [] as Record<string, unknown>[],
   recuperadas: [] as string[],
   anterior: null as Record<string, unknown> | null,
+  erroAoRecuperar: null as (Error & { code?: string }) | null,
+  expiradas: [] as string[],
+  falhaAoExpirar: false,
   falhaAoCriar: false,
 }))
 
@@ -37,18 +40,37 @@ vi.mock('@/lib/stripe', () => ({
         },
         retrieve: async (id: string) => {
           stripe.recuperadas.push(id)
-          if (!stripe.anterior) throw new Error('No such checkout.session')
+          if (stripe.erroAoRecuperar) throw stripe.erroAoRecuperar
+          if (!stripe.anterior) throw Object.assign(new Error('No such checkout.session'), { code: 'resource_missing' })
           return stripe.anterior
+        },
+        expire: async (id: string) => {
+          if (stripe.falhaAoExpirar) throw new Error('This Checkout Session is not open')
+          stripe.expiradas.push(id)
+          return { id, status: 'expired' }
         },
       },
     },
   }),
 }))
 
+/** Pedido (orders) devolvido pelo `select … maybeSingle()` de `iniciarPagamentoAction`. */
+const pedidos = vi.hoisted(() => ({ atual: null as Record<string, unknown> | null, sessoesGravadas: [] as unknown[] }))
+
 const supabase = {
   rpc: async (nome: string, args: unknown) => (
     banco.rpcs.push({ nome, args }), banco.respostas[nome] ?? { data: null, error: null }
   ),
+  from: () => {
+    const q = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => ({ data: pedidos.atual, error: null }),
+      update: (dados: unknown) => (pedidos.sessoesGravadas.push(dados), q),
+      then: (resolver: (v: { error: null }) => void) => resolver({ error: null }),
+    }
+    return q
+  },
 }
 
 vi.mock('@/lib/supabase/queries', () => ({
@@ -61,7 +83,7 @@ vi.mock('@/lib/supabase/queries', () => ({
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://teste.supabase.co'
 
-const { iniciarPagamentoFaturaAction } = await import('./pagamentos')
+const { iniciarPagamentoAction, iniciarPagamentoFaturaAction } = await import('./pagamentos')
 
 const FATURA = '11111111-1111-4111-8111-111111111111'
 const PROJETO = '22222222-2222-4222-8222-222222222222'
@@ -91,6 +113,9 @@ beforeEach(() => {
   stripe.criadas = []
   stripe.recuperadas = []
   stripe.anterior = null
+  stripe.erroAoRecuperar = null
+  stripe.expiradas = []
+  stripe.falhaAoExpirar = false
   stripe.falhaAoCriar = false
 })
 
@@ -198,10 +223,70 @@ describe('iniciarPagamentoFaturaAction', () => {
     expect(stripe.criadas).toEqual([])
   })
 
-  it('sessão anterior de outro valor ou expirada: abre uma nova', async () => {
+  it('sessão anterior aberta de outro valor: expira a antiga antes de abrir a nova', async () => {
     banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
     stripe.anterior = { id: 'cs_test_antiga', status: 'open', url: 'https://x', amount_total: 999, metadata: { fatura_id: FATURA } }
     expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: true, url: expect.stringContaining('cs_test_novo') })
+    expect(stripe.expiradas).toEqual(['cs_test_antiga'])
+    expect(stripe.criadas).toHaveLength(1)
+  })
+
+  it('não consegue expirar a sessão antiga (pode ter sido paga agora): não abre outra', async () => {
+    banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
+    stripe.anterior = { id: 'cs_test_antiga', status: 'open', url: 'https://x', amount_total: 999, metadata: { fatura_id: FATURA } }
+    stripe.falhaAoExpirar = true
+    expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: false })
+    expect(stripe.criadas).toEqual([])
+  })
+
+  it('sessão anterior expirada: abre uma nova sem expirar nada', async () => {
+    banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
+    stripe.anterior = { id: 'cs_test_antiga', status: 'expired', url: null, amount_total: 12345, metadata: { fatura_id: FATURA } }
+    expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: true, url: expect.stringContaining('cs_test_novo') })
+    expect(stripe.expiradas).toEqual([])
+    expect(stripe.criadas).toHaveLength(1)
+  })
+
+  it('Pix vencido (sessão concluída, PaymentIntent de volta a requires_payment_method): deixa pagar de novo', async () => {
+    banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
+    stripe.anterior = {
+      id: 'cs_test_antiga',
+      status: 'complete',
+      payment_status: 'unpaid',
+      payment_intent: { id: 'pi_1', status: 'requires_payment_method' },
+      url: null,
+      amount_total: 12345,
+      metadata: { fatura_id: FATURA },
+    }
+    expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: true, url: expect.stringContaining('cs_test_novo') })
+    expect(stripe.criadas).toHaveLength(1)
+  })
+
+  it('Pix aguardando compensação (PaymentIntent requires_action) continua bloqueando', async () => {
+    banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
+    stripe.anterior = {
+      id: 'cs_test_antiga',
+      status: 'complete',
+      payment_status: 'unpaid',
+      payment_intent: { id: 'pi_1', status: 'requires_action' },
+      url: null,
+      amount_total: 12345,
+      metadata: { fatura_id: FATURA },
+    }
+    expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: false, erro: expect.stringContaining('processamento') })
+    expect(stripe.criadas).toEqual([])
+  })
+
+  it('Stripe fora do ar ao consultar a sessão anterior: não abre uma segunda', async () => {
+    banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
+    stripe.erroAoRecuperar = Object.assign(new Error('connection reset'), { code: undefined })
+    expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: false })
+    expect(stripe.criadas).toEqual([])
+  })
+
+  it('sessão anterior que não existe mais nesta conta: abre uma nova', async () => {
+    banco.respostas.preparar_checkout_fatura = faturaDoBanco({ stripe_checkout_session_id: 'cs_test_antiga' })
+    expect(await iniciarPagamentoFaturaAction(FATURA)).toMatchObject({ ok: true })
     expect(stripe.criadas).toHaveLength(1)
   })
 
@@ -212,5 +297,52 @@ describe('iniciarPagamentoFaturaAction', () => {
       erro: 'Não foi possível abrir o pagamento. Tente de novo em instantes.',
     })
     expect(banco.rpcs.map((r) => r.nome)).toEqual(['preparar_checkout_fatura'])
+  })
+})
+
+describe('iniciarPagamentoAction (pedido) — sessão anterior', () => {
+  const PEDIDO = '33333333-3333-4333-8333-333333333333'
+  beforeEach(() => {
+    pedidos.atual = {
+      id: PEDIDO,
+      numero: 9,
+      nome_projeto: 'Casamento',
+      status: 'pendente',
+      stripe_checkout_session_id: 'cs_test_antiga',
+      planos: { nome_plano: 'Essencial', preco: 499, tipo_cobranca: 'avulso' },
+    }
+    pedidos.sessoesGravadas = []
+  })
+
+  it('Pix vencido não trava o pedido em "processamento" para sempre', async () => {
+    stripe.anterior = {
+      id: 'cs_test_antiga',
+      status: 'complete',
+      payment_status: 'unpaid',
+      payment_intent: { id: 'pi_1', status: 'requires_payment_method' },
+      metadata: { pedido_id: PEDIDO },
+    }
+    expect(await iniciarPagamentoAction(PEDIDO)).toMatchObject({ ok: true, url: expect.stringContaining('cs_test_novo') })
+    expect(stripe.criadas[0]).toMatchObject({ line_items: [{ price_data: { currency: 'brl', unit_amount: 49900 } }] })
+    expect(pedidos.sessoesGravadas).toEqual([{ stripe_checkout_session_id: 'cs_test_novo' }])
+  })
+
+  it('Pix gerado e ainda não compensado continua bloqueando', async () => {
+    stripe.anterior = {
+      id: 'cs_test_antiga',
+      status: 'complete',
+      payment_status: 'unpaid',
+      payment_intent: { id: 'pi_1', status: 'requires_action' },
+      metadata: { pedido_id: PEDIDO },
+    }
+    expect(await iniciarPagamentoAction(PEDIDO)).toMatchObject({ ok: false, erro: expect.stringContaining('processamento') })
+    expect(stripe.criadas).toEqual([])
+  })
+
+  it('sessão aberta é reaproveitada (sem checar valor, como antes)', async () => {
+    stripe.anterior = { id: 'cs_test_antiga', status: 'open', url: 'https://checkout/antiga', amount_total: 1, metadata: { pedido_id: PEDIDO } }
+    expect(await iniciarPagamentoAction(PEDIDO)).toEqual({ ok: true, url: 'https://checkout/antiga' })
+    expect(stripe.expiradas).toEqual([])
+    expect(stripe.criadas).toEqual([])
   })
 })
