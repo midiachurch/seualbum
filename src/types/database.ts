@@ -10,6 +10,7 @@ import type {
   Briefing,
   PlatformRole,
 } from '@/types/platform'
+import type { DiagramacaoItemRow, PrioridadeDiagramacao, ResumoDiagramacao } from '@/lib/diagramacao/regras'
 
 export type BillingType = 'avulso' | 'assinatura'
 export type OrderStatus =
@@ -187,6 +188,11 @@ export type ProjetoRow = {
   /** Franquia congelada no pedido (migration 0023): lâminas do plano e preço da extra. */
   laminas_inclusas: number | null
   preco_lamina_extra: number | null
+  /** Controle da diagramação (0038) — ausentes enquanto a migration não for aplicada. */
+  prioridade?: PrioridadeDiagramacao
+  em_espera?: boolean
+  em_espera_motivo?: string | null
+  em_espera_desde?: string | null
   created_at: string
   updated_at: string
 }
@@ -203,6 +209,14 @@ export type PedidoFotoR2Row = {
   /** EXIF lido no navegador (migration 0031). */
   capturada_em: string | null
   camera: string | null
+  created_at: string
+}
+
+/** Envio ao R2 assinado e ainda não confirmado (migration 0040). */
+export type R2UploadPendenteRow = {
+  r2_key: string
+  user_id: string
+  expira_em: string
   created_at: string
 }
 
@@ -369,6 +383,8 @@ export type AlbumTemplateRow = {
   usos: number
   ultimo_uso: string | null
   criado_por: string | null
+  /** 0038: desativado pela gestão some do editor (ausente antes da migration = ativo). */
+  ativo?: boolean
   created_at: string
 }
 
@@ -413,6 +429,13 @@ export type AlbumLayoutRow = {
   miniatura: string | null
   revisao: number
   criado_por: string | null
+  /** Controle da diagramação do avulso (0038) — ausentes antes da migration. */
+  responsavel_id?: string | null
+  prazo?: string | null
+  prioridade?: PrioridadeDiagramacao
+  em_espera?: boolean
+  em_espera_motivo?: string | null
+  em_espera_desde?: string | null
   created_at: string
   updated_at: string
 }
@@ -614,6 +637,39 @@ export type NotificacaoCrmRow = {
   resolvida_por: string | null
 }
 
+/** Mensagens interligadas (migration 0037). */
+export type ConversaRow = {
+  id: string
+  canal: 'estudio_equipe' | 'cliente_estudio'
+  fotografo_id: string
+  projeto_id: string | null
+  ultima_mensagem_em: string | null
+  ultima_mensagem_previa: string | null
+  created_at: string
+}
+
+export type MensagemRow = {
+  id: string
+  conversa_id: string
+  /** null = mensagem do sistema (ou autor removido). */
+  autor_id: string | null
+  autor_nome: string
+  autor_papel: 'equipe' | 'fotografo' | 'cliente' | 'sistema'
+  tipo: 'texto' | 'sistema'
+  corpo: string
+  lamina_id: string | null
+  versao_id: string | null
+  created_at: string
+  apagada_em: string | null
+  apagada_por: string | null
+}
+
+export type ConversaLeituraRow = {
+  conversa_id: string
+  usuario_id: string
+  lida_ate: string
+}
+
 export type OrcamentoRow = {
   id: string
   fotografo_id: string
@@ -688,6 +744,12 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      r2_uploads_pendentes: {
+        Row: R2UploadPendenteRow
+        Insert: Pick<R2UploadPendenteRow, 'r2_key' | 'user_id' | 'expira_em'> & Partial<Pick<R2UploadPendenteRow, 'created_at'>>
+        Update: Partial<R2UploadPendenteRow>
+        Relationships: []
+      }
       design_versions: {
         Row: DesignVersionRow
         Insert: Pick<DesignVersionRow, 'projeto_id' | 'numero'> &
@@ -731,7 +793,7 @@ export type Database = {
       album_templates: {
         Row: AlbumTemplateRow
         Insert: Pick<AlbumTemplateRow, 'nome' | 'quadros' | 'assinatura' | 'n_fotos'> & Partial<Pick<AlbumTemplateRow, 'favorito' | 'criado_por'>>
-        Update: Partial<Pick<AlbumTemplateRow, 'nome' | 'favorito' | 'usos' | 'ultimo_uso'>>
+        Update: Partial<Pick<AlbumTemplateRow, 'nome' | 'favorito' | 'usos' | 'ultimo_uso' | 'ativo'>>
         Relationships: []
       }
       album_aprovacao_comentarios: {
@@ -840,6 +902,26 @@ export type Database = {
         Update: Partial<FaturaRow>
         Relationships: []
       }
+      conversas: {
+        Row: ConversaRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      /** Autor, papel, nome e data são definidos pelo banco (gatilho da 0037). */
+      mensagens: {
+        Row: MensagemRow
+        Insert: Pick<MensagemRow, 'conversa_id' | 'corpo'> & Partial<Pick<MensagemRow, 'autor_id' | 'lamina_id' | 'versao_id'>>
+        /** Só exclusão lógica. */
+        Update: Pick<MensagemRow, 'apagada_em'>
+        Relationships: []
+      }
+      conversa_leituras: {
+        Row: ConversaLeituraRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       orcamentos: {
         Row: OrcamentoRow
         Insert: Pick<OrcamentoRow, 'fotografo_id' | 'cliente_final_nome'> &
@@ -848,7 +930,10 @@ export type Database = {
         Relationships: []
       }
     }
-    Views: Record<never, never>
+    Views: {
+      /** Centro de controle da diagramação (0038), security_invoker: só a equipe vê linhas. */
+      diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
+    }
     Functions: {
       /** Grava o documento do editor se a revisão bater; null = conflito (0027). */
       salvar_album_layout: { Args: { p_id: string; p_documento: unknown; p_revisao: number }; Returns: number | null }
@@ -859,6 +944,8 @@ export type Database = {
         Returns: string
       }
       album_aprovacao_decidir: { Args: { p_token: string; p_decisao: 'aprovado' | 'alteracoes'; p_autor: string; p_mensagem: string | null }; Returns: string }
+      /** 0038: KPIs, carga por diagramador e itens mais urgentes — só a equipe. */
+      diagramacao_resumo: { Args: { p_urgentes?: number }; Returns: ResumoDiagramacao }
       is_admin: { Args: Record<string, never>; Returns: boolean }
       is_equipe: { Args: Record<string, never>; Returns: boolean }
       is_gestor_ou_admin: { Args: Record<string, never>; Returns: boolean }
@@ -868,6 +955,12 @@ export type Database = {
       concluir_cadastro_google: { Args: Record<string, never>; Returns: PlatformRole }
       /** Chaves no R2 de rascunhos parados há p_horas que nunca viraram pedido (0031). Só service_role. */
       rascunhos_r2_expirados: { Args: { p_horas?: number; p_limite?: number }; Returns: { r2_key: string }[] }
+      /** Reserva a chave de um envio do R2 para quem o pediu, por 24h (0040). Só service_role. */
+      reservar_upload_r2: { Args: { p_key: string; p_user_id: string }; Returns: boolean }
+      /** Quais destas chaves nenhuma coluna do banco cita (varredura de órfãos, 0040). Só service_role. */
+      r2_chaves_sem_referencia: { Args: { p_keys: string[] }; Returns: string[] }
+      /** A chave do R2 está em `fotos` (0036)? */
+      chave_r2_em_uso_por_projeto: { Args: { p_key: string }; Returns: boolean }
       pode_ver_projeto: { Args: { p_projeto_id: string }; Returns: boolean }
       /** Fase 5 (0023): prévia da cobrança de lâminas extras — fotógrafo dono ou operação. */
       calcular_excedente: {
@@ -934,6 +1027,38 @@ export type Database = {
       marcar_alerta_crm: { Args: { p_id: string; p_status: NotificacaoCrmStatus }; Returns: undefined }
       /** Cortesia: admin/gestor dispensa a cobrança e libera para impressão. */
       dispensar_fatura: { Args: { p_fatura_id: string; p_motivo: string }; Returns: undefined }
+      /** Mensagens (0037): busca ou cria o fio, conferindo o acesso. */
+      abrir_conversa: {
+        Args: { p_canal: 'estudio_equipe' | 'cliente_estudio'; p_fotografo_id?: string | null; p_projeto_id?: string | null }
+        Returns: string
+      }
+      marcar_conversa_lida: { Args: { p_conversa_id: string }; Returns: string }
+      contar_mensagens_nao_lidas: { Args: Record<string, never>; Returns: { conversa_id: string; nao_lidas: number }[] }
+      total_mensagens_nao_lidas: { Args: Record<string, never>; Returns: number }
+      listar_conversas: {
+        Args: {
+          p_canal?: 'estudio_equipe' | 'cliente_estudio' | null
+          p_fotografo_id?: string | null
+          p_projeto_id?: string | null
+          p_somente_nao_lidas?: boolean
+          p_limite?: number
+        }
+        Returns: {
+          id: string
+          canal: 'estudio_equipe' | 'cliente_estudio'
+          fotografo_id: string
+          estudio: string
+          estudio_logo_url: string | null
+          projeto_id: string | null
+          projeto_nome: string | null
+          projeto_numero: number | null
+          cliente_nome: string | null
+          ultima_mensagem_em: string | null
+          ultima_mensagem_previa: string | null
+          nao_lidas: number
+          created_at: string
+        }[]
+      }
       get_orcamento_publico: {
         Args: { p_hash: string }
         Returns: {

@@ -48,6 +48,7 @@ export function ProjectWorkspace({
   canAssign,
   canApproveInternal,
   modoDesigner = false,
+  painelMensagens,
 }: {
   project: Project
   client: Client | undefined
@@ -59,6 +60,8 @@ export function ProjectWorkspace({
   canApproveInternal: boolean
   /** Designer: sem troca manual de status, sem links de cliente/fotógrafo, sem e-mails. */
   modoDesigner?: boolean
+  /** Aba "Mensagens" (0037): fios do projeto, montados pela página. */
+  painelMensagens?: React.ReactNode
 }) {
   const [project, setProject] = useState(initialProject)
   const [erroStatus, setErroStatus] = useState<string | null>(null)
@@ -374,6 +377,7 @@ export function ProjectWorkspace({
                 </ol>
               ),
           },
+          ...(painelMensagens ? [{ value: 'mensagens', label: 'Mensagens', content: painelMensagens }] : []),
           ...(modoDesigner
             ? []
             : [

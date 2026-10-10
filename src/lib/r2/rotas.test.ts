@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * Rotas do R2 de ponta a ponta, com o Supabase e o SDK do R2 simulados:
@@ -15,15 +15,23 @@ const KEY = `pedidos/${USER}/${CHAVE}/${ARQ}-a.jpg`
 
 const r2 = vi.hoisted(() => ({
   configurado: true,
+  publicoConfigurado: false,
   urlDeEnvio: vi.fn(),
   metadadosDoObjeto: vi.fn(),
   removerObjetos: vi.fn(),
+  /** Objetos do bucket (para a varredura de órfãos), por alvo. */
+  objetos: { privado: [] as { key: string; gravadoEm: Date | null }[], publico: [] as { key: string; gravadoEm: Date | null }[] },
 }))
 vi.mock('@/lib/r2/cliente', () => ({
   r2Configurado: () => r2.configurado,
+  r2PublicoConfigurado: () => r2.publicoConfigurado,
   urlDeEnvio: r2.urlDeEnvio,
   metadadosDoObjeto: r2.metadadosDoObjeto,
   removerObjetos: r2.removerObjetos,
+  listarObjetos: async (prefixo: string, alvo: 'privado' | 'publico' = 'privado') => ({
+    objetos: r2.objetos[alvo].filter((o) => o.key.startsWith(prefixo)),
+    proximo: null,
+  }),
 }))
 
 /** Banco falso: só o que as rotas usam. */
@@ -34,11 +42,27 @@ const banco = vi.hoisted(() => ({
   apagados: [] as string[],
   expiradas: [] as string[],
   ordem: [] as string[],
+  /** Chaves que `r2_chaves_sem_referencia` diz que ninguém cita. */
+  semReferencia: [] as string[],
+  semReferenciaErro: null as null | { message: string },
+  perguntadas: [] as string[][],
+  reservasVencidasApagadas: 0,
+  loteJaPublicado: false,
 }))
 
 function supabaseFalso() {
   return {
     from(tabela: string) {
+      if (tabela === 'versoes_laminas') {
+        return {
+          select: () => ({
+            like: () => ({ limit: async () => ({ data: banco.loteJaPublicado ? [{ id: 'v' }] : [], error: null }) }),
+          }),
+        }
+      }
+      if (tabela === 'r2_uploads_pendentes') {
+        return { delete: () => ({ lt: async () => (banco.reservasVencidasApagadas++, { error: null }) }) }
+      }
       if (tabela === 'orders') {
         return {
           select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: banco.pedidoExiste ? { id: 'x' } : null, error: null }) }) }),
@@ -60,7 +84,14 @@ function supabaseFalso() {
         }),
       }
     },
-    rpc: async () => ({ data: banco.expiradas.map((r2_key) => ({ r2_key })), error: null }),
+    rpc: async (nome: string, args: { p_keys?: string[] }) => {
+      if (nome === 'r2_chaves_sem_referencia') {
+        banco.perguntadas.push(args.p_keys ?? [])
+        if (banco.semReferenciaErro) return { data: null, error: banco.semReferenciaErro }
+        return { data: banco.semReferencia.filter((k) => args.p_keys?.includes(k)), error: null }
+      }
+      return { data: banco.expiradas.map((r2_key) => ({ r2_key })), error: null }
+    },
   }
 }
 
@@ -99,7 +130,21 @@ beforeEach(() => {
   r2.configurado = true
   sessao.logado = true
   sessao.equipe = true
-  Object.assign(banco, { pedidoExiste: false, insertErro: null, inseridos: [], apagados: [], expiradas: [], ordem: [] })
+  Object.assign(banco, {
+    pedidoExiste: false,
+    insertErro: null,
+    inseridos: [],
+    apagados: [],
+    expiradas: [],
+    ordem: [],
+    semReferencia: [],
+    semReferenciaErro: null,
+    perguntadas: [],
+    reservasVencidasApagadas: 0,
+    loteJaPublicado: false,
+  })
+  r2.publicoConfigurado = false
+  r2.objetos = { privado: [], publico: [] }
   r2.urlDeEnvio.mockReset().mockResolvedValue({ url: 'https://r2/put', expiraEm: 'x' })
   r2.metadadosDoObjeto.mockReset().mockResolvedValue({ tamanho: 1234, contentType: 'image/jpeg' })
   r2.removerObjetos.mockReset().mockImplementation(async () => banco.ordem.push('r2'))
@@ -201,6 +246,8 @@ describe('DELETE /api/uploads/pedido-foto', () => {
 
 describe('GET /api/cron/limpar-fotos-r2', () => {
   const url = 'http://localhost/api/cron/limpar-fotos-r2'
+  const VELHO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const ORFA = `projetos/${CHAVE}/fotos/${ARQ}-apagada.jpg`
   const auth = { authorization: 'Bearer segredo-cron' }
   beforeEach(() => {
     process.env.CRON_SECRET = 'segredo-cron'
@@ -226,7 +273,7 @@ describe('GET /api/cron/limpar-fotos-r2', () => {
   it('apaga primeiro no R2, depois no índice', async () => {
     banco.expiradas = [KEY]
     const r = await limpar(req('GET', undefined, url, auth))
-    expect(await r.json()).toEqual({ ok: true, apagadas: 1 })
+    expect(await r.json()).toEqual({ ok: true, apagadas: 1, orfaos: { examinadas: 0, candidatas: 0, orfas: 0, apagadas: 0 } })
     expect(banco.ordem).toEqual(['r2', 'banco'])
   })
 
@@ -239,9 +286,65 @@ describe('GET /api/cron/limpar-fotos-r2', () => {
 
   it('dry_run só conta', async () => {
     banco.expiradas = [KEY, KEY]
+    r2.objetos.privado = [{ key: ORFA, gravadoEm: VELHO }]
+    banco.semReferencia = [ORFA]
     const r = await limpar(req('GET', undefined, `${url}?dry_run=1`, auth))
-    expect(await r.json()).toEqual({ ok: true, dryRun: true, encontradas: 2 })
+    expect(await r.json()).toEqual({ ok: true, dryRun: true, encontradas: 2, orfaos: { examinadas: 1, candidatas: 1, orfas: 1, apagadas: 0 } })
     expect(r2.removerObjetos).not.toHaveBeenCalled()
+    expect(banco.reservasVencidasApagadas).toBe(0)
+  })
+
+  describe('órfãos (migration 0040)', () => {
+    beforeEach(() => vi.stubEnv('R2_VARREDURA_ORFAOS', 'apagar'))
+    afterEach(() => vi.unstubAllEnvs())
+
+    it('sem R2_VARREDURA_ORFAOS=apagar só conta, não apaga', async () => {
+      vi.stubEnv('R2_VARREDURA_ORFAOS', '')
+      r2.objetos.privado = [{ key: ORFA, gravadoEm: VELHO }]
+      banco.semReferencia = [ORFA]
+      const r = await limpar(req('GET', undefined, url, auth))
+      expect(r.status).toBe(200)
+      expect(r2.removerObjetos).not.toHaveBeenCalled()
+    })
+
+    const NOVO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+    const REFERENCIADA = `projetos/${CHAVE}/fotos/${ARQ}-em-uso.jpg`
+    const RECENTE = `projetos/${CHAVE}/fotos/${ARQ}-recente.jpg`
+
+    it('apaga só o que é velho, do app e sem referência no banco; tira as reservas vencidas', async () => {
+      r2.objetos.privado = [
+        { key: ORFA, gravadoEm: VELHO },
+        { key: REFERENCIADA, gravadoEm: VELHO },
+        { key: RECENTE, gravadoEm: NOVO },
+        { key: `projetos/${CHAVE}/fotos/sem data.jpg`, gravadoEm: null },
+      ]
+      banco.semReferencia = [ORFA, RECENTE] // mesmo que o banco diga, a recente fica (janela de 7 dias)
+      const r = await limpar(req('GET', undefined, url, auth))
+      expect(r.status).toBe(200)
+      expect(await r.json()).toEqual({ ok: true, apagadas: 0, orfaos: { examinadas: 4, candidatas: 2, orfas: 1, apagadas: 1 } })
+      expect(banco.perguntadas).toEqual([[ORFA, REFERENCIADA]])
+      expect(r2.removerObjetos).toHaveBeenCalledWith([ORFA], 'privado')
+      expect(banco.reservasVencidasApagadas).toBe(1)
+    })
+
+    it('no bucket público só quando ele está configurado', async () => {
+      const VITRINE = `vitrine/${ARQ}-banner.webp`
+      r2.objetos.publico = [{ key: VITRINE, gravadoEm: VELHO }]
+      banco.semReferencia = [VITRINE]
+      await limpar(req('GET', undefined, url, auth))
+      expect(r2.removerObjetos).not.toHaveBeenCalled()
+      r2.publicoConfigurado = true
+      await limpar(req('GET', undefined, url, auth))
+      expect(r2.removerObjetos).toHaveBeenCalledWith([VITRINE], 'publico')
+    })
+
+    it('se o banco não responder, nada sai do R2', async () => {
+      r2.objetos.privado = [{ key: ORFA, gravadoEm: VELHO }]
+      banco.semReferenciaErro = { message: 'timeout' }
+      const r = await limpar(req('GET', undefined, url, auth))
+      expect(r.status).toBe(502)
+      expect(r2.removerObjetos).not.toHaveBeenCalled()
+    })
   })
 
   it('503 sem R2 configurado', async () => {
@@ -254,9 +357,24 @@ describe('POST /api/uploads/lamina', () => {
   const corpo = { projetoId: USER, lote: CHAVE, idArquivo: ARQ, nome: 'l1.jpg', tipo: 'image/jpeg', tamanho: 999 }
 
   it('assina o PUT na pasta do lote', async () => {
+    r2.metadadosDoObjeto.mockResolvedValueOnce(null)
     const r = await assinarLamina(req('POST', corpo))
     expect(r.status).toBe(200)
     expect((await r.json()).key).toBe(`projetos/${USER}/versoes/${CHAVE}/${ARQ}-l1.jpg`)
+    expect(r2.metadadosDoObjeto).toHaveBeenCalledWith(`projetos/${USER}/versoes/${CHAVE}/${ARQ}-l1.jpg`)
+  })
+
+  it('409 para lâmina que já existe no R2: ninguém sobrescreve lâmina publicada', async () => {
+    r2.metadadosDoObjeto.mockResolvedValueOnce({ tamanho: 10, contentType: 'image/jpeg' })
+    expect((await assinarLamina(req('POST', corpo))).status).toBe(409)
+    expect(r2.urlDeEnvio).not.toHaveBeenCalled()
+  })
+
+  it('409 para lote que já tem versão publicada (cada publicação usa lote novo)', async () => {
+    banco.loteJaPublicado = true
+    r2.metadadosDoObjeto.mockResolvedValueOnce(null)
+    expect((await assinarLamina(req('POST', corpo))).status).toBe(409)
+    expect(r2.urlDeEnvio).not.toHaveBeenCalled()
   })
 
   it('403 fora da equipe de produção', async () => {

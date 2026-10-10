@@ -38,19 +38,15 @@ export function ProjectHub({
   photographer,
   initialTab,
   painelAprovacao,
-  abaMensagens,
+  painelMensagens,
 }: {
   project: Project
   photographer: Photographer | undefined
   initialTab: string
   /** Aba "Aprovação": painel de aprovação da prova (versões, checklist, apontamentos). */
   painelAprovacao?: React.ReactNode
-  /**
-   * SLOT da aba "Mensagens" (conversa com o estúdio). Fica reservado para a
-   * feature de mensagens: basta a página passar o conteúdo aqui (e aceitar
-   * `?aba=mensagens`) — sem conteúdo, a aba não aparece.
-   */
-  abaMensagens?: React.ReactNode
+  /** Aba "Mensagens" (0037): o fio com o estúdio, montado pela página. */
+  painelMensagens?: React.ReactNode
 }) {
   const stage = clientStageOf(project.status)
 
@@ -86,8 +82,6 @@ export function ProjectHub({
             label: 'Visão geral',
             content: <ProjectTimeline currentStage={stage} />,
           },
-          // SLOT: aba "Mensagens" (outra feature) entra aqui, depois de "Aprovação"/"Visão geral".
-          ...(abaMensagens ? [{ value: 'mensagens', label: 'Mensagens', content: abaMensagens }] : []),
           {
             value: 'fotos',
             label: `Fotos (${project.photos.length})`,
@@ -118,6 +112,7 @@ export function ProjectHub({
               </dl>
             ),
           },
+          ...(painelMensagens ? [{ value: 'mensagens', label: 'Mensagens', content: painelMensagens }] : []),
         ]}
       />
     </div>

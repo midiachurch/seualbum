@@ -6,9 +6,12 @@ import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import { canAccess, PLATFORM_ROLE_LABEL, type ModuleKey, type PlatformRole } from '@/types/platform'
 import { cn } from '@/lib/utils'
+import { SeloNaoLidas } from '@/components/mensagens/selo-nao-lidas'
 
 const NAV_ITEMS: { href: string; label: string; module: ModuleKey }[] = [
   { href: '/admin', label: 'Dashboard', module: 'dashboard' },
+  { href: '/admin/diagramacao', label: 'Diagramação', module: 'projetos' },
+  { href: '/admin/mensagens', label: 'Mensagens', module: 'mensagens' },
   { href: '/admin/design', label: 'Fila de design', module: 'design' },
   { href: '/admin/albuns', label: 'Álbuns (editor)', module: 'design' },
   { href: '/admin/producao', label: 'Produção', module: 'projetos' },
@@ -75,6 +78,7 @@ export function AdminSidebar({ role }: { role: PlatformRole | null }) {
                   )}
                 >
                   {item.label}
+                  {item.href === '/admin/mensagens' ? <SeloNaoLidas invertido={active} className="ml-2" /> : null}
                 </Link>
               </li>
             )

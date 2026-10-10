@@ -330,3 +330,50 @@ export function validarEnvioPublico(
   if (c.tamanho > regra.tamanhoMaximo) return { ok: false, erro: `Arquivo maior que ${Math.round(regra.tamanhoMaximo / 1024 / 1024)} MB.` }
   return { ok: true, dados: { idArquivo: c.idArquivo, nome: c.nome, tipo: c.tipo, tamanho: c.tamanho } }
 }
+
+/* ------------------------- cópias e varredura de órfãos ------------------------ */
+
+/** Tipos de imagem que gravamos no bucket privado (fotos de pedido/projeto, álbuns, lâminas). */
+export const MIMES_IMAGEM_PRIVADA = new Set([...MIMES_FOTO_PEDIDO, ...MIMES_FOTO_ALBUM, ...MIMES_LAMINA])
+
+const MIME_POR_EXTENSAO: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+}
+
+/**
+ * Content-Type de um arquivo antigo do Supabase Storage ao copiá-lo para o R2
+ * (duplicar álbum). O tipo do Supabase vem de quem enviou e pode ser qualquer
+ * coisa (`text/html`, `image/svg+xml`…): só passa o que está na lista de
+ * imagens; senão vale a extensão do nome; senão `application/octet-stream`
+ * (o navegador baixa em vez de interpretar).
+ */
+export function tipoDeImagemPermitido(tipo: string | null | undefined, nome: string): string {
+  const base = (tipo ?? '').split(';')[0].trim().toLowerCase()
+  const normalizado = base === 'image/jpg' || base === 'image/pjpeg' ? 'image/jpeg' : base
+  if (MIMES_IMAGEM_PRIVADA.has(normalizado)) return normalizado
+  const extensao = nome.toLowerCase().split('.').pop() ?? ''
+  return MIME_POR_EXTENSAO[extensao] ?? 'application/octet-stream'
+}
+
+/**
+ * Prefixos que o app grava em cada bucket do R2 — os únicos que a varredura
+ * de órfãos (/api/cron/limpar-fotos-r2) olha.
+ */
+export const PREFIXOS_DO_APP = {
+  privado: [`${PREFIXO_PEDIDOS}/`, `${PREFIXO_PROJETOS}/`, `${PREFIXO_ALBUNS}/`],
+  publico: [`${PREFIXO_VITRINE}/`, `${PREFIXO_LOGOS}/`],
+} as const
+
+/**
+ * A chave tem o formato que o app gera (prefixo conhecido, só caracteres de
+ * `nomeSeguro`, sem `..`)? Fora disso, a varredura nunca apaga — o mesmo
+ * critério de `r2_chaves_sem_referencia` (0040).
+ */
+export function chaveNoFormatoDoApp(key: unknown): key is string {
+  return typeof key === 'string' && !key.includes('..') && /^(pedidos|projetos|albuns|vitrine|logos)(\/[A-Za-z0-9._-]+)+$/.test(key)
+}

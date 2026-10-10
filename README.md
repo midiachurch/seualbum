@@ -67,6 +67,7 @@ Settings > Environment Variables**, em Production (e Preview, se usar).
 | `R2_PUBLIC_BUCKET`              | obrigatória | Bucket **público** do R2 para vitrine e logos (ex.: `seualbum-publico`)        |
 | `R2_PUBLIC_URL`                 | obrigatória | Domínio público desse bucket, sem barra no final (ex.: `https://midia.seualbum.com.br`); lido também no build (`next/image`) |
 | `CRON_SECRET`                   | obrigatória | Segredo do Cron da Vercel (`/api/cron/limpar-fotos-r2`); a Vercel o envia sozinha |
+| `R2_VARREDURA_ORFAOS`           | opcional    | `apagar` liga a remoção de órfãos no cron; sem ela a varredura só conta (confira o log antes de ligar) |
 | `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
 
 ## Cloudflare R2 (fotos)
@@ -94,6 +95,18 @@ Limpeza: o Cron da Vercel (`vercel.json`, diário às 06:17 UTC) chama
 `/api/cron/limpar-fotos-r2`, que apaga do R2 e do índice os rascunhos parados
 há mais de 72h que nunca viraram pedido. O bucket `pedidos_fotos` do Supabase
 não é mais lido nem escrito; o que sobrou nele pode ser apagado à mão.
+
+Por segurança, a remoção só acontece com `R2_VARREDURA_ORFAOS=apagar`; sem ela o cron
+só conta e registra no log quantos órfãos encontrou.
+Na mesma chamada (migration 0040), a **varredura de órfãos** tira as reservas
+de envio vencidas e apaga do R2 os objetos que sobraram de foto apagada,
+projeto excluído ou envio nunca confirmado. É conservadora: só olha os
+prefixos do app (`pedidos/`, `projetos/`, `albuns/`; `vitrine/` e `logos/` no
+bucket público), só chaves no formato do app gravadas há mais de 7 dias, e só
+apaga o que a função `r2_chaves_sem_referencia` (service_role) diz que nenhuma
+coluna de texto/JSON do schema public cita — nem a chave nem a pasta acima
+dela. Lê até 20 páginas de 1000 objetos por prefixo em cada execução.
+`?dry_run=1` só conta (`orfaos.orfas`); rode assim antes do primeiro deploy.
 
 No painel da Cloudflare, o bucket precisa de uma regra de **CORS** que libere
 `PUT` e `GET` para a origem do site (`https://SEU-DOMINIO` e
@@ -153,11 +166,25 @@ de lá (**leitura dupla**). Nenhum bucket do Supabase foi apagado.
   endereço público só por compatibilidade: a biblioteca monta o endereço pela
   chave, e a tela pública do orçamento continua lendo `logo_url` (RPC
   `get_orcamento_publico`). SVG não é aceito (pode carregar script).
+- **Dono de cada envio (migration 0040):** ao assinar o PUT de uma foto do
+  projeto, o servidor reserva a chave para quem pediu (`r2_uploads_pendentes`,
+  24h, `reservar_upload_r2` só pelo service_role). A confirmação só passa com
+  a reserva da própria pessoa e o INSERT em `fotos` a consome (trigger
+  `fotos_validar_chave_r2`): cada chave vira foto uma vez só, e outra pessoa
+  do projeto (ex.: o cliente final) não confirma o arquivo alheio. A rota de
+  assinar passa a precisar do `SUPABASE_SERVICE_ROLE_KEY`.
+  `DELETE /api/uploads/projeto-foto { id, projetoId }` apaga a foto (RLS) e o
+  objeto do R2, se for da pasta do projeto e nada mais o usar.
+- **Duplicar álbum:** na cópia de um arquivo antigo do Supabase, o
+  Content-Type só passa se for imagem da lista (JPG, PNG, WebP, HEIC); senão
+  vale a extensão, senão `application/octet-stream`.
 - **Configuração:** crie o bucket público e ligue um Custom Domain. Dê ao
   token Object Read & Write nos dois buckets. O bucket público precisa da
   mesma regra de CORS (`PUT` com `Content-Type`).
 - **Antes do deploy:** aplique a 0034. Sem ela, só os uploads da vitrine e do
-  logo falham (409). As leituras não dependem dela.
+  logo falham (409). As leituras não dependem dela. Aplique também a 0040:
+  sem ela, o envio de fotos do projeto falha (500) e a varredura de órfãos
+  do Cron responde 502 (a limpeza dos rascunhos continua).
 - **Copiar o que já existe (opcional):**
   `node --env-file=.env.local scripts/copiar-storage-para-r2.mjs` lista o que
   seria copiado. Com `--aplicar`, copia, confere no R2 e aponta as linhas para
@@ -184,6 +211,45 @@ a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
 - **Lâminas no R2:** upload manual e "Publicar versão" do editor sobem cada
   lâmina por `POST /api/uploads/lamina` (URL assinada, JPG até 50 MB);
   `criarVersaoComLaminas` confere cada chave no R2 antes de criar a versão.
+  A rota recusa (409) lote que já tem lâmina publicada e chave que já existe
+  no R2: ninguém sobrescreve lâmina publicada nem a herdada por versão parcial.
+
+## Controle da diagramação (migration 0038)
+
+O dashboard (`/admin`) tem a seção **Diagramação** e o menu ganhou
+**Diagramação** (`/admin/diagramacao`), o centro de controle de todos os álbuns
+em diagramação: projetos da esteira (de "fotos recebidas" a "aprovado") e
+álbuns avulsos do editor.
+
+- **Dashboard:** KPIs (em diagramação, com o cliente, ajustes pedidos,
+  aprovados nos últimos 30 dias, atrasados), carga por diagramador (atribuídos,
+  em andamento, atrasados, entrega média em 90 dias) e os mais urgentes com
+  "Abrir editor" / "Ver prova". Tudo vem de uma RPC, `diagramacao_resumo`,
+  agregada no banco sobre a view `diagramacao_itens` (security_invoker: só a
+  equipe vê linhas).
+- **Centro de controle:** tabela ou quadro por etapa, com filtros (etapa,
+  responsável, estúdio, prioridade, tipo, só atrasados, ocultar em espera) e,
+  por linha, responsável, estúdio/cliente, prazo, prioridade, versão da prova,
+  apontamentos abertos e última atividade. Ações: atribuir (também em massa),
+  mudar prazo, prioridade (também em massa), pôr em espera/retomar, abrir o
+  editor, ver a prova e, no avulso, copiar o link de aprovação ou abrir o
+  editor no painel de compartilhar para publicá-lo.
+- **Quem faz o quê:** admin/gestor atribuem, priorizam e pausam; o operador só
+  consulta e abre editor/prova; o designer continua na própria fila
+  (`/admin/design`). A trigger `guardar_controle_diagramacao` repete a trava no
+  banco (prioridade e espera em `projetos`; responsável, prazo, prioridade e
+  espera em `album_layouts`).
+- **Prazo e atraso:** no projeto, o prazo é o SLA interno
+  (`data_limite_producao`); "atrasado" = prazo vencido numa etapa da equipe e
+  fora de espera. Prova parada com o cliente além de `data_limite_aprovacao`
+  aparece à parte ("cliente atrasado").
+- **Templates de lâmina** (`/admin/diagramacao/templates`, admin/gestor):
+  renomear e desativar. Desativado some do editor sem ser apagado.
+- **Sem a 0038:** o dashboard e o centro de controle mostram um aviso pedindo a
+  migration; o resto do admin funciona.
+- **Testes:** `src/lib/diagramacao/regras.test.ts`,
+  `src/lib/actions/diagramacao.test.ts` e o pgTAP
+  `supabase/tests/controle_diagramacao.test.sql`.
 
 ## Painel de aprovação do cliente (migration 0039)
 
@@ -202,7 +268,7 @@ logo, pela função `marca_do_estudio_cliente()`):
   "Aprovar álbum" abre a prova já no modal de aprovação (`?acao=aprovar`),
   no mesmo fluxo com upsell. "Pedir ajustes" envia todos os comentários da
   versão como um pedido `alteracao_solicitada`, no mesmo formato da prova.
-  A aba "Mensagens" tem um slot reservado no `ProjectHub` (`abaMensagens`).
+  A aba "Mensagens" (0037) fica no mesmo `ProjectHub` (`painelMensagens`).
 - **Checklist:** `prova_laminas_revisao` guarda uma linha por lâmina e pessoa.
   A prova marca "vista" ao abrir a lâmina, e o botão "Esta lâmina está ok"
   (na prova ou no painel) a marca como aprovada. Projeto e versão vêm da
@@ -249,6 +315,41 @@ Fluxo do checkout real:
 
 Para ligar: aplicar a 0035 e depois
 `update private.app_config set value = 'false' where key = 'pagamento_simulado';`.
+
+## Mensagens (migration 0037)
+
+Conversas de verdade entre o estúdio, a equipe e o cliente final (antes só
+havia o histórico `projeto_atividades`, a caixa de saída `comunicacoes_log` e
+os alertas `notificacoes_crm`).
+
+- **Canais** (`conversas.canal`): `estudio_equipe` — o estúdio ↔ equipe
+  seualbum, um fio **geral** por estúdio e um por projeto; `cliente_estudio` —
+  o cliente final ↔ o estúdio, um por projeto. A operação (admin/gestor/
+  operador) **lê** o fio do cliente para suporte, marcado como interno, mas não
+  escreve; nem o cliente nem o estúdio veem que a equipe leu.
+- **Quem vê** (`pode_ver_conversa`): o estúdio dono, o cliente do projeto (só o
+  fio dele), a operação, e o designer só no fio com a equipe dos projetos em
+  que é o `responsavel_id`. Estúdios e clientes são isolados entre si (pgTAP
+  `supabase/tests/mensagens.test.sql`).
+- **Mensagens**: o navegador manda só o texto (e, opcionalmente, uma lâmina do
+  próprio projeto); autor, lado, nome e data são gravados pelo gatilho. O
+  estúdio aparece com o nome do estúdio (white-label para o cliente).
+  "Apagar" é exclusão lógica (a linha fica, o texto some).
+- **Lidas**: `conversa_leituras` guarda até onde cada um leu; não lidas por
+  fio em `contar_mensagens_nao_lidas` e o total do selo em
+  `total_mensagens_nao_lidas`. Para a equipe, só conta o que o estúdio
+  escreveu.
+- **Sistema**: prova publicada, aprovada e ajustes solicitados viram mensagem
+  de sistema no fio do projeto com a equipe (gatilho em `projetos.status`).
+- **Ao vivo**: `mensagens` entra na publicação `supabase_realtime`; o fio
+  aberto e os selos assinam `postgres_changes` (a RLS vale para quem assina).
+  Sem Realtime, o fio consulta a cada 15s e o selo a cada 30s.
+- **Telas**: `/admin/mensagens` (filtros por estúdio, projeto e não lidas; aba
+  de suporte cliente ↔ estúdio), `/dashboard/mensagens` (abas "Equipe
+  seualbum" e "Meus clientes"), aba **Mensagens** em `/admin/projetos/[id]`,
+  `/dashboard/albuns/[id]/mensagens` (link em Meus álbuns) e aba Mensagens em
+  `/cliente/projetos/[id]` (atalho `/cliente/mensagens` no menu do cliente).
+- Server Actions em `src/lib/actions/mensagens.ts`. Anexos ainda não.
 
 ## Scripts
 
@@ -344,9 +445,11 @@ Fluxo de adicionais testado ponta a ponta no Supabase local (`supabase init` ger
 roda as Server Actions contra o mesmo banco (sem a variável, o arquivo é pulado).
 As faturas de fechamento são pagas pelo Stripe Checkout quando o modo simulado
 está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
-`supabase/tests/checkout_fatura.test.sql` cobre as travas da 0035.
+`supabase/tests/checkout_fatura.test.sql` cobre as travas da 0035 e
+`supabase/tests/r2_uploads_pendentes.test.sql` as reservas e a função de
+referências da 0040.
 
-Pendente: aplicar as migrations 0035, 0036 e 0039 no Supabase (0033 e 0034 já aplicadas); criar o bucket público do R2
+Pendente: aplicar as migrations 0037, 0038, 0039 e 0040 no Supabase (0033 a 0036 já aplicadas); criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel
