@@ -282,6 +282,19 @@ export type ProvaComentarioRow = {
   created_at: string
 }
 
+export type ProvaLaminaRevisaoRow = {
+  id: string
+  projeto_id: string
+  lamina_id: string
+  versao: number
+  usuario_id: string
+  /** Checklist do cliente (0039): 'vista' = abriu; 'aprovada' = "Esta lâmina está ok". */
+  estado: 'vista' | 'aprovada'
+  vista_em: string
+  aprovada_em: string | null
+  updated_at: string
+}
+
 export type StatusAlbum =
   | 'rascunho'
   | 'em_edicao'
@@ -742,6 +755,13 @@ export type Database = {
         Update: Partial<ProvaComentarioRow>
         Relationships: []
       }
+      prova_laminas_revisao: {
+        Row: ProvaLaminaRevisaoRow
+        /** `projeto_id`, `versao` e os carimbos vêm da lâmina/banco (trigger da 0039). */
+        Insert: Pick<ProvaLaminaRevisaoRow, 'projeto_id' | 'lamina_id' | 'versao'> & Partial<Pick<ProvaLaminaRevisaoRow, 'estado'>>
+        Update: Partial<Pick<ProvaLaminaRevisaoRow, 'estado'>>
+        Relationships: []
+      }
       media_assets: {
         Row: MediaAssetRow
         Insert: Pick<MediaAssetRow, 'storage_path' | 'nome'> &
@@ -893,6 +913,11 @@ export type Database = {
           preco: number
           preco_revenda: number
         }[]
+      }
+      /** Portal do cliente (0039): nome e logo dos estúdios dos projetos dele. */
+      marca_do_estudio_cliente: {
+        Args: Record<string, never>
+        Returns: { fotografo_id: string; estudio: string; logo_url: string | null }[]
       }
       /** Aprovação + adicionais numa operação só; devolve o status resultante do projeto. */
       aprovar_prova: {
