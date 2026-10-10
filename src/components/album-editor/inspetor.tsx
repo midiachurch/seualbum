@@ -12,7 +12,6 @@ import {
   Copy,
   RotateCw,
   Sparkles,
-  Crop,
   Expand,
   FlipHorizontal2,
   FlipVertical2,

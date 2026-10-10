@@ -38,7 +38,7 @@ export default async function PaginaDinamicaPage({ params }: { params: Promise<{
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{pagina.titulo}</h1>
           <div
             className="prose-outbox mt-10 text-base text-foreground"
-            // eslint-disable-next-line react/no-danger -- conteúdo escrito pela própria equipe no editor do admin (RLS restrita a admin/gestor), não input público.
+            // Seguro: conteúdo escrito pela própria equipe no editor do admin (RLS restrita a admin/gestor), não input público.
             dangerouslySetInnerHTML={{ __html: pagina.conteudoHtml }}
           />
         </article>

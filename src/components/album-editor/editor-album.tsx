@@ -40,7 +40,6 @@ import {
   Undo2,
   Wifi,
   WifiOff,
-  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PainelFotos, type MetaFoto } from '@/components/album-editor/painel-fotos'
@@ -847,7 +846,6 @@ export function EditorAlbum({
     void listarTemplates().then((r) => {
       if (r.ok) setTemplatesEquipe(r.templates)
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   function gravarUsoLocal(u: typeof usoLocal) {
     setUsoLocal(u)

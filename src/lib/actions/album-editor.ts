@@ -5,11 +5,11 @@ import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getTemplate
 import { isDemoMode } from '@/lib/demo-mode'
 import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } from '@/lib/album/documento'
 import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
-import { laminaEmCm, normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
+import { normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
 import { prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
 import { BUCKET_R2 } from '@/lib/r2/chaves'
 import { assinarLeituras, lerObjeto } from '@/lib/r2/cliente'
-import type { AlbumConfig, AlbumOrientationValue } from '@/types/platform'
+import type { AlbumOrientationValue } from '@/types/platform'
 import type { AlbumLayoutRow, AlbumTemplateRow, BibliotecaAlbum, DerivadoFoto } from '@/types/database'
 
 /**
