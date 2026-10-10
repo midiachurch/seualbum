@@ -30,6 +30,37 @@ describe('URLs assinadas do R2', () => {
   })
 })
 
+describe('bucket público (vitrine e logos)', () => {
+  beforeAll(() => {
+    process.env.R2_PUBLIC_BUCKET = 'seualbum-publico'
+    process.env.R2_PUBLIC_URL = 'https://midia.exemplo.com.br/'
+  })
+
+  it('PUT público vai para o outro bucket, com as mesmas travas', async () => {
+    const { urlDeEnvio } = await import('./cliente')
+    const u = new URL((await urlDeEnvio('vitrine/a.webp', 'image/webp', 10, 'publico')).url)
+    expect(u.pathname).toBe('/seualbum-publico/vitrine/a.webp')
+    expect(u.searchParams.get('X-Amz-SignedHeaders')).toBe('content-length;content-type;host')
+  })
+
+  it('endereço público pela chave, sem assinatura e sem barra dobrada', async () => {
+    const { urlPublica } = await import('./cliente')
+    expect(urlPublica('logos/u/a b.png')).toBe('https://midia.exemplo.com.br/logos/u/a%20b.png')
+  })
+
+  it('sem R2_PUBLIC_URL o bucket público não conta como configurado', async () => {
+    const guardada = process.env.R2_PUBLIC_URL
+    delete process.env.R2_PUBLIC_URL
+    try {
+      const { r2PublicoConfigurado, urlPublica } = await import('./cliente')
+      expect(r2PublicoConfigurado()).toBe(false)
+      expect(urlPublica('vitrine/a.webp')).toBeNull()
+    } finally {
+      process.env.R2_PUBLIC_URL = guardada
+    }
+  })
+})
+
 describe('assinarLeituras', () => {
   it('assina várias chaves de uma vez, sem repetir', async () => {
     const { assinarLeituras } = await import('./cliente')
