@@ -81,15 +81,19 @@ export function AprovacaoPainel({
   const [copiado, setCopiado] = useState<string | null>(null)
   const [resposta, setResposta] = useState<Record<string, string>>({})
 
-  async function carregar() {
-    if (projetoId) return
-    const r = await listarAprovacoesAlbum(albumId)
+  function aplicar(r: Awaited<ReturnType<typeof listarAprovacoesAlbum>>) {
     if (r.ok) setAprovacoes(r.aprovacoes)
     else setErro(r.erro)
   }
 
+  async function carregar() {
+    if (projetoId) return
+    aplicar(await listarAprovacoesAlbum(albumId))
+  }
+
+  // Ao abrir: o estado só muda quando a lista chega.
   useEffect(() => {
-    if (aberto) void carregar()
+    if (aberto && !projetoId) void listarAprovacoesAlbum(albumId).then(aplicar)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto])
 

@@ -64,17 +64,23 @@ export function Historico({
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
-  async function carregar() {
-    const r = await listarVersoesAlbum(albumId)
+  function aplicar(r: Awaited<ReturnType<typeof listarVersoesAlbum>>) {
     if (r.ok) setVersoes(r.versoes)
     else setErro(r.erro)
   }
 
+  async function carregar() {
+    aplicar(await listarVersoesAlbum(albumId))
+  }
+
+  // Ao abrir, limpa a lista anterior já no render (sem efeito) e busca de novo.
+  const [abertoAntes, setAbertoAntes] = useState(aberto)
+  if (aberto !== abertoAntes) {
+    setAbertoAntes(aberto)
+    if (aberto) setVersoes(null)
+  }
   useEffect(() => {
-    if (aberto) {
-      setVersoes(null)
-      void carregar()
-    }
+    if (aberto) void listarVersoesAlbum(albumId).then(aplicar)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aberto])
 
