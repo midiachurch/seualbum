@@ -144,7 +144,6 @@ visualização em livro. Projeto: "Publicar versão" gera JPGs de 300 DPI e entr
 na prova da esteira. Avulso: link de aprovação sem login (`/album/[token]`) e
 exportação em ZIP. A lógica fica em `src/lib/album/`.
 
-Pendente: aplicar as migrations 0030, 0031 e 0032 no Supabase; levar para o R2 os
-demais buckets (projetos, álbuns, vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
+Pendente: levar para o R2 os demais buckets (projetos, álbuns, vitrine, logos). Também: teste ponta a ponta do fluxo de adicionais e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
