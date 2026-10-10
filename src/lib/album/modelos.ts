@@ -14,8 +14,6 @@ import type { Photo } from '@/types/platform'
 
 type Ret = [x: number, y: number, w: number, h: number]
 
-const T3 = 1 / 3
-
 /** Grade regular de colunas × linhas numa área (0–1). */
 function grade(colunas: number, linhas: number, area: Ret = [0, 0, 1, 1]): Ret[] {
   const [ax, ay, aw, ah] = area

@@ -48,7 +48,7 @@ export function CommunicationHistory({ entries }: { entries: ComunicacaoLogEntry
             <p className="mt-1 text-xs text-muted-foreground">{formatDate(entry.dataCriacao)}</p>
             <div
               className="prose-outbox mt-3 text-sm text-foreground"
-              // eslint-disable-next-line react/no-danger -- corpo_html é gerado pelo próprio gatilho do banco, nunca por input livre de usuário.
+              // Seguro: corpo_html é gerado pelo próprio gatilho do banco, nunca por input livre de usuário.
               dangerouslySetInnerHTML={{ __html: entry.corpoHtml }}
             />
           </div>

@@ -92,7 +92,7 @@ export default async function ProducaoPage() {
               <p className="text-sm text-muted-foreground">Nenhum projeto atrasado agora. 🎉</p>
             ) : (
               <ul className="space-y-1.5">
-                {estourados.map(({ project, sla }) => (
+                {estourados.map(({ project }) => (
                   <li key={project.id} className="flex items-center justify-between gap-2 rounded-xl bg-white/60 px-3 py-2 text-sm">
                     <Link href={`/admin/projetos/${project.id}`} className="font-medium hover:underline">
                       {project.nome}

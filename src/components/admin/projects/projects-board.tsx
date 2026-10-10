@@ -53,8 +53,8 @@ export function ProjectsBoard({
       const matchesStatus = statusFilter === 'todos' || p.status === statusFilter
       const matchesClient = clientFilter === 'todos' || p.clientId === clientFilter
       return matchesSearch && matchesStatus && matchesClient
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- clientName é pura, não precisa entrar nas deps
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clientName é pura, não precisa entrar nas deps
   }, [projects, search, statusFilter, clientFilter])
 
   function advanceStatus(id: string) {

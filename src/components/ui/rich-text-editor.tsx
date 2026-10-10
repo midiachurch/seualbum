@@ -48,9 +48,9 @@ export function RichTextEditor({
 }) {
   const ref = useRef<HTMLDivElement>(null)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- de propósito: só na montagem (ver comentário acima).
   useEffect(() => {
     if (ref.current) ref.current.innerHTML = initialValue || CONTEUDO_VAZIO
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- de propósito: só na montagem (ver comentário acima).
   }, [])
 
   function exec(command: string) {

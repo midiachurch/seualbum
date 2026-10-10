@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowRight, BookOpen, FolderKanban, Loader2, MoreVertical, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
