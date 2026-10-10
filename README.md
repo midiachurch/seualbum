@@ -173,6 +173,42 @@ a mesma para o cliente final (`/cliente/projetos/[id]/prova`), o fotógrafo
 | `npm run build`     | Build de produção                  |
 | `npm run typecheck` | `tsc --noEmit`                     |
 | `npm test`          | Testes (Vitest)                    |
+| `npm run test:e2e`  | Testes no navegador (Playwright), só com o Supabase local |
+
+## Testes E2E no navegador (Playwright)
+
+`e2e/` clica no app de verdade (Chromium) contra o **Supabase local**. Nunca
+aponte para o projeto remoto: `e2e/support/ambiente.ts` recusa qualquer URL
+que não seja `127.0.0.1`/`localhost`, e o `.env.local` não é usado.
+
+```bash
+supabase init                 # só se não houver supabase/config.toml (não versionado)
+supabase start                # Docker; aplica as migrations
+supabase db reset --local     # opcional: banco limpo
+npx playwright install chromium   # uma vez
+npm run test:e2e
+supabase stop
+```
+
+- O `playwright.config.ts` sobe o `next dev` na porta 3210 (`E2E_PORT`) com
+  `NEXT_PUBLIC_SUPABASE_URL`/chaves do banco local e Stripe, R2 e webhooks
+  vazios. Não reaproveita servidor já aberto.
+- As chaves padrão são as de demonstração do `supabase start`. Se a API local
+  não estiver na 54321 (outro projeto ocupando as portas), passe
+  `E2E_SUPABASE_URL=http://127.0.0.1:<porta>`; chaves diferentes vão em
+  `E2E_SUPABASE_ANON_KEY`/`E2E_SUPABASE_SERVICE_KEY`.
+- O `global-setup` liga `private.app_config.pagamento_simulado = 'true'` via
+  `docker exec` no contêiner `supabase_db_<project_id>` (lido do
+  `supabase/config.toml`; outro nome em `E2E_DB_CONTAINER`).
+- Cada teste cria os próprios usuários (admin, estúdio, casal) e projetos pela
+  service role local e apaga tudo no fim (`e2e/support/seed.ts`). As lâminas
+  apontam para um PNG no Storage local, não para o R2.
+- Specs: `login.spec.ts` (cada papel cai na sua área) e `adicionais.spec.ts`
+  (casal desiste do adicional; casal pede, estúdio aceita e paga no Pix
+  simulado e a gráfica recebe; estúdio recusa e o álbum é liberado sem
+  cobrança).
+- O Vitest ignora `e2e/`. Falhas deixam trace e screenshot em `test-results/`
+  (`npx playwright show-trace <arquivo>`).
 
 ## Estado atual
 
