@@ -308,7 +308,10 @@ export function AlbunsHub({ albuns, podeEditar, semTabelas = false }: { albuns: 
                       <>Cliente: {a.clienteNome ?? '—'}</>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground">Editado {haQuanto(a.atualizadoEm)}</p>
+                  {/* Tempo relativo depende do relógio: servidor e navegador divergem no minuto. */}
+                  <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+                    Editado {haQuanto(a.atualizadoEm)}
+                  </p>
                   <div className="mt-auto flex items-center justify-between pt-2">
                     <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', COR_GRUPO[grupo])}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
