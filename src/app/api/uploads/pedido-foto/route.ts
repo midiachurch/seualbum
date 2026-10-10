@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const { chave, idArquivo, nome, tipo, tamanho } = validacao.dados
 
   try {
-    if (await rascunhoJaEnviado(supabase, chave)) {
+    if (await rascunhoJaEnviado(supabase, chave, userId)) {
       return NextResponse.json({ erro: 'Este pedido já foi enviado; as fotos não podem mais mudar.' }, { status: 409 })
     }
 
@@ -53,7 +53,7 @@ export async function DELETE(request: NextRequest) {
   const key = corpo!.key as string
 
   try {
-    if (await rascunhoJaEnviado(supabase, lida.chave)) {
+    if (await rascunhoJaEnviado(supabase, lida.chave, userId)) {
       return NextResponse.json({ erro: 'Este pedido já foi enviado; as fotos não podem mais mudar.' }, { status: 409 })
     }
     const { error } = await supabase.from('pedidos_fotos_r2').delete().eq('r2_key', key)

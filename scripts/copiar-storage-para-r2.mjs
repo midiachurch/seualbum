@@ -65,8 +65,18 @@ const urlPublica = (key) => `${URL_PUBLICA}/${key.split('/').map(encodeURICompon
 
 const total = { copiados: 0, pulados: 0, falhas: 0 }
 
-/** Baixa do Supabase, envia ao R2 e confere. Devolve true se o objeto está no R2. */
-async function copiar(bucketOrigem, path, bucketR2, key) {
+// Bucket PÚBLICO só recebe imagem raster: os buckets antigos `midia_vitrine` e
+// `fotografo_logos` não tinham lista de tipos, então podem guardar SVG/HTML —
+// servidos do nosso domínio público, viram XSS armazenado. Mesmas listas de
+// MIMES_MIDIA / MIMES_LOGO (src/lib/r2/chaves.ts).
+const MIMES_MIDIA = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'])
+const MIMES_LOGO = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
+/**
+ * Baixa do Supabase, envia ao R2 e confere. Devolve true se o objeto está no R2.
+ * Com `mimes`, recusa (sem copiar) arquivo de outro tipo.
+ */
+async function copiar(bucketOrigem, path, bucketR2, key, mimes = null) {
   if (!APLICAR) {
     console.log(`[dry-run] ${bucketOrigem}/${path} → ${bucketR2}/${key}`)
     return false
@@ -74,8 +84,10 @@ async function copiar(bucketOrigem, path, bucketR2, key) {
   try {
     const { data, error } = await supabase.storage.from(bucketOrigem).download(path)
     if (error || !data) throw error ?? new Error('arquivo vazio')
+    const tipo = (data.type || 'application/octet-stream').split(';')[0].trim().toLowerCase()
+    if (mimes && !mimes.has(tipo)) throw new Error(`tipo ${tipo} recusado para ${bucketR2} (fica no Supabase)`)
     const bytes = new Uint8Array(await data.arrayBuffer())
-    await r2.send(new PutObjectCommand({ Bucket: bucketR2, Key: key, Body: bytes, ContentType: data.type || 'application/octet-stream' }))
+    await r2.send(new PutObjectCommand({ Bucket: bucketR2, Key: key, Body: bytes, ContentType: tipo }))
     await r2.send(new HeadObjectCommand({ Bucket: bucketR2, Key: key }))
     total.copiados++
     return true
@@ -116,7 +128,7 @@ async function midia() {
   console.log(`media_assets: ${linhas.length} no midia_vitrine`)
   for (const m of linhas) {
     const key = `vitrine/${m.id}-${nomeSeguro(m.storage_path.split('/').pop() ?? m.nome)}`
-    if (!(await copiar('midia_vitrine', m.storage_path, BUCKET_PUBLICO, key))) continue
+    if (!(await copiar('midia_vitrine', m.storage_path, BUCKET_PUBLICO, key, MIMES_MIDIA))) continue
     const { error } = await supabase.from('media_assets').update({ bucket: 'r2', storage_path: key, url: urlPublica(key) }).eq('id', m.id)
     if (error) (total.falhas++, console.error('[falha] update media_assets', m.id, error.message))
   }
@@ -129,7 +141,7 @@ async function logos() {
   for (const f of antigos) {
     const path = decodeURIComponent(f.logo_url.split('/fotografo_logos/')[1].split('?')[0])
     const key = `logos/${f.id}/${crypto.randomUUID()}-${nomeSeguro(path.split('/').pop() ?? 'logo')}`
-    if (!(await copiar('fotografo_logos', path, BUCKET_PUBLICO, key))) continue
+    if (!(await copiar('fotografo_logos', path, BUCKET_PUBLICO, key, MIMES_LOGO))) continue
     const { error } = await supabase.from('fotografos').update({ logo_path: key, logo_bucket: 'r2', logo_url: urlPublica(key) }).eq('id', f.id)
     if (error) (total.falhas++, console.error('[falha] update fotografos', f.id, error.message))
   }

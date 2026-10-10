@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { chaveFotoProjeto, validarEnvioFotoProjeto } from '@/lib/r2/chaves'
-import { urlDeEnvio } from '@/lib/r2/cliente'
+import { metadadosDoObjeto, urlDeEnvio } from '@/lib/r2/cliente'
 import { lerJson, projetoParaUpload } from '@/lib/r2/sessao'
 
 /**
@@ -14,6 +14,10 @@ import { lerJson, projetoParaUpload } from '@/lib/r2/sessao'
  *
  * Chave: projetos/{projetoId}/fotos/{idArquivo}-{nome}. Em `fotos`, só a
  * chave (`storage_path`) com `bucket = 'r2'`.
+ *
+ * Nunca assina PUT para uma chave que já existe: o `idArquivo` vem do
+ * navegador, e quem enxerga o projeto (inclusive o cliente final) lê as chaves
+ * das fotos dos outros — sem esta trava, poderia sobrescrever o arquivo delas.
  */
 export async function POST(request: NextRequest) {
   const validacao = validarEnvioFotoProjeto(await lerJson(request))
@@ -25,6 +29,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const key = chaveFotoProjeto({ projetoId, idArquivo, nome })
+    if (await metadadosDoObjeto(key)) {
+      return NextResponse.json({ erro: 'Este arquivo já foi enviado. Envie de novo.' }, { status: 409 })
+    }
     const { url, expiraEm } = await urlDeEnvio(key, tipo, tamanho)
     return NextResponse.json({ key, url, metodo: 'PUT', headers: { 'Content-Type': tipo }, expiraEm })
   } catch (e) {
