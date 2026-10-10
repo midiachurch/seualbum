@@ -100,6 +100,26 @@ No painel da Cloudflare, o bucket precisa de uma regra de **CORS** que libere
 `http://localhost:3000`), com o header `Content-Type` permitido — o editor
 desenha as fotos num canvas e precisa do `GET` com CORS.
 
+### Configurar o R2
+
+`scripts/configurar-r2.sh` faz a parte da Cloudflare com o wrangler 4. Ele
+cria os buckets `seualbum-fotos` (privado) e `seualbum-publico`, aplica o CORS
+de `scripts/r2-cors.json` nos dois e liga a URL pública `r2.dev` do bucket
+público. Pode rodar de novo sem problema.
+
+```bash
+npx wrangler@4 login
+bash scripts/configurar-r2.sh
+```
+
+No fim ele imprime o que falta: criar o token S3 no painel (R2 > Manage API
+Tokens, Object Read & Write nos dois buckets; o wrangler não cria esse token),
+os valores das variáveis `R2_*` para a Vercel e um novo deploy. O
+`R2_PUBLIC_URL` é a URL `https://pub-….r2.dev` impressa pelo script. Quando o
+domínio próprio for aprovado, use os comandos comentados no script para ligá-lo
+e troque o `R2_PUBLIC_URL`. A `r2.dev` tem limite de requisições e não é
+recomendada para produção.
+
 ### Demais arquivos no R2 (migration 0034)
 
 Todos os uploads novos seguem os mesmos 3 passos (assinar → `PUT` direto →
