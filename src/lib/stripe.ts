@@ -145,7 +145,7 @@ export async function confirmarFaturaPorSessao(
 
   const { data: fatura, error: erroLeitura } = await admin
     .from('faturas')
-    .select('id, status_pagamento, valor_total')
+    .select('id, status_pagamento, valor_total, stripe_checkout_session_id')
     .eq('id', faturaId)
     .maybeSingle()
   if (erroLeitura) {
@@ -156,15 +156,22 @@ export async function confirmarFaturaPorSessao(
     console.error('[pagamento] fatura', faturaId, 'não existe; sessão', session.id)
     return 'sem_fatura'
   }
-  if (fatura.status_pagamento === 'pago') return 'ja_processado'
+  if (fatura.status_pagamento === 'pago') {
+    // Reentrega do webhook ou a página de retorno: mesma sessão. Outra sessão
+    // paga para a mesma fatura = cobrança em duplicidade — estornar.
+    if (fatura.stripe_checkout_session_id && fatura.stripe_checkout_session_id !== session.id) {
+      console.error('[pagamento] fatura', faturaId, 'já paga; sessão', session.id, 'diferente da registrada', fatura.stripe_checkout_session_id, '— conferir pagamento em duplicidade')
+    }
+    return 'ja_processado'
+  }
   if (fatura.status_pagamento !== 'pendente') {
     console.error('[pagamento] fatura', faturaId, 'paga no Stripe mas já', fatura.status_pagamento, '— estornar; sessão', session.id)
     return 'recusado'
   }
 
   const esperado = Math.round(Number(fatura.valor_total) * 100)
-  if (session.amount_total !== esperado) {
-    console.error('[pagamento] fatura', faturaId, 'valor pago', session.amount_total, '≠ esperado', esperado, '; sessão', session.id)
+  if (session.currency !== 'brl' || session.amount_total !== esperado) {
+    console.error('[pagamento] fatura', faturaId, 'valor pago', session.amount_total, session.currency, '≠ esperado', esperado, 'brl; sessão', session.id)
     return 'valor_divergente'
   }
 

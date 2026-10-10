@@ -14,7 +14,7 @@ const banco = vi.hoisted(() => ({
   updates: [] as { tabela: string; dados: unknown; filtros: [string, unknown][] }[],
   linhas: [{ numero: 42 }] as unknown[],
   leituras: [] as { tabela: string; colunas: string; filtros: [string, unknown][] }[],
-  faturas: {} as Record<string, { id: string; status_pagamento: string; valor_total: number }>,
+  faturas: {} as Record<string, { id: string; status_pagamento: string; valor_total: number; stripe_checkout_session_id?: string | null }>,
   rpcs: [] as { nome: string; args: unknown }[],
   respostaRpc: { data: null as unknown, error: null as { code?: string; message: string } | null },
 }))
@@ -58,7 +58,7 @@ function requisicao(evento: object, assinatura?: string) {
   return new Request('http://localhost/api/webhooks/pagamento', { method: 'POST', body: corpo, headers }) as unknown as NextRequest
 }
 
-function sessao(tipo: string, metadata: Record<string, string>, pago = true, amountTotal = 49900) {
+function sessao(tipo: string, metadata: Record<string, string>, pago = true, amountTotal = 49900, currency = 'brl') {
   return {
     id: 'evt_teste',
     object: 'event',
@@ -70,6 +70,7 @@ function sessao(tipo: string, metadata: Record<string, string>, pago = true, amo
         metadata,
         payment_status: pago ? 'paid' : 'unpaid',
         amount_total: amountTotal,
+        currency,
         payment_intent: 'pi_test_1',
       },
     },
@@ -152,7 +153,7 @@ describe('POST /api/webhooks/pagamento — fatura de fechamento', () => {
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ ok: true, resultado: 'confirmado' })
     expect(banco.leituras).toEqual([
-      { tabela: 'faturas', colunas: 'id, status_pagamento, valor_total', filtros: [['id', FATURA]] },
+      { tabela: 'faturas', colunas: 'id, status_pagamento, valor_total, stripe_checkout_session_id', filtros: [['id', FATURA]] },
     ])
     expect(banco.rpcs).toEqual(confirmar('cartao'))
     expect(banco.updates).toEqual([])
@@ -181,6 +182,26 @@ describe('POST /api/webhooks/pagamento — fatura de fechamento', () => {
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual({ ok: true, resultado: 'valor_divergente' })
     expect(banco.rpcs).toEqual([])
+  })
+
+  it('mesmo valor em outra moeda não libera', async () => {
+    const r = await POST(requisicao(sessao('checkout.session.completed', { fatura_id: FATURA }, true, 49900, 'usd')))
+    expect(await r.json()).toEqual({ ok: true, resultado: 'valor_divergente' })
+    expect(banco.rpcs).toEqual([])
+  })
+
+  it('segunda sessão paga para a fatura já paga é sinalizada como duplicidade', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    banco.faturas[FATURA] = { ...banco.faturas[FATURA], status_pagamento: 'pago', stripe_checkout_session_id: 'cs_test_1' }
+    await POST(requisicao(sessao('checkout.session.completed', { fatura_id: FATURA })))
+    expect(erro).not.toHaveBeenCalled()
+
+    banco.faturas[FATURA].stripe_checkout_session_id = 'cs_test_outra'
+    const r = await POST(requisicao(sessao('checkout.session.completed', { fatura_id: FATURA })))
+    expect(await r.json()).toEqual({ ok: true, resultado: 'ja_processado' })
+    expect(erro).toHaveBeenCalledWith(expect.anything(), FATURA, expect.anything(), 'cs_test_1', expect.anything(), 'cs_test_outra', expect.stringContaining('duplicidade'))
+    expect(banco.rpcs).toEqual([])
+    erro.mockRestore()
   })
 
   it('fatura já dispensada (cortesia) não é paga de novo', async () => {
