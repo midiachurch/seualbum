@@ -4,10 +4,24 @@ import { AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PayOrderButton } from '@/components/orders/pay-order-button'
-import { confirmarPagamentoPorSessao, getStripe, stripeConfigurado, type ResultadoConfirmacao } from '@/lib/stripe'
+import {
+  confirmarFaturaPorSessao,
+  confirmarPagamentoPorSessao,
+  getStripe,
+  stripeConfigurado,
+  type ResultadoConfirmacao,
+  type ResultadoConfirmacaoFatura,
+} from '@/lib/stripe'
 import { AlbumNome, AlbumThumb } from '@/components/dashboard/album-thumb'
 import { CobrancasLaminasExtras } from '@/components/dashboard/cobrancas-laminas-extras'
-import { getCapasDosProjetos, getCobrancasPendentes, getMyOrders, requireUser, type PedidoDoFotografo } from '@/lib/supabase/queries'
+import {
+  getCapasDosProjetos,
+  getCobrancasPendentes,
+  getMyOrders,
+  getPagamentoSimuladoAtivo,
+  requireUser,
+  type PedidoDoFotografo,
+} from '@/lib/supabase/queries'
 import { destinoDoAlbum, statusDoAlbum, type StatusAlbum } from '@/lib/status-album'
 import { formatBRL, formatDate } from '@/lib/utils'
 
@@ -44,24 +58,58 @@ async function conferirRetornoDoCheckout(sessionId: string): Promise<ResultadoCo
   }
 }
 
+/**
+ * Volta do Checkout de uma fatura de fechamento (`?fechamento=sucesso&session_id=cs_…`).
+ * Mesma ideia dos pedidos: confere no Stripe e confirma pela mesma função do
+ * webhook. Só aceita sessão de fatura de projeto do próprio estúdio.
+ */
+async function conferirRetornoDaFatura(sessionId: string): Promise<ResultadoConfirmacaoFatura | null> {
+  if (!stripeConfigurado() || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return null
+
+  try {
+    // PaymentIntent expandido: registra Pix ou cartão sem adivinhar.
+    const session = await getStripe().checkout.sessions.retrieve(sessionId, { expand: ['payment_intent.payment_method'] })
+    const faturaId = session.metadata?.fatura_id
+    if (!faturaId) return null
+
+    const { supabase, user } = await requireUser()
+    if (!supabase) return null
+    const { data: dono } = await supabase
+      .from('faturas')
+      .select('id, projetos!inner(fotografo_id)')
+      .eq('id', faturaId)
+      .eq('projetos.fotografo_id', user.id)
+      .maybeSingle()
+    if (!dono) return null
+
+    return await confirmarFaturaPorSessao(session)
+  } catch (e) {
+    console.error('[meus-albuns] conferir checkout da fatura', e)
+    return null
+  }
+}
+
 export default async function MeusAlbunsPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const { enviado, fila, sucesso, session_id: sessionId, pagamento } = await searchParams
+  const { enviado, fila, sucesso, session_id: sessionId, pagamento, fechamento } = await searchParams
 
   // Antes de listar: se o pagamento confirmar aqui, a lista já sai atualizada.
   const retorno =
     sucesso === 'true' && typeof sessionId === 'string' ? await conferirRetornoDoCheckout(sessionId) : null
+  const retornoFatura =
+    fechamento === 'sucesso' && typeof sessionId === 'string' ? await conferirRetornoDaFatura(sessionId) : null
 
   const orders = await getMyOrders()
   // `?enviado=<numero>` vem do wizard de novo pedido depois do envio.
   const numeroEnviado = typeof enviado === 'string' && /^\d+$/.test(enviado) ? enviado : null
   // Produção vem do projeto (migration 0017); sem projeto, do pedido.
-  const [capas, cobrancas] = await Promise.all([
+  const [capas, cobrancas, pagamentoSimulado] = await Promise.all([
     getCapasDosProjetos(orders.flatMap((o) => (o.projetos ? [o.projetos.id] : []))),
     getCobrancasPendentes(),
+    getPagamentoSimuladoAtivo(),
   ])
   const linhas = orders.map((order) => {
     const album = statusDoAlbum({ status: order.status, projetoStatus: order.projetos?.status ?? null })
@@ -103,6 +151,32 @@ export default async function MeusAlbunsPage({
         )
       ) : null}
 
+      {fechamento === 'sucesso' ? (
+        retornoFatura === 'confirmado' || retornoFatura === 'ja_processado' ? (
+          <Aviso tipo="sucesso" titulo="Fechamento pago!">
+            O álbum foi liberado para impressão e entrou na fila da gráfica.
+          </Aviso>
+        ) : retornoFatura === 'recusado' || retornoFatura === 'valor_divergente' ? (
+          <Aviso tipo="erro" titulo="Pagamento recebido — em conferência">
+            Nossa equipe vai conferir este pagamento e falar com você. Não pague de novo.
+          </Aviso>
+        ) : retornoFatura === 'aguardando_pagamento' ? (
+          <Aviso tipo="pendente" titulo="Pagamento em processamento">
+            Pagamentos por Pix podem levar alguns minutos. O álbum segue para impressão assim que for confirmado.
+          </Aviso>
+        ) : (
+          <Aviso tipo="pendente" titulo="Pagamento recebido">
+            Estamos confirmando com o banco. Em instantes o álbum segue para impressão.
+          </Aviso>
+        )
+      ) : null}
+
+      {fechamento === 'cancelado' ? (
+        <Aviso tipo="erro" titulo="Fechamento não pago">
+          Nada foi cobrado. O álbum só segue para impressão depois do pagamento.
+        </Aviso>
+      ) : null}
+
       {pagamento === 'cancelado' ? (
         <Aviso tipo="erro" titulo="Pagamento não concluído">
           Nada foi cobrado. Você pode tentar de novo quando quiser.
@@ -121,7 +195,7 @@ export default async function MeusAlbunsPage({
         </Button>
       </header>
 
-      <CobrancasLaminasExtras cobrancas={cobrancas} />
+      <CobrancasLaminasExtras cobrancas={cobrancas} pagamentoSimulado={pagamentoSimulado} />
 
       {aguardandoPagamento.length > 0 ? (
         <section aria-labelledby="aguardando-pagamento" className="space-y-3">

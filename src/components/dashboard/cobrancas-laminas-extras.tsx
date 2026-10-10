@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, Check, CreditCard, Gift, Layers, QrCode, UserRound, X } from 'lucide-react'
+import { AlertCircle, Check, CreditCard, Gift, Layers, Loader2, Lock, QrCode, UserRound, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MODAL_ACOES, Modal } from '@/components/ui/modal'
 import { pagarLaminasExtras } from '@/lib/actions/faturamento'
+import { iniciarPagamentoFaturaAction } from '@/lib/actions/pagamentos'
 import { decidirAdicional } from '@/lib/actions/prova-fotografo'
 import { cn, formatBRL, formatDate } from '@/lib/utils'
 import type { CobrancaPendente } from '@/lib/supabase/queries'
@@ -21,9 +22,17 @@ import type { FaturaItem } from '@/types/platform'
  * que cobrou do cliente, quanto paga e a margem, e aceita ou recusa. O
  * pagamento só libera quando nada estiver aguardando.
  *
- * Pagamento SIMULADO enquanto o Stripe estiver congelado.
+ * Pagamento: com o modo simulado ligado (private.app_config
+ * 'pagamento_simulado'), o modal simulado de sempre; desligado, "Pagar" abre o
+ * Stripe Checkout (Pix/cartão) e o webhook libera para impressão (0035).
  */
-export function CobrancasLaminasExtras({ cobrancas }: { cobrancas: CobrancaPendente[] }) {
+export function CobrancasLaminasExtras({
+  cobrancas,
+  pagamentoSimulado = true,
+}: {
+  cobrancas: CobrancaPendente[]
+  pagamentoSimulado?: boolean
+}) {
   const router = useRouter()
   const [pagando, setPagando] = useState<CobrancaPendente | null>(null)
   const [forma, setForma] = useState<'cartao' | 'pix'>('pix')
@@ -31,6 +40,8 @@ export function CobrancasLaminasExtras({ cobrancas }: { cobrancas: CobrancaPende
   const [decidindo, setDecidindo] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [abrindoCheckout, setAbrindoCheckout] = useState<string | null>(null)
+  const abrindoRef = useRef(false)
 
   if (cobrancas.length === 0 && !aviso) return null
 
@@ -47,6 +58,27 @@ export function CobrancasLaminasExtras({ cobrancas }: { cobrancas: CobrancaPende
     setAviso(`Pagamento confirmado: "${pagando.projetoNome}" foi liberado para impressão e entrou na fila da gráfica.`)
     setPagando(null)
     router.refresh()
+  }
+
+  /** Stripe Checkout: o valor sai do banco no servidor; aqui só o id da fatura. */
+  async function abrirCheckout(c: CobrancaPendente) {
+    if (abrindoRef.current) return
+    abrindoRef.current = true
+    setAbrindoCheckout(c.id)
+    setErro(null)
+    try {
+      const r = await iniciarPagamentoFaturaAction(c.id)
+      if (r.ok) {
+        // Página do Stripe: fica "Abrindo…" até o navegador sair daqui.
+        window.location.assign(r.url)
+        return
+      }
+      setErro(r.erro)
+    } catch {
+      setErro('Sem conexão com o servidor. Tente de novo.')
+    }
+    abrindoRef.current = false
+    setAbrindoCheckout(null)
   }
 
   async function decidir(c: CobrancaPendente, item: FaturaItem, aceitar: boolean) {
@@ -189,17 +221,39 @@ export function CobrancasLaminasExtras({ cobrancas }: { cobrancas: CobrancaPende
                 </p>
               ) : null}
 
-              <Button
-                variant="brand"
-                className="mt-3 h-12 w-full whitespace-normal text-base"
-                disabled={aguardando.length > 0}
-                onClick={() => {
-                  setErro(null)
-                  setPagando(c)
-                }}
-              >
-                Pagar {formatBRL(c.valorTotal)} e liberar para impressão
-              </Button>
+              {pagamentoSimulado ? (
+                <Button
+                  variant="brand"
+                  className="mt-3 h-12 w-full whitespace-normal text-base"
+                  disabled={aguardando.length > 0}
+                  onClick={() => {
+                    setErro(null)
+                    setPagando(c)
+                  }}
+                >
+                  Pagar {formatBRL(c.valorTotal)} e liberar para impressão
+                </Button>
+              ) : (
+                <Button
+                  variant="brand"
+                  className="mt-3 h-12 w-full whitespace-normal text-base"
+                  disabled={aguardando.length > 0 || abrindoCheckout !== null}
+                  aria-busy={abrindoCheckout === c.id || undefined}
+                  onClick={() => abrirCheckout(c)}
+                >
+                  {abrindoCheckout === c.id ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                      Abrindo pagamento…
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4" aria-hidden />
+                      Pagar {formatBRL(c.valorTotal)} e liberar para impressão
+                    </>
+                  )}
+                </Button>
+              )}
             </article>
           )
         })}

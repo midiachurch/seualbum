@@ -123,3 +123,111 @@ export async function iniciarPagamentoAction(pedidoId: string): Promise<IniciarP
 
   return { ok: true, url: session.url }
 }
+
+/* ------------------------------------------------------------------------ */
+/* Fatura de fechamento (lâminas extras / adicionais) — migration 0035      */
+/* ------------------------------------------------------------------------ */
+
+/** Mensagens do banco que podem ir para a tela (as demais viram genéricas). */
+function mensagemDoBanco(error: { code?: string; message: string }, padrao: string) {
+  return ['P0001', '42501', '42704', '22023'].includes(error.code ?? '') ? error.message : padrao
+}
+
+/**
+ * Checkout real da fatura de fechamento: o estúdio paga as lâminas extras e/ou
+ * os adicionais, e o projeto vai para "Aprovado para impressão" quando o
+ * webhook (ou a volta do Checkout) confirmar — `confirmar_pagamento_fatura`.
+ *
+ * O banco decide se pode pagar e quanto (`preparar_checkout_fatura`): só o
+ * estúdio dono, fatura pendente, nenhum adicional aguardando o estúdio. O
+ * `fatura_id` vai no `metadata` — é por ele que o webhook separa fatura de
+ * pedido.
+ */
+export async function iniciarPagamentoFaturaAction(faturaId: string): Promise<IniciarPagamentoResult> {
+  if (isDemoMode()) return { ok: false, erro: 'Pagamento indisponível em modo de demonstração.' }
+  if (!stripeConfigurado()) {
+    return { ok: false, erro: 'Pagamento ainda não configurado. Fale com a equipe.' }
+  }
+  if (typeof faturaId !== 'string' || !/^[0-9a-f-]{36}$/i.test(faturaId)) {
+    return { ok: false, erro: 'Fatura inválida.' }
+  }
+
+  const { supabase, user, profile } = await requireUser()
+  if (!supabase || profile?.role !== 'fotografo') {
+    return { ok: false, erro: 'Só o estúdio dono do projeto paga esta fatura.' }
+  }
+
+  const { data, error } = await supabase.rpc('preparar_checkout_fatura', { p_fatura_id: faturaId })
+  if (error) {
+    console.error('[iniciarPagamentoFaturaAction] preparar', error.message)
+    return { ok: false, erro: mensagemDoBanco(error, 'Não foi possível carregar a fatura. Tente de novo.') }
+  }
+  const fatura = Array.isArray(data) ? data[0] : null
+  if (!fatura) return { ok: false, erro: 'Fatura não encontrada ou já processada.' }
+
+  const valorCentavos = Math.round(Number(fatura.valor_total) * 100)
+  if (!Number.isFinite(valorCentavos) || valorCentavos <= 0) return { ok: false, erro: 'Fatura sem valor a cobrar.' }
+
+  const stripe = getStripe()
+
+  // Clique duplo ou volta do Checkout sem pagar: reaproveita a sessão aberta
+  // se ainda for do mesmo valor (duas sessões abertas = risco de pagar duas vezes).
+  if (fatura.stripe_checkout_session_id) {
+    try {
+      const anterior = await stripe.checkout.sessions.retrieve(fatura.stripe_checkout_session_id)
+      if (anterior.metadata?.fatura_id === fatura.fatura_id) {
+        if (anterior.status === 'open' && anterior.url && anterior.amount_total === valorCentavos) {
+          return { ok: true, url: anterior.url }
+        }
+        // Pix gerado e ainda não compensado: não abre um segundo checkout.
+        if (anterior.status === 'complete') {
+          return { ok: false, erro: 'Pagamento em processamento. Assim que for confirmado, o álbum segue para impressão.' }
+        }
+      }
+    } catch (e) {
+      console.warn('[iniciarPagamentoFaturaAction] sessão anterior indisponível', e)
+    }
+  }
+
+  const origem = await origemDaRequisicao()
+
+  let session
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      locale: 'pt-BR',
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: 'brl',
+            unit_amount: valorCentavos,
+            product_data: {
+              name: 'Fechamento do álbum',
+              description: `Projeto #${fatura.projeto_numero} · ${fatura.projeto_nome} · lâminas extras e adicionais`,
+            },
+          },
+        },
+      ],
+      metadata: { fatura_id: fatura.fatura_id, projeto_id: fatura.projeto_id },
+      payment_intent_data: { metadata: { fatura_id: fatura.fatura_id, projeto_id: fatura.projeto_id } },
+      client_reference_id: fatura.fatura_id,
+      customer_email: profile?.email ?? user.email,
+      success_url: `${origem}/dashboard/meus-albuns?fechamento=sucesso&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origem}/dashboard/meus-albuns?fechamento=cancelado`,
+    })
+  } catch (e) {
+    console.error('[iniciarPagamentoFaturaAction] stripe', e)
+    return { ok: false, erro: 'Não foi possível abrir o pagamento. Tente de novo em instantes.' }
+  }
+
+  if (!session.url) return { ok: false, erro: 'Não foi possível abrir o pagamento. Tente de novo.' }
+
+  const { error: saveError } = await supabase.rpc('registrar_checkout_fatura', {
+    p_fatura_id: fatura.fatura_id,
+    p_session_id: session.id,
+  })
+  if (saveError) console.warn('[iniciarPagamentoFaturaAction] salvar sessão', saveError.message)
+
+  return { ok: true, url: session.url }
+}

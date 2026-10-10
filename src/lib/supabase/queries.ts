@@ -1408,6 +1408,23 @@ export async function getCobrancasPendentes(): Promise<CobrancaPendente[]> {
   }))
 }
 
+/**
+ * Modo de pagamento simulado (private.app_config, migration 0035): ligado, o
+ * fechamento usa `pagar_fatura_simulada`; desligado, o checkout do Stripe.
+ * Na dúvida (erro, migration ausente) vale o padrão da 0023: simulado.
+ */
+export async function getPagamentoSimuladoAtivo(): Promise<boolean> {
+  if (isDemoMode()) return true
+  const { supabase } = await requireUser()
+  if (!supabase) return true
+  const { data, error } = await supabase.rpc('pagamento_simulado_ativo')
+  if (error) {
+    console.error('[getPagamentoSimuladoAtivo]', error.message)
+    return true
+  }
+  return data !== false
+}
+
 /** Faturas de um projeto, mais recente primeiro — painel de cobrança do admin. */
 export async function getFaturasDoProjeto(projetoId: string): Promise<Fatura[]> {
   if (isDemoMode()) return []
