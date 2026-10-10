@@ -48,7 +48,7 @@ const supabase = {
     from: (bucket: string) => ({
       remove: async (paths: string[]) => (banco.storage.push({ bucket, op: 'remove', args: paths }), { error: null }),
       download: async (path: string) => (
-        banco.storage.push({ bucket, op: 'download', args: path }), { data: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }), error: null }
+        banco.storage.push({ bucket, op: 'download', args: path }), { data: new Blob([new Uint8Array([1, 2, 3])], { type: r2.tipoBaixado }), error: null }
       ),
     }),
   },
@@ -69,13 +69,15 @@ const r2 = vi.hoisted(() => ({
   removidos: [] as string[],
   copias: [] as [string, string][],
   enviados: [] as string[],
+  tiposEnviados: [] as string[],
+  tipoBaixado: 'image/jpeg',
 }))
 vi.mock('@/lib/r2/cliente', () => ({
   r2Configurado: () => true,
   metadadosDoObjeto: async (key: string) => (r2.existentes.has(key) ? { tamanho: 10, contentType: 'image/jpeg' } : null),
   removerObjetos: async (keys: string[]) => void r2.removidos.push(...keys),
   copiarObjeto: async (de: string, para: string) => void r2.copias.push([de, para]),
-  enviarObjeto: async (key: string) => void r2.enviados.push(key),
+  enviarObjeto: async (key: string, _bytes: Uint8Array, tipo: string) => void (r2.enviados.push(key), r2.tiposEnviados.push(tipo)),
   assinarLeituras: async (keys: string[]) => new Map(keys.map((k) => [k, `https://r2/get/${k}`])),
 }))
 
@@ -99,6 +101,8 @@ beforeEach(() => {
   r2.removidos = []
   r2.copias = []
   r2.enviados = []
+  r2.tiposEnviados = []
+  r2.tipoBaixado = 'image/jpeg'
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -227,5 +231,29 @@ describe('duplicarAlbum', () => {
     expect(r2.enviados).toEqual([`albuns/${APROV}/${NOVO}-${NOVO}-velha.jpg`])
     const fotos = (updates('album_layouts')[0] as { fotos: { path: string }[] }).fotos.map((f) => f.path)
     expect(fotos.every((p) => p.startsWith(`albuns/${APROV}/`))).toBe(true)
+    expect(r2.tiposEnviados).toEqual(['image/jpeg'])
+  })
+
+  it('cópia do Supabase: o Content-Type do arquivo antigo não vai para o bucket privado se não for imagem da lista', async () => {
+    const antigas = [`${ALBUM}/${NOVO}-pagina.jpg`, `${ALBUM}/${FOTO}-sem-extensao`, `${ALBUM}/${APROV}-foto.PNG`]
+    banco.responder = (c) => {
+      if (c.tabela === 'album_layouts' && c.operacao === 'select') {
+        return {
+          data: {
+            nome: 'Casamento',
+            projeto_id: null,
+            documento: {},
+            fotos: antigas.map((path, i) => ({ id: [NOVO, FOTO, APROV][i], path, nome: 'x', largura: 1, altura: 1 })),
+            derivados: {},
+          },
+        }
+      }
+      if (c.tabela === 'album_layouts' && c.operacao === 'insert') return { data: { id: APROV } }
+      return { data: null }
+    }
+    r2.tipoBaixado = 'text/html'
+    expect(await duplicarAlbum(ALBUM)).toEqual({ ok: true, id: APROV })
+    // pelo nome quando dá; senão, octet-stream (o navegador baixa, não interpreta)
+    expect(r2.tiposEnviados).toEqual(['image/jpeg', 'application/octet-stream', 'image/png'])
   })
 })

@@ -13,6 +13,11 @@ const EXPIRACAO_PREVIA_S = 60 * 60
  * assinado de 1h para a tela mostrar a foto na hora.
  *
  * Idempotente: confirmar a mesma chave duas vezes devolve a mesma foto.
+ *
+ * Só confirma quem pediu o envio: a chave precisa estar reservada para o
+ * usuário (`r2_uploads_pendentes`, migration 0040). O INSERT consome a
+ * reserva no banco (trigger `fotos_validar_chave_r2`), então cada chave vira
+ * foto uma vez só — uma foto apagada não volta por quem soubesse a chave.
  */
 export async function POST(request: NextRequest) {
   const corpo = (await lerJson(request)) as { key?: unknown; grupo?: unknown; capturadaEm?: unknown; camera?: unknown } | null
@@ -27,6 +32,29 @@ export async function POST(request: NextRequest) {
   const grupo = typeof corpo?.grupo === 'string' && corpo.grupo.trim() ? corpo.grupo.trim().slice(0, 80) : null
 
   try {
+    const { data: existente } = await supabase
+      .from('fotos')
+      .select('id')
+      .eq('projeto_id', projetoId)
+      .eq('storage_path', key)
+      .maybeSingle()
+    if (existente) {
+      const url = await urlDeLeitura(key, { expiraEmS: EXPIRACAO_PREVIA_S })
+      return NextResponse.json({ ok: true, key, id: existente.id, url, jaRegistrada: true })
+    }
+
+    // A RLS só mostra as reservas do próprio usuário.
+    const { data: reserva, error: reservaError } = await supabase
+      .from('r2_uploads_pendentes')
+      .select('r2_key')
+      .eq('r2_key', key)
+      .gt('expira_em', new Date().toISOString())
+      .maybeSingle()
+    if (reservaError) throw reservaError
+    if (!reserva) {
+      return NextResponse.json({ erro: 'Este envio não foi feito por você ou expirou. Envie a foto de novo.' }, { status: 403 })
+    }
+
     const objeto = await metadadosDoObjeto(key)
     if (!objeto) return NextResponse.json({ erro: 'A foto não chegou ao armazenamento. Envie de novo.' }, { status: 404 })
 
@@ -37,14 +65,6 @@ export async function POST(request: NextRequest) {
     }
 
     const url = await urlDeLeitura(key, { expiraEmS: EXPIRACAO_PREVIA_S })
-
-    const { data: existente } = await supabase
-      .from('fotos')
-      .select('id')
-      .eq('projeto_id', projetoId)
-      .eq('storage_path', key)
-      .maybeSingle()
-    if (existente) return NextResponse.json({ ok: true, key, id: existente.id, url, jaRegistrada: true })
 
     const { data, error } = await supabase
       .from('fotos')

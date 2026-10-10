@@ -5,6 +5,7 @@ import {
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
@@ -149,6 +150,20 @@ export async function assinarLeituras(keys: string[], expiraEmS = EXPIRACAO_LEIT
     }),
   )
   return urls
+}
+
+/**
+ * Uma página (até 1000) dos objetos sob um prefixo, com a data de gravação.
+ * `proximo` = continuação para a próxima página, ou null no fim.
+ */
+export async function listarObjetos(prefixo: string, alvo: Alvo = 'privado', continuacao?: string | null) {
+  const r = await getR2().send(
+    new ListObjectsV2Command({ Bucket: bucket(alvo), Prefix: prefixo, ContinuationToken: continuacao ?? undefined, MaxKeys: 1000 }),
+  )
+  const objetos = (r.Contents ?? [])
+    .filter((o): o is typeof o & { Key: string } => typeof o.Key === 'string')
+    .map((o) => ({ key: o.Key, gravadoEm: o.LastModified ?? null }))
+  return { objetos, proximo: r.IsTruncated && r.NextContinuationToken ? r.NextContinuationToken : null }
 }
 
 /** Conteúdo do objeto (para copiar do R2 para outro armazenamento). */
