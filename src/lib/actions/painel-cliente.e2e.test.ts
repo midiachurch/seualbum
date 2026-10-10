@@ -25,6 +25,9 @@ if (URL_LOCAL && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(URL_LOCAL)) 
   throw new Error(`SUPABASE_E2E_URL precisa ser o Supabase local (recebido: ${URL_LOCAL}).`)
 }
 
+// PostgREST/GoTrue locais podem demorar no primeiro acesso.
+vi.setConfig({ testTimeout: 60_000 })
+
 const sessao = vi.hoisted(() => ({ atual: null as unknown }))
 
 vi.mock('server-only', () => ({}))

@@ -183,7 +183,7 @@ select is_empty(
 );
 
 select pg_temp.entrar('a0000000-0000-4000-8000-000000000039');
-select is((select count(*) from public.prova_laminas_revisao), 2::bigint, 'a equipe vê o checklist');
+select is((select count(*) from public.prova_laminas_revisao where projeto_id = 'e1000000-0000-4000-8000-000000000039'), 2::bigint, 'a equipe vê o checklist');
 
 -- =============================================================================
 -- Prova decidida: o checklist congela
