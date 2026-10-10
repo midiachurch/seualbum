@@ -206,6 +206,14 @@ export type PedidoFotoR2Row = {
   created_at: string
 }
 
+/** Envio ao R2 assinado e ainda não confirmado (migration 0040). */
+export type R2UploadPendenteRow = {
+  r2_key: string
+  user_id: string
+  expira_em: string
+  created_at: string
+}
+
 export type FotoRow = {
   id: string
   projeto_id: string
@@ -675,6 +683,12 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      r2_uploads_pendentes: {
+        Row: R2UploadPendenteRow
+        Insert: Pick<R2UploadPendenteRow, 'r2_key' | 'user_id' | 'expira_em'> & Partial<Pick<R2UploadPendenteRow, 'created_at'>>
+        Update: Partial<R2UploadPendenteRow>
+        Relationships: []
+      }
       design_versions: {
         Row: DesignVersionRow
         Insert: Pick<DesignVersionRow, 'projeto_id' | 'numero'> &
@@ -848,6 +862,12 @@ export type Database = {
       concluir_cadastro_google: { Args: Record<string, never>; Returns: PlatformRole }
       /** Chaves no R2 de rascunhos parados há p_horas que nunca viraram pedido (0031). Só service_role. */
       rascunhos_r2_expirados: { Args: { p_horas?: number; p_limite?: number }; Returns: { r2_key: string }[] }
+      /** Reserva a chave de um envio do R2 para quem o pediu, por 24h (0040). Só service_role. */
+      reservar_upload_r2: { Args: { p_key: string; p_user_id: string }; Returns: boolean }
+      /** Quais destas chaves nenhuma coluna do banco cita (varredura de órfãos, 0040). Só service_role. */
+      r2_chaves_sem_referencia: { Args: { p_keys: string[] }; Returns: string[] }
+      /** A chave do R2 está em `fotos` (0036)? */
+      chave_r2_em_uso_por_projeto: { Args: { p_key: string }; Returns: boolean }
       pode_ver_projeto: { Args: { p_projeto_id: string }; Returns: boolean }
       /** Fase 5 (0023): prévia da cobrança de lâminas extras — fotógrafo dono ou operação. */
       calcular_excedente: {
