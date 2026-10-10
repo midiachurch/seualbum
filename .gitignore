@@ -24,3 +24,8 @@ site-piloto/
 
 # Preferências locais do Claude Code
 .claude/settings.local.json
+
+# Playwright (npm run test:e2e)
+/test-results/
+/playwright-report/
+/blob-report/
