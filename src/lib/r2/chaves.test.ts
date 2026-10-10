@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   bucketDoArquivoAlbum,
   chaveDerivadoAlbum,
+  chaveNoFormatoDoApp,
+  tipoDeImagemPermitido,
   chaveDoEnvioAlbum,
   chaveEhDerivadoDoAlbum,
   chaveEhDoLote,
@@ -206,5 +208,37 @@ describe('vitrine e logos (bucket público)', () => {
     expect(validarEnvioPublico({ ...base, tamanho: 6 * 1024 * 1024 }, logo)).toEqual({ ok: false, erro: 'Arquivo maior que 5 MB.' })
     expect(validarEnvioPublico({ ...base, tipo: 'image/svg+xml' }, logo).ok).toBe(false)
     expect(validarEnvioPublico({ ...base, tipo: 'image/gif' }, { mimes: MIMES_MIDIA, tamanhoMaximo: TAMANHO_MAXIMO_MIDIA_R2 }).ok).toBe(true)
+  })
+})
+
+describe('cópia do Supabase para o R2 (duplicar álbum)', () => {
+  it('mantém só tipos de imagem da lista', () => {
+    expect(tipoDeImagemPermitido('image/jpeg', 'a.jpg')).toBe('image/jpeg')
+    expect(tipoDeImagemPermitido('image/HEIC', 'a.heic')).toBe('image/heic')
+    expect(tipoDeImagemPermitido('image/jpg', 'a')).toBe('image/jpeg')
+    expect(tipoDeImagemPermitido('image/png; charset=binary', 'a')).toBe('image/png')
+  })
+
+  it('tipo fora da lista: vale a extensão; sem extensão de imagem, octet-stream', () => {
+    expect(tipoDeImagemPermitido('text/html', 'pasta/foto.JPG')).toBe('image/jpeg')
+    expect(tipoDeImagemPermitido('image/svg+xml', 'x.webp')).toBe('image/webp')
+    expect(tipoDeImagemPermitido('image/svg+xml', 'x.svg')).toBe('application/octet-stream')
+    expect(tipoDeImagemPermitido('', 'semextensao')).toBe('application/octet-stream')
+    expect(tipoDeImagemPermitido(undefined, 'a.html')).toBe('application/octet-stream')
+  })
+})
+
+describe('varredura de órfãos: formato das chaves do app', () => {
+  it('aceita as chaves que o app gera', () => {
+    expect(chaveNoFormatoDoApp(chaveFotoProjeto({ projetoId: USER, idArquivo: ARQ, nome: 'Noiva Ação.jpg' }))).toBe(true)
+    expect(chaveNoFormatoDoApp(chaveFotoPedido({ userId: USER, chave: CHAVE, idArquivo: ARQ, nome: 'a.jpg' }))).toBe(true)
+    expect(chaveNoFormatoDoApp(chaveLaminaAprovacao({ albumId: USER, aprovacaoId: CHAVE, ordem: 1 }))).toBe(true)
+    expect(chaveNoFormatoDoApp(chaveMidiaVitrine({ idArquivo: ARQ, nome: 'b.webp' }))).toBe(true)
+  })
+
+  it('recusa o que não é do app ou tem formato estranho (fica no R2)', () => {
+    for (const key of ['outra/coisa.jpg', 'projetos', 'projetos/', 'projetos/a b.jpg', 'projetos/../x.jpg', 'projetos//x.jpg', 'Projetos/x.jpg', 42]) {
+      expect(chaveNoFormatoDoApp(key)).toBe(false)
+    }
   })
 })
