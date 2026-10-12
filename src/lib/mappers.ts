@@ -134,7 +134,7 @@ export function mapPhoto(row: FotoRow): Photo {
   }
 }
 
-export function mapDesignVersion(row: DesignVersionRow, autores: Map<string, string>): DesignVersion {
+export function mapDesignVersion(row: DesignVersionRow): DesignVersion {
   return {
     id: row.id,
     numero: row.numero,
@@ -301,7 +301,7 @@ export function mapProjeto(
     album: { ...EMPTY_ALBUM, ...row.album_config },
     briefing: { ...EMPTY_BRIEFING, ...row.briefing },
     photos: children.fotos.map(mapPhoto),
-    designVersions: children.designVersions.map((v) => mapDesignVersion(v, autores)),
+    designVersions: children.designVersions.map(mapDesignVersion),
     approvals: children.approvals.map((a) => mapApproval(a, autores)),
     activity: children.activity.map(mapActivity),
   }
