@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { SimpleTabs } from '@/components/ui/simple-tabs'
@@ -67,7 +67,12 @@ export function ProjectWorkspace({
   const [erroStatus, setErroStatus] = useState<string | null>(null)
   // `router.refresh()` (nova versão, cortesia, pagamento) traz o projeto do
   // servidor de novo: a tela passa a refletir o banco, não o estado antigo.
-  useEffect(() => setProject(initialProject), [initialProject])
+  // Ajustado no render (não num efeito), comparando com o último recebido.
+  const [projetoRecebido, setProjetoRecebido] = useState(initialProject)
+  if (projetoRecebido !== initialProject) {
+    setProjetoRecebido(initialProject)
+    setProject(initialProject)
+  }
   const router = useRouter()
   const operadores = teamMembers.filter((m) => EXECUTORES_ROLES.includes(m.role))
 

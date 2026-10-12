@@ -149,10 +149,15 @@ export function ProofViewer({
   const versaoMaisRecente = versoesOrdenadas[versoesOrdenadas.length - 1]?.numero ?? 1
 
   const podeAbrirAcao = perfil !== 'equipe' && podeDecidir && !locked
-  const [pageIndex, setPageIndex] = useState(laminaInicial !== undefined && laminaInicial >= 0 ? laminaInicial : 0)
   const [versaoSelecionada, setVersaoSelecionada] = useState(
     versaoInicial && versoesOrdenadas.some((v) => v.numero === versaoInicial) ? versaoInicial : versaoMaisRecente,
   )
+  // Atalho do painel: já preso às lâminas da versão que abre.
+  const [pageIndex, setPageIndex] = useState(() => {
+    if (laminaInicial === undefined || laminaInicial < 0) return 0
+    const total = versoesOrdenadas.find((v) => v.numero === versaoSelecionada)?.laminas?.length ?? 0
+    return Math.max(0, Math.min(laminaInicial, total - 1))
+  })
   const [comments, setComments] = useState<ProofComment[]>(initialComments)
   const [draft, setDraft] = useState('')
   const [pinRascunho, setPinRascunho] = useState<PinRascunho | null>(null)
@@ -236,10 +241,17 @@ export function ProofViewer({
     carrosselRef.current?.scrollTo({ left: 0 })
   }, [versaoSelecionada])
 
-  // Comparar só existe lâmina a lâmina.
-  useEffect(() => {
+  // Troca do modo comparar, ajustada no render (não num efeito): entrando, só
+  // existe lâmina a lâmina; saindo, o índice volta para dentro da versão.
+  const [comparacaoAnterior, setComparacaoAnterior] = useState(emComparacao)
+  if (comparacaoAnterior !== emComparacao) {
+    setComparacaoAnterior(emComparacao)
     if (emComparacao) setVista('lamina')
-  }, [emComparacao])
+    else {
+      const alvo = Math.max(0, Math.min(pageIndex, laminas.length - 1))
+      if (alvo !== pageIndex) setPageIndex(alvo)
+    }
+  }
 
   // Galeria → lâmina: o carrossel monta agora; posiciona sem animação.
   useEffect(() => {
@@ -327,9 +339,8 @@ export function ProofViewer({
     if (emComparacao) return
     const el = carrosselRef.current
     if (!el) return
-    const alvo = Math.max(0, Math.min(pageIndex, laminas.length - 1))
-    if (alvo !== pageIndex) setPageIndex(alvo)
-    el.scrollTo({ left: alvo * el.clientWidth })
+    // O índice já foi preso à versão no render (troca de modo) ou no estado inicial.
+    el.scrollTo({ left: Math.max(0, Math.min(pageIndex, laminas.length - 1)) * el.clientWidth })
     // Só na troca de modo; o índice segue o scroll pelo `aoRolar`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emComparacao])
