@@ -140,6 +140,10 @@ export default async function MeusAlbunsPage({
           <Aviso tipo="sucesso" titulo="Pagamento confirmado!">
             Seu pedido está na fila de design. Avisamos quando a prova estiver pronta.
           </Aviso>
+        ) : retorno === 'valor_divergente' ? (
+          <Aviso tipo="erro" titulo="Pagamento recebido — em conferência">
+            Nossa equipe vai conferir este pagamento e falar com você. Não pague de novo.
+          </Aviso>
         ) : retorno === 'aguardando_pagamento' ? (
           <Aviso tipo="pendente" titulo="Pagamento em processamento">
             Pagamentos por Pix podem levar alguns minutos. O pedido entra na fila assim que for confirmado.

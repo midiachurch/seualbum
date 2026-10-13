@@ -26,6 +26,8 @@ export type ResultadoConfirmacao =
   | 'ja_processado'
   | 'aguardando_pagamento'
   | 'sem_pedido'
+  /** O valor/moeda pagos no Stripe não batem com o preço do plano do pedido — conferência manual. */
+  | 'valor_divergente'
   | 'sem_service_role'
   | 'erro'
 
@@ -37,6 +39,11 @@ export type ResultadoConfirmacao =
  * a outra cai em `ja_processado` (o UPDATE só pega pedido ainda `pendente`).
  * Pix confirma depois (`async_payment_succeeded`); até lá `payment_status`
  * é `unpaid`.
+ *
+ * Só confirma se a sessão foi paga em BRL e no valor exato do plano do pedido
+ * no momento da confirmação (mesma regra das faturas): uma sessão de outro
+ * valor — preço trocado depois do checkout, sessão antiga ainda aberta — fica
+ * em `valor_divergente`, registrada para a equipe conferir/estornar.
  */
 export async function confirmarPagamentoPorSessao(session: Stripe.Checkout.Session): Promise<ResultadoConfirmacao> {
   const pedidoId = session.metadata?.pedido_id
@@ -53,12 +60,38 @@ export async function confirmarPagamentoPorSessao(session: Stripe.Checkout.Sessi
     return 'sem_service_role'
   }
 
+  const { data: pedido, error: erroLeitura } = await admin
+    .from('orders')
+    .select('id, status, planos(preco)')
+    .eq('id', pedidoId)
+    .maybeSingle()
+  if (erroLeitura) {
+    console.error('[pagamento] ler pedido', pedidoId, erroLeitura)
+    return 'erro'
+  }
+  if (!pedido) {
+    console.error('[pagamento] pedido', pedidoId, 'não existe; sessão', session.id)
+    return 'sem_pedido'
+  }
+  if (pedido.status !== 'pendente') {
+    // Já confirmado pela outra via — ou pago duas vezes (dois checkouts abertos).
+    console.warn('[pagamento] pedido', pedidoId, 'não estava pendente; sessão', session.id)
+    return 'ja_processado'
+  }
+
+  const plano = pedido.planos as unknown as { preco: number | string | null } | null
+  const esperado = plano?.preco == null ? null : Math.round(Number(plano.preco) * 100)
+  if (esperado === null || !Number.isFinite(esperado) || session.currency !== 'brl' || session.amount_total !== esperado) {
+    console.error('[pagamento] pedido', pedidoId, 'valor pago', session.amount_total, session.currency, '≠ esperado', esperado, 'brl; sessão', session.id, '— não confirmado, conferir/estornar')
+    return 'valor_divergente'
+  }
+
   const { data, error } = await admin
     .from('orders')
     .update({
       status: 'na_fila_design',
       pago_em: new Date().toISOString(),
-      valor_pago: (session.amount_total ?? 0) / 100,
+      valor_pago: esperado / 100,
       stripe_checkout_session_id: session.id,
     })
     .eq('id', pedidoId)
