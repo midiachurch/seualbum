@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -29,14 +29,20 @@ const STEPS: Record<WizardStep, { label: string; titulo: string; descricao: stri
   5: { label: 'Revisão', titulo: 'Revise e envie', descricao: 'Confira tudo antes de mandar para a equipe.' },
 }
 
-/** `true` depois que o estado salvo no `localStorage` foi reaplicado na store. */
-function useWizardHydrated() {
+/**
+ * `true` depois que o estado salvo no `localStorage` foi reaplicado na store.
+ * `aoReidratar` roda uma vez, nesse mesmo momento (antes do render reidratado).
+ */
+function useWizardHydrated(aoReidratar: () => void) {
   const [hydrated, setHydrated] = useState(false)
+  const reidratou = useEffectEvent(aoReidratar)
 
   useEffect(() => {
     let ativo = true
     Promise.resolve(usePedidoWizardStore.persist.rehydrate()).finally(() => {
-      if (ativo) setHydrated(true)
+      if (!ativo) return
+      setHydrated(true)
+      reidratou()
     })
     return () => {
       ativo = false
@@ -61,7 +67,6 @@ export function NovoPedidoWizard({
   planoDaUrl: string | null
   assinaturasNaoContratadas: { slug: string; nome: string }[]
 }) {
-  const hydrated = useWizardHydrated()
   const stepAtual = usePedidoWizardStore((s) => s.stepAtual)
   const planoSelecionado = usePedidoWizardStore((s) => s.planoSelecionado)
   const podeAvancar = usePedidoWizardStore((s) => passoCompleto(s, s.stepAtual))
@@ -81,8 +86,7 @@ export function NovoPedidoWizard({
   // Plano escolhido na vitrine (URL ou, depois da confirmação de e-mail, o
   // localStorage do cadastro) vira a seleção do passo 1. Roda uma vez, logo
   // após reidratar — senão o rascunho salvo sobrescreveria a escolha.
-  useEffect(() => {
-    if (!hydrated) return
+  const hydrated = useWizardHydrated(() => {
     const daStorage = consumirPlanoDaVitrine()
     const slug = planoDaUrl ?? daStorage
     if (planoDaUrl) router.replace('/dashboard/novo-pedido', { scroll: false })
@@ -99,8 +103,7 @@ export function NovoPedidoWizard({
         `O plano ${assinatura.nome} é por assinatura e ainda não está ativo para o seu estúdio. Por enquanto, escolha um plano avulso.`,
       )
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na reidratação
-  }, [hydrated])
+  })
 
   // Ao retomar um rascunho: plano que saiu do catálogo é descartado, e o
   // fotógrafo nunca cai num passo à frente de um passo ainda incompleto.

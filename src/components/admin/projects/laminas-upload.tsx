@@ -143,9 +143,12 @@ function VersaoCompleta({
   const [erro, setErro] = useState<string | null>(null)
   const [ignorados, setIgnorados] = useState(0)
 
-  // Libera as prévias (object URLs) ao desmontar.
+  // Libera as prévias (object URLs) ao desmontar. O ref acompanha a lista
+  // depois de cada commit (não no render), e a limpeza lê a última.
   const itensRef = useRef(itens)
-  itensRef.current = itens
+  useEffect(() => {
+    itensRef.current = itens
+  }, [itens])
   useEffect(() => () => itensRef.current.forEach((i) => URL.revokeObjectURL(i.preview)), [])
 
   async function receber(files: FileList | File[] | null) {

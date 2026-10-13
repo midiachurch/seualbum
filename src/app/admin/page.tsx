@@ -21,6 +21,19 @@ export const metadata: Metadata = { title: 'Dashboard' }
 
 const THIRTY_DAYS_MS = 30 * 86_400_000
 
+/**
+ * Quantos foram criados nos últimos 30 dias. O relógio é lido aqui, fora do
+ * corpo do componente: a página é dinâmica (sessão), então é o instante da
+ * requisição — o mesmo para clientes e fotógrafos.
+ */
+function criadosNosUltimos30Dias(...grupos: { createdAt: string }[][]) {
+  const now = Date.now()
+  return grupos.reduce(
+    (total, itens) => total + itens.filter((i) => now - new Date(i.createdAt).getTime() < THIRTY_DAYS_MS).length,
+    0,
+  )
+}
+
 export default async function AdminDashboardPage() {
   const { role } = await requirePlatformAccess('dashboard')
   // Faturamento é assunto da gestão: o operador também abre o dashboard, mas
@@ -38,11 +51,7 @@ export default async function AdminDashboardPage() {
     // Controle do diagramador (0038): KPIs, carga e urgentes numa RPC só.
     getResumoDiagramacao(),
   ])
-  const now = Date.now()
-
-  const novosUsuarios =
-    clients.filter((c) => now - new Date(c.createdAt).getTime() < THIRTY_DAYS_MS).length +
-    photographers.filter((p) => now - new Date(p.createdAt).getTime() < THIRTY_DAYS_MS).length
+  const novosUsuarios = criadosNosUltimos30Dias(clients, photographers)
 
   const cards = [
     { label: 'Total de clientes', valor: clients.length },

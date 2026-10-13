@@ -119,7 +119,10 @@ async function fotosDoProjeto() {
     const key = `projetos/${f.projeto_id}/fotos/${f.id}-${nomeSeguro(f.storage_path.split('/').pop() ?? 'foto')}`
     if (!(await copiar(f.bucket, f.storage_path, BUCKET_PRIVADO, key))) continue
     const { error } = await supabase.from('fotos').update({ bucket: 'r2', storage_path: key, url: null }).eq('id', f.id).eq('bucket', f.bucket)
-    if (error) (total.falhas++, console.error('[falha] update fotos', f.id, error.message))
+    if (error) {
+      total.falhas++
+      console.error('[falha] update fotos', f.id, error.message)
+    }
   }
 }
 
@@ -130,7 +133,10 @@ async function midia() {
     const key = `vitrine/${m.id}-${nomeSeguro(m.storage_path.split('/').pop() ?? m.nome)}`
     if (!(await copiar('midia_vitrine', m.storage_path, BUCKET_PUBLICO, key, MIMES_MIDIA))) continue
     const { error } = await supabase.from('media_assets').update({ bucket: 'r2', storage_path: key, url: urlPublica(key) }).eq('id', m.id)
-    if (error) (total.falhas++, console.error('[falha] update media_assets', m.id, error.message))
+    if (error) {
+      total.falhas++
+      console.error('[falha] update media_assets', m.id, error.message)
+    }
   }
 }
 
@@ -143,7 +149,10 @@ async function logos() {
     const key = `logos/${f.id}/${crypto.randomUUID()}-${nomeSeguro(path.split('/').pop() ?? 'logo')}`
     if (!(await copiar('fotografo_logos', path, BUCKET_PUBLICO, key, MIMES_LOGO))) continue
     const { error } = await supabase.from('fotografos').update({ logo_path: key, logo_bucket: 'r2', logo_url: urlPublica(key) }).eq('id', f.id)
-    if (error) (total.falhas++, console.error('[falha] update fotografos', f.id, error.message))
+    if (error) {
+      total.falhas++
+      console.error('[falha] update fotografos', f.id, error.message)
+    }
   }
 }
 
@@ -176,7 +185,10 @@ async function albuns() {
     const novosDerivados = Object.fromEntries(Object.entries(derivados).map(([id, d]) => [id, { ...d, mini: troca(d.mini), preview: troca(d.preview) }]))
     // Grava só `fotos`/`derivados`: o documento (e a trava `revisao`) não muda.
     const { error } = await supabase.from('album_layouts').update({ fotos, derivados: novosDerivados }).eq('id', a.id)
-    if (error) (total.falhas++, console.error('[falha] update album_layouts', a.id, error.message))
+    if (error) {
+      total.falhas++
+      console.error('[falha] update album_layouts', a.id, error.message)
+    }
   }
 
   const aprovacoes = await todas(() => supabase.from('album_aprovacoes').select('id, laminas').order('id'))
@@ -190,7 +202,10 @@ async function albuns() {
       .from('album_aprovacoes')
       .update({ laminas: laminas.map((l) => ({ ...l, path: mapa.get(l.path) ?? l.path })) })
       .eq('id', ap.id)
-    if (error) (total.falhas++, console.error('[falha] update album_aprovacoes', ap.id, error.message))
+    if (error) {
+      total.falhas++
+      console.error('[falha] update album_aprovacoes', ap.id, error.message)
+    }
   }
 }
 
