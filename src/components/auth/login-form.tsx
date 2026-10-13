@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { GoogleButton } from '@/components/auth/google-button'
+import { caminhoInternoSeguro } from '@/lib/redirect-seguro'
 import { PLATFORM_ROLE_LABEL, rotaDoPapel, type PlatformRole } from '@/types/platform'
 
 // Inlined (não importado de '@/lib/demo-mode') porque essa checagem roda no
@@ -39,8 +40,8 @@ export function LoginForm() {
   // /admin/projetos/123 que exigiu login). Só aceitamos caminhos internos —
   // um `next` absoluto viraria open redirect. Sem isso, o destino é decidido
   // pelo papel do usuário (ver `destinoPorRole`), não por um `/dashboard` fixo.
-  const nextParam = searchParams.get('next')
-  const explicitNext = nextParam?.startsWith('/') && !nextParam.startsWith('//') ? nextParam : null
+  // Validação em `caminhoInternoSeguro` (recusa também `/\host` e controles).
+  const explicitNext = caminhoInternoSeguro(searchParams.get('next'))
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

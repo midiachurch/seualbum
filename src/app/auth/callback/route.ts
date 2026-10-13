@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { caminhoInternoSeguro } from '@/lib/redirect-seguro'
 import { rotaDoPapel, type PlatformRole } from '@/types/platform'
 
 /**
@@ -10,12 +11,10 @@ import { rotaDoPapel, type PlatformRole } from '@/types/platform'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
   const code = searchParams.get('code')
-  const nextParam = searchParams.get('next')
   const cadastroGoogle = searchParams.get('cadastro') === 'google'
 
-  // Só caminhos internos: um `next` absoluto viraria open redirect.
-  const explicitNext =
-    nextParam?.startsWith('/') && !nextParam.startsWith('//') ? nextParam : null
+  // Só caminhos internos: um `next` absoluto (ou `/\host`) viraria open redirect.
+  const explicitNext = caminhoInternoSeguro(searchParams.get('next'))
 
   // Ex.: a pessoa cancelou na tela do Google (?error=access_denied).
   if (searchParams.get('error')) {
