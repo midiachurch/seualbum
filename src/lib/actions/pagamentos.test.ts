@@ -339,10 +339,17 @@ describe('iniciarPagamentoAction (pedido) — sessão anterior', () => {
     expect(stripe.criadas).toEqual([])
   })
 
-  it('sessão aberta é reaproveitada (sem checar valor, como antes)', async () => {
-    stripe.anterior = { id: 'cs_test_antiga', status: 'open', url: 'https://checkout/antiga', amount_total: 1, metadata: { pedido_id: PEDIDO } }
+  it('sessão aberta do mesmo valor do plano é reaproveitada', async () => {
+    stripe.anterior = { id: 'cs_test_antiga', status: 'open', url: 'https://checkout/antiga', amount_total: 49900, metadata: { pedido_id: PEDIDO } }
     expect(await iniciarPagamentoAction(PEDIDO)).toEqual({ ok: true, url: 'https://checkout/antiga' })
     expect(stripe.expiradas).toEqual([])
     expect(stripe.criadas).toEqual([])
+  })
+
+  it('sessão aberta de outro valor (preço do plano mudou): expira a antiga e abre com o preço atual', async () => {
+    stripe.anterior = { id: 'cs_test_antiga', status: 'open', url: 'https://checkout/antiga', amount_total: 1, metadata: { pedido_id: PEDIDO } }
+    expect(await iniciarPagamentoAction(PEDIDO)).toMatchObject({ ok: true, url: expect.stringContaining('cs_test_novo') })
+    expect(stripe.expiradas).toEqual(['cs_test_antiga'])
+    expect(stripe.criadas[0]).toMatchObject({ line_items: [{ price_data: { currency: 'brl', unit_amount: 49900 } }] })
   })
 })

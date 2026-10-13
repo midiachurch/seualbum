@@ -15,6 +15,7 @@ const banco = vi.hoisted(() => ({
   linhas: [{ numero: 42 }] as unknown[],
   leituras: [] as { tabela: string; colunas: string; filtros: [string, unknown][] }[],
   faturas: {} as Record<string, { id: string; status_pagamento: string; valor_total: number; stripe_checkout_session_id?: string | null }>,
+  pedidos: {} as Record<string, { id: string; status: string; planos: { preco: number | string | null } | null }>,
   rpcs: [] as { nome: string; args: unknown }[],
   respostaRpc: { data: null as unknown, error: null as { code?: string; message: string } | null },
 }))
@@ -35,7 +36,8 @@ vi.mock('@/lib/supabase/server', () => ({
         maybeSingle: async () => {
           banco.leituras.push({ tabela, colunas, filtros: registro.filtros })
           const id = registro.filtros.find(([c]) => c === 'id')?.[1] as string
-          return { data: banco.faturas[id] ?? null, error: null }
+          const linhas: Record<string, unknown> = tabela === 'orders' ? banco.pedidos : banco.faturas
+          return { data: linhas[id] ?? null, error: null }
         },
       }
       return q
@@ -84,6 +86,7 @@ beforeEach(() => {
   banco.linhas = [{ numero: 42 }]
   banco.leituras = []
   banco.faturas = { [FATURA]: { id: FATURA, status_pagamento: 'pendente', valor_total: 499 } }
+  banco.pedidos = { p1: { id: 'p1', status: 'pendente', planos: { preco: 499 } } }
   banco.rpcs = []
   banco.respostaRpc = { data: null, error: null }
 })
@@ -121,6 +124,60 @@ describe('POST /api/webhooks/pagamento', () => {
     const r = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' }, false)))
     expect(await r.json()).toEqual({ ok: true, resultado: 'aguardando_pagamento' })
     expect(banco.updates).toEqual([])
+  })
+
+  it('valor pago diferente do preço do plano do pedido não confirma (2xx, sem reenvio)', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' }, true, 100)))
+    expect(r.status).toBe(200)
+    expect(await r.json()).toEqual({ ok: true, resultado: 'valor_divergente' })
+    expect(banco.updates).toEqual([])
+    expect(erro).toHaveBeenCalledWith(expect.anything(), 'p1', 'valor pago', 100, 'brl', '≠ esperado', 49900, expect.anything(), 'cs_test_1', expect.anything())
+    erro.mockRestore()
+  })
+
+  it('mesmo valor em outra moeda não confirma o pedido', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const r = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' }, true, 49900, 'usd')))
+    expect(await r.json()).toEqual({ ok: true, resultado: 'valor_divergente' })
+    expect(banco.updates).toEqual([])
+    erro.mockRestore()
+  })
+
+  it('compara com o preço ATUAL do plano (preço mudou depois do checkout) e com preço decimal', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    banco.pedidos.p1.planos = { preco: '549.90' }
+    const antigo = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' })))
+    expect(await antigo.json()).toEqual({ ok: true, resultado: 'valor_divergente' })
+    expect(banco.updates).toEqual([])
+
+    const atual = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' }, true, 54990)))
+    expect(await atual.json()).toEqual({ ok: true, resultado: 'confirmado' })
+    expect(banco.updates[0].dados).toMatchObject({ valor_pago: 549.9 })
+    erro.mockRestore()
+  })
+
+  it('pedido sem plano não é confirmado sozinho', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    banco.pedidos.p1.planos = null
+    const r = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' })))
+    expect(await r.json()).toEqual({ ok: true, resultado: 'valor_divergente' })
+    expect(banco.updates).toEqual([])
+    erro.mockRestore()
+  })
+
+  it('pedido que já não está pendente: ja_processado sem UPDATE; inexistente: sem_pedido', async () => {
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    banco.pedidos.p1.status = 'na_fila_design'
+    const pago = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p1' })))
+    expect(await pago.json()).toEqual({ ok: true, resultado: 'ja_processado' })
+
+    const outro = await POST(requisicao(sessao('checkout.session.completed', { pedido_id: 'p2' })))
+    expect(await outro.json()).toEqual({ ok: true, resultado: 'sem_pedido' })
+    expect(banco.updates).toEqual([])
+    erro.mockRestore()
+    aviso.mockRestore()
   })
 
   it('sessão sem pedido nem fatura é ignorada', async () => {

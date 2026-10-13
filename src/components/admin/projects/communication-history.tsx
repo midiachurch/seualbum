@@ -48,7 +48,9 @@ export function CommunicationHistory({ entries }: { entries: ComunicacaoLogEntry
             <p className="mt-1 text-xs text-muted-foreground">{formatDate(entry.dataCriacao)}</p>
             <div
               className="prose-outbox mt-3 text-sm text-foreground"
-              // Seguro: corpo_html é gerado pelo próprio gatilho do banco, nunca por input livre de usuário.
+              // corpo_html vem do gatilho do banco, mas inclui nomes digitados por usuários
+              // (projeto, cliente, estúdio, itens). Já chega sanitizado por `getComunicacoesLog`
+              // (whitelist em src/lib/sanitizar-html.ts) — não renderize corpo_html cru.
               dangerouslySetInnerHTML={{ __html: entry.corpoHtml }}
             />
           </div>

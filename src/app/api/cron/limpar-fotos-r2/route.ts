@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { listarObjetos, r2Configurado, r2PublicoConfigurado, removerObjetos, type Alvo } from '@/lib/r2/cliente'
 import { varrerOrfaos } from '@/lib/r2/varredura'
 import { createAdminClient } from '@/lib/supabase/server'
+import { bearerConfere } from '@/lib/segredo'
 
 /**
  * Limpeza diária do R2, em duas etapas:
@@ -26,8 +27,8 @@ const LOTE = 1000
 const MAX_LOTES = 10
 
 export async function GET(request: NextRequest) {
-  const segredo = process.env.CRON_SECRET
-  if (!segredo || request.headers.get('authorization') !== `Bearer ${segredo}`) {
+  // Tempo constante; sem CRON_SECRET definido, ninguém passa (fail closed).
+  if (!bearerConfere(request.headers.get('authorization'), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   if (!r2Configurado()) return NextResponse.json({ error: 'R2 não configurado' }, { status: 503 })

@@ -122,12 +122,22 @@ export async function iniciarPagamentoAction(pedidoId: string): Promise<IniciarP
   if (pedido.status !== 'pendente') return { ok: false, erro: 'Este pedido já foi pago.' }
   if (!plano) return { ok: false, erro: 'Este pedido não tem plano. Fale com a equipe.' }
 
+  const valorCentavos = Math.round(Number(plano.preco) * 100)
+  if (!Number.isFinite(valorCentavos) || valorCentavos <= 0) return { ok: false, erro: 'Pedido sem valor a cobrar. Fale com a equipe.' }
+
   const stripe = getStripe()
 
   // Clique duplo ou volta do Checkout sem pagar: reaproveita a sessão aberta
-  // em vez de criar outra (duas sessões abertas = risco de pagar duas vezes).
+  // se ainda for do mesmo valor (duas sessões abertas = risco de pagar duas
+  // vezes; valor antigo = cairia em `valor_divergente` na confirmação).
   if (pedido.stripe_checkout_session_id) {
-    const anterior = await avaliarSessaoAnterior(stripe, pedido.stripe_checkout_session_id, 'pedido_id', pedido.id)
+    const anterior = await avaliarSessaoAnterior(
+      stripe,
+      pedido.stripe_checkout_session_id,
+      'pedido_id',
+      pedido.id,
+      valorCentavos,
+    )
     if (anterior.tipo === 'reusar') return { ok: true, url: anterior.url }
     // Pix gerado e ainda não compensado: não abre um segundo checkout.
     if (anterior.tipo === 'processando') {
@@ -148,7 +158,7 @@ export async function iniciarPagamentoAction(pedidoId: string): Promise<IniciarP
           quantity: 1,
           price_data: {
             currency: 'brl',
-            unit_amount: Math.round(Number(plano.preco) * 100),
+            unit_amount: valorCentavos,
             product_data: {
               name: `Plano ${plano.nome_plano}`,
               description: `Pedido #${pedido.numero} · ${pedido.nome_projeto}`,

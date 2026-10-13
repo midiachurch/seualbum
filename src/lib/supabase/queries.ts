@@ -21,6 +21,7 @@ import {
 } from '@/lib/mappers'
 import { MOCK_BANNERS, MOCK_MEDIA_ASSETS, MOCK_PORTFOLIO_COLLECTIONS } from '@/lib/mock-vitrine-data'
 import { getSlaInfo } from '@/lib/sla'
+import { sanitizarHtmlComunicacao, sanitizarHtmlPagina } from '@/lib/sanitizar-html'
 import { BUCKET_R2, bucketDoArquivoAlbum } from '@/lib/r2/chaves'
 import { assinarLeituras, urlPublica } from '@/lib/r2/cliente'
 import {
@@ -691,7 +692,16 @@ export async function getComunicacoesLog(projetoId: string): Promise<import('@/t
   }
   return (data ?? []).map((row) => {
     const r = row as { id: string; tipo_evento: string; assunto: string; corpo_html: string; status: 'simulado' | 'enviado' | 'falhou'; data_criacao: string }
-    return { id: r.id, tipoEvento: r.tipo_evento, assunto: r.assunto, corpoHtml: r.corpo_html, status: r.status, dataCriacao: r.data_criacao }
+    // O gatilho concatena nomes digitados por usuários: sanitiza aqui, no
+    // servidor, antes de chegar ao `dangerouslySetInnerHTML` do histórico.
+    return {
+      id: r.id,
+      tipoEvento: r.tipo_evento,
+      assunto: r.assunto,
+      corpoHtml: sanitizarHtmlComunicacao(r.corpo_html),
+      status: r.status,
+      dataCriacao: r.data_criacao,
+    }
   })
 }
 
@@ -1121,7 +1131,9 @@ function mapPagina(row: {
     id: row.id,
     slug: row.slug,
     titulo: row.titulo,
-    conteudoHtml: row.conteudo_html,
+    // Sanitizado na leitura também: linhas gravadas antes da sanitização ao salvar
+    // vão tanto para o site público quanto para o innerHTML do editor do admin.
+    conteudoHtml: sanitizarHtmlPagina(row.conteudo_html),
     seoDescription: row.seo_description,
     status: row.status,
     createdAt: row.created_at,

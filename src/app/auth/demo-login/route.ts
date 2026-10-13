@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { DEMO_COOKIE, encodeDemoSession, isDemoMode } from '@/lib/demo-mode'
+import { caminhoInternoOu } from '@/lib/redirect-seguro'
 import type { PlatformRole } from '@/types/platform'
 
 const VALID_ROLES: PlatformRole[] = ['admin', 'gestor', 'operador', 'designer', 'fotografo', 'cliente']
@@ -20,8 +21,7 @@ export async function POST(request: NextRequest) {
   const nomeEstudio = String(form.get('nome_estudio') ?? '').trim() || 'Estúdio de demonstração'
   const roleParam = String(form.get('role') ?? 'admin') as PlatformRole
   const role = VALID_ROLES.includes(roleParam) ? roleParam : 'admin'
-  const nextParam = String(form.get('next') ?? '/dashboard')
-  const next = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/dashboard'
+  const next = caminhoInternoOu(form.get('next'), '/dashboard')
 
   const response = NextResponse.redirect(new URL(next, request.nextUrl.origin), { status: 303 })
   response.cookies.set(DEMO_COOKIE, encodeDemoSession({ email, nome_estudio: nomeEstudio, role }), {
