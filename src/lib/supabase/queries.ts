@@ -464,12 +464,21 @@ export async function getClients(): Promise<Client[]> {
 
   const { supabase } = await requireUser()
   if (!supabase) return []
-  const [{ data: clientes, error }, { data: projetos }] = await Promise.all([
+  const [rpc, { data: projetos }] = await Promise.all([
     // RPC (0041): a lista completa, com `observacoes_internas`, só para o
     // estúdio dono e a operação — a coluna saiu do SELECT direto.
     supabase.rpc('listar_clientes_visiveis').order('created_at', { ascending: false }),
     supabase.from('projetos').select('cliente_id, created_at'),
   ])
+  let { data: clientes, error } = rpc
+  // Banco ainda sem a 0041 (deploy do app antes da migration): a RPC não
+  // existe, mas o SELECT direto ainda tem todas as colunas.
+  if (error?.code === 'PGRST202') {
+    ;({ data: clientes, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .order('created_at', { ascending: false }))
+  }
 
   if (error) {
     console.error('[getClients]', error.message)
