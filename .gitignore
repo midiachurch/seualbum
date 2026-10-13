@@ -16,8 +16,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Supabase CLI
+# Supabase CLI (config.toml é local: cada dev escolhe portas e project_id)
 supabase/.temp/
+supabase/.branches/
+supabase/config.toml
 
 # Template HTML de referência visual (fora do repositório)
 site-piloto/

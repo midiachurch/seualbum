@@ -383,6 +383,10 @@ supabase stop
   não estiver na 54321 (outro projeto ocupando as portas), passe
   `E2E_SUPABASE_URL=http://127.0.0.1:<porta>`; chaves diferentes vão em
   `E2E_SUPABASE_ANON_KEY`/`E2E_SUPABASE_SERVICE_KEY`.
+- O `config.toml` gerado pelo `supabase init` limita logins a 30 por 5 min
+  (`[auth.rate_limit] sign_in_sign_ups`). Rodando as suítes várias vezes
+  seguidas, os logins do Playwright esbarram nisso: suba para 1000 (e
+  `token_refresh` também) no `config.toml` local.
 - O `global-setup` liga `private.app_config.pagamento_simulado = 'true'` via
   `docker exec` no contêiner `supabase_db_<project_id>` (lido do
   `supabase/config.toml`; outro nome em `E2E_DB_CONTAINER`).
