@@ -136,6 +136,9 @@ export async function getCurrentTeamMember(): Promise<TeamMember | null> {
  * "Você" no portal do cliente final. Em modo real, busca o registro de
  * `clientes` vinculado a esta conta (`user_id`) — um cliente só tem um.
  */
+const COLUNAS_CLIENTE_SEM_NOTAS =
+  'id, user_id, fotografo_id, nome, email, telefone, cidade, estado, origem, status, created_at, updated_at'
+
 export async function getCurrentClient(): Promise<Client | null> {
   const role = await getPlatformRole()
   if (role !== 'cliente') return null
@@ -146,8 +149,14 @@ export async function getCurrentClient(): Promise<Client | null> {
 
   const { supabase, user } = await requireUser()
   if (!supabase) return null
-  const { data } = await supabase.from('clientes').select('*').eq('user_id', user.id).single<ClienteRow>()
-  return data ? mapCliente(data) : null
+  // Sem `*`: `observacoes_internas` (anotação do estúdio/equipe) não tem
+  // SELECT para `authenticated` desde a migration 0041.
+  const { data } = await supabase
+    .from('clientes')
+    .select(COLUNAS_CLIENTE_SEM_NOTAS)
+    .eq('user_id', user.id)
+    .single<Omit<ClienteRow, 'observacoes_internas'>>()
+  return data ? mapCliente({ ...data, observacoes_internas: null }) : null
 }
 
 /**
@@ -456,7 +465,9 @@ export async function getClients(): Promise<Client[]> {
   const { supabase } = await requireUser()
   if (!supabase) return []
   const [{ data: clientes, error }, { data: projetos }] = await Promise.all([
-    supabase.from('clientes').select('*').order('created_at', { ascending: false }),
+    // RPC (0041): a lista completa, com `observacoes_internas`, só para o
+    // estúdio dono e a operação — a coluna saiu do SELECT direto.
+    supabase.rpc('listar_clientes_visiveis').order('created_at', { ascending: false }),
     supabase.from('projetos').select('cliente_id, created_at'),
   ])
 

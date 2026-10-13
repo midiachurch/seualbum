@@ -489,7 +489,16 @@ está desligado (ver "Pagamento das faturas de fechamento"); o pgTAP
 `supabase/tests/r2_uploads_pendentes.test.sql` as reservas e a função de
 referências da 0040.
 
-Pendente: todas as migrations até a 0040 já estão aplicadas; falta criar o bucket público do R2
+A 0041 (travas de segurança: cadastro de estúdio, INSERT de projeto, campos do
+pedido, `observacoes_internas` fora do SELECT do cliente, autor das atividades,
+prazos/expedição, fotos só no R2, orçamento em rascunho, HTML escapado nos
+e-mails simulados) é coberta por `supabase/tests/travas_seguranca.test.sql`.
+Ela tira `clientes.observacoes_internas` do SELECT de `authenticated`: o app
+passa a ler o próprio cadastro do cliente com colunas explícitas e a lista de
+clientes pela RPC `listar_clientes_visiveis` — publique o app junto com a
+migration (app primeiro, migration logo em seguida).
+
+Pendente: todas as migrations até a 0040 já estão aplicadas (a 0041 ainda não); falta criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel

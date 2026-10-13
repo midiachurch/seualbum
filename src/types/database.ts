@@ -962,6 +962,8 @@ export type Database = {
       /** A chave do R2 está em `fotos` (0036)? */
       chave_r2_em_uso_por_projeto: { Args: { p_key: string }; Returns: boolean }
       pode_ver_projeto: { Args: { p_projeto_id: string }; Returns: boolean }
+      /** 0041: clientes com a anotação interna — só o estúdio dono e a operação. */
+      listar_clientes_visiveis: { Args: Record<string, never>; Returns: ClienteRow[] }
       /** Fase 5 (0023): prévia da cobrança de lâminas extras — fotógrafo dono ou operação. */
       calcular_excedente: {
         Args: { p_projeto_id: string }
