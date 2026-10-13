@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { segredoConfere } from '@/lib/segredo'
 
 /**
  * Recebe o Database Webhook do Supabase (trigger `trg_notificar_aguardando_aprovacao`
@@ -21,8 +22,8 @@ type ProjetoWebhookPayload = {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get('x-webhook-secret')
-  if (!process.env.WEBHOOK_SECRET || secret !== process.env.WEBHOOK_SECRET) {
+  // Tempo constante; sem WEBHOOK_SECRET definido, ninguém passa (fail closed).
+  if (!segredoConfere(request.headers.get('x-webhook-secret'), process.env.WEBHOOK_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
