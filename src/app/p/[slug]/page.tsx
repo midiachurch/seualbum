@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { getPublicPagina } from '@/lib/supabase/queries'
+import { sanitizarHtmlPagina } from '@/lib/sanitizar-html'
 
 /** Revalida a cada hora — conteúdo institucional muda pouco. */
 export const revalidate = 3600
@@ -38,8 +39,9 @@ export default async function PaginaDinamicaPage({ params }: { params: Promise<{
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{pagina.titulo}</h1>
           <div
             className="prose-outbox mt-10 text-base text-foreground"
-            // Seguro: conteúdo escrito pela própria equipe no editor do admin (RLS restrita a admin/gestor), não input público.
-            dangerouslySetInnerHTML={{ __html: pagina.conteudoHtml }}
+            // Sanitizado ao salvar (actions/paginas.ts), na leitura (mapPagina) e aqui de novo:
+            // a página é pública e o HTML pode ter sido colado de fora no editor.
+            dangerouslySetInnerHTML={{ __html: sanitizarHtmlPagina(pagina.conteudoHtml) }}
           />
         </article>
       </main>

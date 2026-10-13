@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireModuleAction } from '@/lib/supabase/queries'
 import { isDemoMode } from '@/lib/demo-mode'
+import { sanitizarHtmlPagina } from '@/lib/sanitizar-html'
 
 /** CMS no-code de páginas do site (`paginas_conteudo`) — só admin/gestor, ver RLS. */
 
@@ -28,7 +29,7 @@ export async function createPagina(input: PaginaInput): Promise<string> {
     .insert({
       slug: input.slug,
       titulo: input.titulo,
-      conteudo_html: input.conteudoHtml,
+      conteudo_html: sanitizarHtmlPagina(input.conteudoHtml),
       seo_description: input.seoDescription || null,
       status: input.status,
       criado_por: user.id,
@@ -52,7 +53,7 @@ export async function updatePagina(id: string, input: PaginaInput) {
     .update({
       slug: input.slug,
       titulo: input.titulo,
-      conteudo_html: input.conteudoHtml,
+      conteudo_html: sanitizarHtmlPagina(input.conteudoHtml),
       seo_description: input.seoDescription || null,
       status: input.status,
     })
