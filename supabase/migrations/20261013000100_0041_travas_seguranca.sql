@@ -44,7 +44,7 @@
 -- (0037) — a policy `conversa_leituras_select` a chama com o papel de quem
 -- consulta; sem o grant a leitura de mensagens quebra.
 --
--- Idempotente: pode ser reexecutada com segurança. NÃO aplicada.
+-- Idempotente: pode ser reexecutada com segurança. Aplicada em 17/10/2026.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
