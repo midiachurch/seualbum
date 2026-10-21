@@ -33,3 +33,4 @@ site-piloto/
 /e2e/editor/.resultados/
 /e2e/editor/.auth/
 /blob-report/
+.claude/
