@@ -6,6 +6,7 @@ import { SimpleTabs } from '@/components/ui/simple-tabs'
 import { ClientStageBadge } from '@/components/cliente/client-stage-badge'
 import { ProjectTimeline } from '@/components/cliente/project-timeline'
 import { ClientPhotosManager } from '@/components/cliente/client-photos-manager'
+import { EncontrarMinhasFotos } from '@/components/cliente/encontrar-minhas-fotos'
 import { clientStageOf, type Photographer, type Project } from '@/types/platform'
 import { formatDate } from '@/lib/utils'
 
@@ -39,6 +40,7 @@ export function ProjectHub({
   initialTab,
   painelAprovacao,
   painelMensagens,
+  reconhecimentoFacial = false,
 }: {
   project: Project
   photographer: Photographer | undefined
@@ -47,6 +49,8 @@ export function ProjectHub({
   painelAprovacao?: React.ReactNode
   /** Aba "Mensagens" (0037): o fio com o estúdio, montado pela página. */
   painelMensagens?: React.ReactNode
+  /** "Encontrar minhas fotos" (0042): busca por selfie ligada neste projeto. */
+  reconhecimentoFacial?: boolean
 }) {
   const stage = clientStageOf(project.status)
 
@@ -85,7 +89,12 @@ export function ProjectHub({
           {
             value: 'fotos',
             label: `Fotos (${project.photos.length})`,
-            content: <ClientPhotosManager projetoId={project.id} initialPhotos={project.photos} />,
+            content: (
+              <div className="space-y-5">
+                {reconhecimentoFacial && project.photos.length > 0 ? <EncontrarMinhasFotos projetoId={project.id} /> : null}
+                <ClientPhotosManager projetoId={project.id} initialPhotos={project.photos} />
+              </div>
+            ),
           },
           {
             value: 'detalhes',

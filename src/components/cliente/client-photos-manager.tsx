@@ -89,6 +89,9 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
   }
 
   const lightboxPhoto = lightboxIndex !== null ? photos[lightboxIndex] : null
+  // Barra fixa do envio em segundo plano: a pessoa segue navegando na aba.
+  const novas = photos.filter((p) => p.id.startsWith('novo-'))
+  const enviando = novas.filter((p) => p.uploading).length
 
   return (
     <div className="space-y-5">
@@ -205,6 +208,18 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
           <p className="p-4 text-center text-sm text-white/70">
             {(lightboxIndex ?? 0) + 1} / {photos.length} · {lightboxPhoto.grupo}
           </p>
+        </div>
+      ) : null}
+
+      {enviando > 0 ? (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-[64px] z-30 mx-auto flex max-w-lg items-center gap-3 rounded-t-2xl bg-[#171717] px-4 py-3 text-sm text-white shadow-lg"
+        >
+          <ImageUp className="h-4 w-4 shrink-0 animate-pulse" aria-hidden />
+          <span className="flex-1">
+            Preparando suas memórias... {novas.length - enviando} de {novas.length} fotos enviadas
+          </span>
         </div>
       ) : null}
     </div>

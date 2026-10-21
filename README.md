@@ -67,6 +67,9 @@ Settings > Environment Variables**, em Production (e Preview, se usar).
 | `R2_PUBLIC_BUCKET`              | obrigatória | Bucket **público** do R2 para vitrine e logos (ex.: `seualbum-publico`)        |
 | `R2_PUBLIC_URL`                 | obrigatória | Domínio público desse bucket, sem barra no final (ex.: `https://midia.seualbum.com.br`); lido também no build (`next/image`) |
 | `CRON_SECRET`                   | obrigatória | Segredo do Cron da Vercel (`/api/cron/limpar-fotos-r2`); a Vercel o envia sozinha |
+| `AWS_REKOGNITION_REGION`        | opcional    | Região do AWS Rekognition: `sa-east-1` (São Paulo). Sem as 3 variáveis `AWS_REKOGNITION_*`, o "Encontrar minhas fotos" some das telas |
+| `AWS_REKOGNITION_ACCESS_KEY_ID` | opcional    | Usuário IAM só com Rekognition (ver "Reconhecimento facial")                   |
+| `AWS_REKOGNITION_SECRET_ACCESS_KEY` | opcional | Segredo do mesmo usuário                                                       |
 | `R2_VARREDURA_ORFAOS`           | opcional    | `apagar` liga a remoção de órfãos no cron; sem ela a varredura só conta (confira o log antes de ligar) |
 | `DEV_LOGIN_*`                   | não usar    | Atalhos de login de teste; só funcionam em `next dev`                          |
 
@@ -504,3 +507,44 @@ Pendente: todas as migrations até a 0040 já estão aplicadas (a 0041 ainda nã
 estiver pronto e deploy na Vercel
 (variáveis de ambiente acima, URLs de produção do Auth, do webhook do Stripe e
 de `private.app_config.webhook_status_url`).
+
+## Reconhecimento facial ("Encontrar minhas fotos")
+
+O cliente final, na aba **Fotos** do projeto, tira uma selfie e vê só as fotos
+em que aparece (migration 0042). Fica **desligado** por projeto até a equipe
+ligar no workspace do projeto (`/admin/projetos/[id]`): rosto é dado sensível
+na LGPD (art. 11), então o cliente marca um consentimento visível e o índice é
+apagado sozinho 60 dias depois da ativação (ou na hora, ao desligar).
+
+- Fotos continuam no R2. O servidor gera uma cópia JPEG de até 1920 px (sharp)
+  e manda os bytes ao Rekognition (`IndexFaces`, até 15 rostos por foto) — uma
+  coleção por projeto: `seualbum-{ref do Supabase}-{projetoId}`. HEIC/HEIF
+  (iPhone) passa pelo `heic-decode` (libheif em WebAssembly) antes do sharp.
+- Região: `sa-east-1` (São Paulo) mantém o dado biométrico no Brasil. A cota
+  lá é de 5 TPS para IndexFaces/SearchFacesByImage — a indexação roda 3 fotos
+  por vez e o SDK repete em caso de throttling.
+- Limite de 5 buscas por minuto por usuário (`registrar_busca_facial`).
+- Indexação: na confirmação de cada upload (`after()`), em lotes pelo card do
+  admin ao ligar, e o Cron diário `/api/cron/reconhecimento-facial` pega o que
+  sobrar, aplica a retenção de 60 dias e apaga rostos de fotos excluídas.
+- A selfie vai direto para `/api/reconhecimento/buscar` (`SearchFacesByImage`)
+  e não é gravada.
+- Telemetria em `eventos_analiticos`: `facial_search_initiated`,
+  `facial_search_success`, `checkout_from_ai_gallery` (repassa ao `gtag` se
+  existir na página).
+
+Usuário IAM (política mínima):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "rekognition:CreateCollection", "rekognition:DeleteCollection", "rekognition:ListCollections",
+      "rekognition:IndexFaces", "rekognition:SearchFacesByImage", "rekognition:DeleteFaces"
+    ],
+    "Resource": "*"
+  }]
+}
+```

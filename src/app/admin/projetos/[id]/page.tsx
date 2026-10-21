@@ -5,8 +5,10 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProjectWorkspace } from '@/components/admin/projects/project-workspace'
 import { CobrancaLaminasCard } from '@/components/admin/projects/cobranca-laminas-card'
+import { ReconhecimentoFacialCard } from '@/components/admin/projects/reconhecimento-facial-card'
 import { PainelMensagensProjeto } from '@/components/mensagens/painel-mensagens-projeto'
 import { abrirFio, buscarFio, opcoesDeLaminas } from '@/lib/mensagens-servidor'
+import { resumoReconhecimento } from '@/lib/rekognition/resumo'
 import {
   getClients,
   getComunicacoesLog,
@@ -41,7 +43,7 @@ export default async function ProjetoDetailPage({ params }: { params: Promise<{ 
   ])
   if (!project) notFound()
   // Cobrança é assunto comercial: o designer não vê (nem a RLS deixa — 0021/0023).
-  const [communicationLog, faturas, resumo, fioEquipe, fioCliente] = await Promise.all([
+  const [communicationLog, faturas, resumo, fioEquipe, fioCliente, reconhecimento] = await Promise.all([
     getComunicacoesLog(id),
     modoDesigner ? Promise.resolve([]) : getFaturasDoProjeto(id),
     modoDesigner ? Promise.resolve(null) : getResumoExcedente(id),
@@ -49,6 +51,8 @@ export default async function ProjetoDetailPage({ params }: { params: Promise<{ 
     // o fio do cliente com o estúdio é só leitura e só para a operação.
     abrirFio('estudio_equipe', { projetoId: id }),
     modoDesigner ? Promise.resolve(null) : buscarFio('cliente_estudio', id),
+    // Reconhecimento facial (0042): decisão sobre dado sensível, fica com a operação.
+    modoDesigner || !canEdit ? Promise.resolve(null) : resumoReconhecimento(id),
   ])
 
   const client = clients.find((c) => c.id === project.clientId)
@@ -74,6 +78,8 @@ export default async function ProjetoDetailPage({ params }: { params: Promise<{ 
           podeDispensar={canApproveInternal}
         />
       )}
+
+      {reconhecimento ? <ReconhecimentoFacialCard projetoId={project.id} resumo={reconhecimento} /> : null}
 
       <ProjectWorkspace
         project={project}
