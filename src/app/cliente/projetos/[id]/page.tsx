@@ -6,6 +6,7 @@ import { MensagensDoCliente } from '@/components/mensagens/mensagens-do-cliente'
 import { listarConversas } from '@/lib/actions/mensagens'
 import { abrirFio, opcoesDeLaminas } from '@/lib/mensagens-servidor'
 import { versoesLiberadas } from '@/lib/prova/painel'
+import { rekognitionConfigurado } from '@/lib/rekognition/cliente'
 import {
   getCurrentClient,
   getPhotographers,
@@ -35,7 +36,7 @@ export default async function ClienteProjetoPage({
   // isso no banco; esta checagem é a segunda camada em modo de demonstração.
   if (!project || project.clientId !== client?.id) notFound()
 
-  const [photographers, comentarios, revisoes, { user }] = await Promise.all([
+  const [photographers, comentarios, revisoes, { user, supabase }] = await Promise.all([
     getPhotographers(),
     getProofComments(id),
     getRevisoesDasProvas([id]),
@@ -54,8 +55,20 @@ export default async function ClienteProjetoPage({
   const marca = fio ? await listarConversas({ canal: 'cliente_estudio', projetoId: project.id, incluirVazias: true, limite: 1 }) : null
   const conversa = marca?.ok ? marca.conversas[0] : undefined
 
+  // "Encontrar minhas fotos" (0042): só com a busca ligada e dentro dos 60 dias.
+  const { data: reconhecimento } =
+    supabase && rekognitionConfigurado()
+      ? await supabase
+          .from('reconhecimento_projetos')
+          .select('projeto_id')
+          .eq('projeto_id', project.id)
+          .gt('expira_em', new Date().toISOString())
+          .maybeSingle()
+      : { data: null }
+
   return (
     <ProjectHub
+      reconhecimentoFacial={Boolean(reconhecimento)}
       project={project}
       photographer={photographer}
       initialTab={initialTab}

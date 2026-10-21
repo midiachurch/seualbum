@@ -1,10 +1,16 @@
 import { revalidatePath } from 'next/cache'
-import { NextResponse, type NextRequest } from 'next/server'
+import { after, NextResponse, type NextRequest } from 'next/server'
 import { BUCKET_R2, lerChaveFotoProjeto, lerExifConfirmacao, MIMES_FOTO_PROJETO, TAMANHO_MAXIMO_FOTO_PROJETO_R2 } from '@/lib/r2/chaves'
 import { metadadosDoObjeto, removerObjetos, urlDeLeitura } from '@/lib/r2/cliente'
 import { lerJson, projetoParaUpload } from '@/lib/r2/sessao'
+import { rekognitionConfigurado } from '@/lib/rekognition/cliente'
+import { indexarFotoNova } from '@/lib/rekognition/indexacao'
+import { createAdminClient } from '@/lib/supabase/server'
 
 const EXPIRACAO_PREVIA_S = 60 * 60
+
+// Inclui a indexação de rostos depois da resposta (`after`), quando ligada.
+export const maxDuration = 60
 
 /**
  * Passo 3 do upload (ver ../route.ts): depois do PUT no R2, confere o objeto
@@ -83,6 +89,19 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('[uploads:projeto-foto] confirmar insert', error)
       return NextResponse.json({ erro: 'Não foi possível registrar a foto. Tente de novo.' }, { status: 409 })
+    }
+
+    // Reconhecimento facial (0042): se o projeto estiver com a busca ligada,
+    // lê os rostos da foto nova sem segurar a resposta. Falhou aqui, o Cron
+    // diário pega da fila.
+    if (rekognitionConfigurado()) {
+      after(async () => {
+        try {
+          await indexarFotoNova(createAdminClient(), { fotoId: data.id, projetoId, key })
+        } catch (e) {
+          console.error('[uploads:projeto-foto] indexar rostos', e instanceof Error ? e.message : e)
+        }
+      })
     }
 
     revalidatePath(`/admin/projetos/${projetoId}`)

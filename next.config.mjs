@@ -75,7 +75,8 @@ function cabecalhosDeSeguranca() {
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-    { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+    // Câmera só na própria origem: a selfie do "Encontrar minhas fotos" (getUserMedia).
+    { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(), browsing-topics=()' },
     // Ignorado pelos navegadores em http (localhost/IP da rede no dev).
     { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
     { key: 'Content-Security-Policy-Report-Only', value: cspReportOnly() },

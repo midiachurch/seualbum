@@ -212,6 +212,51 @@ export type PedidoFotoR2Row = {
   created_at: string
 }
 
+/** Projeto com o reconhecimento facial ligado; retenção até `expira_em` (migration 0042). */
+export type ReconhecimentoProjetoRow = {
+  projeto_id: string
+  ativado_por: string | null
+  ativado_em: string
+  expira_em: string
+}
+
+export type StatusReconhecimentoFoto = 'indexada' | 'sem_rosto' | 'nao_suportada' | 'erro'
+
+/** Estado da indexação de rostos de uma foto (0042). */
+export type ReconhecimentoFotoRow = {
+  foto_id: string
+  projeto_id: string
+  status: StatusReconhecimentoFoto
+  rostos: number
+  tentativas: number
+  atualizado_em: string
+}
+
+/** FaceId do Rekognition → foto (0042). Só service_role. */
+export type ReconhecimentoRostoRow = {
+  face_id: string
+  foto_id: string
+  projeto_id: string
+  criado_em: string
+}
+
+/** FaceId a apagar no Rekognition (0042). Só service_role. */
+export type ReconhecimentoRostoRemoverRow = {
+  face_id: string
+  projeto_id: string
+  criado_em: string
+}
+
+/** Evento de produto (0042). */
+export type EventoAnaliticoRow = {
+  id: number
+  evento: 'facial_search_initiated' | 'facial_search_success' | 'checkout_from_ai_gallery'
+  user_id: string
+  projeto_id: string | null
+  propriedades: Record<string, unknown>
+  criado_em: string
+}
+
 /** Envio ao R2 assinado e ainda não confirmado (migration 0040). */
 export type R2UploadPendenteRow = {
   r2_key: string
@@ -744,6 +789,37 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      reconhecimento_projetos: {
+        Row: ReconhecimentoProjetoRow
+        Insert: Pick<ReconhecimentoProjetoRow, 'projeto_id'> & Partial<Omit<ReconhecimentoProjetoRow, 'projeto_id'>>
+        Update: Partial<ReconhecimentoProjetoRow>
+        Relationships: []
+      }
+      reconhecimento_fotos: {
+        Row: ReconhecimentoFotoRow
+        Insert: Pick<ReconhecimentoFotoRow, 'foto_id' | 'projeto_id' | 'status'> &
+          Partial<Omit<ReconhecimentoFotoRow, 'foto_id' | 'projeto_id' | 'status'>>
+        Update: Partial<ReconhecimentoFotoRow>
+        Relationships: []
+      }
+      reconhecimento_rostos: {
+        Row: ReconhecimentoRostoRow
+        Insert: Pick<ReconhecimentoRostoRow, 'face_id' | 'foto_id' | 'projeto_id'> & Partial<Pick<ReconhecimentoRostoRow, 'criado_em'>>
+        Update: Partial<ReconhecimentoRostoRow>
+        Relationships: []
+      }
+      reconhecimento_rostos_remover: {
+        Row: ReconhecimentoRostoRemoverRow
+        Insert: Pick<ReconhecimentoRostoRemoverRow, 'face_id' | 'projeto_id'> & Partial<Pick<ReconhecimentoRostoRemoverRow, 'criado_em'>>
+        Update: Partial<ReconhecimentoRostoRemoverRow>
+        Relationships: []
+      }
+      eventos_analiticos: {
+        Row: EventoAnaliticoRow
+        Insert: Pick<EventoAnaliticoRow, 'evento'> & Partial<Pick<EventoAnaliticoRow, 'projeto_id' | 'propriedades'>>
+        Update: Partial<EventoAnaliticoRow>
+        Relationships: []
+      }
       r2_uploads_pendentes: {
         Row: R2UploadPendenteRow
         Insert: Pick<R2UploadPendenteRow, 'r2_key' | 'user_id' | 'expira_em'> & Partial<Pick<R2UploadPendenteRow, 'created_at'>>
@@ -955,6 +1031,19 @@ export type Database = {
       concluir_cadastro_google: { Args: Record<string, never>; Returns: PlatformRole }
       /** Chaves no R2 de rascunhos parados há p_horas que nunca viraram pedido (0031). Só service_role. */
       rascunhos_r2_expirados: { Args: { p_horas?: number; p_limite?: number }; Returns: { r2_key: string }[] }
+      /** Liga/desliga o reconhecimento facial do projeto — equipe ou estúdio dono (0042). */
+      definir_reconhecimento_facial: { Args: { p_projeto_id: string; p_ativo: boolean }; Returns: boolean }
+      /** Encerra os projetos com a busca vencida (60 dias) e devolve os ids (0042). Só service_role. */
+      encerrar_reconhecimentos_vencidos: { Args: { p_limite?: number }; Returns: string[] }
+      /** Fotos do R2 dos projetos ligados ainda sem rostos lidos (0042). Só service_role. */
+      fotos_para_indexar: {
+        Args: { p_projeto_id?: string | null; p_limite?: number }
+        Returns: { foto_id: string; projeto_id: string; storage_path: string; tentativas: number }[]
+      }
+      /** Limite de buscas por selfie: true = pode buscar, e fica registrada (0042). */
+      registrar_busca_facial: { Args: { p_limite?: number }; Returns: boolean }
+      /** Marca como favoritas fotos do projeto — quem enxerga o projeto (0042). */
+      favoritar_fotos: { Args: { p_projeto_id: string; p_foto_ids: string[] }; Returns: number }
       /** Reserva a chave de um envio do R2 para quem o pediu, por 24h (0040). Só service_role. */
       reservar_upload_r2: { Args: { p_key: string; p_user_id: string }; Returns: boolean }
       /** Quais destas chaves nenhuma coluna do banco cita (varredura de órfãos, 0040). Só service_role. */
