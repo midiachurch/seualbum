@@ -59,6 +59,7 @@ import type { FotoNoCanvas, Selecao } from '@/components/album-editor/tipos'
 import {
   formaNova,
   geometria as calcularGeometria,
+  laminaVazia,
   normalizarDocumento,
   novaLamina,
   novoId,
@@ -855,6 +856,15 @@ export function EditorAlbum({
     setRecortando(false)
   }
 
+  /**
+   * Próxima lâmina (→ / ▶). Na última, se ela já tem fotos, abre uma lâmina
+   * nova e VAZIA — o álbum cresce uma lâmina por vez, sem layouts prontos.
+   */
+  function avancarLamina() {
+    if (laminaIdx < doc.laminas.length - 1) irPara(laminaIdx + 1)
+    else if (!travado && !laminaVazia(lamina)) inserirLamina('vazia')
+  }
+
   function adicionarTexto(modelo: Partial<TextoDoc> & { texto: string }) {
     if (!g) return
     const w = Math.min(g.paginaW - 2 * g.margem - 10, 180)
@@ -1119,9 +1129,9 @@ export function EditorAlbum({
 
   /* ------------------------------ teclado ------------------------------ */
   // Espelho dos atalhos de navegação: o listener lê sempre a versão do último render.
-  const atalhosRef = useRef({ irPara, ciclarLayout })
+  const atalhosRef = useRef({ irPara, ciclarLayout, avancarLamina })
   useLayoutEffect(() => {
-    atalhosRef.current = { irPara, ciclarLayout }
+    atalhosRef.current = { irPara, ciclarLayout, avancarLamina }
   })
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1181,7 +1191,8 @@ export function EditorAlbum({
       if (selecionados.length === 0) {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
           e.preventDefault()
-          atalhosRef.current.irPara(laminaIdx + (e.key === 'ArrowRight' ? 1 : -1))
+          if (e.key === 'ArrowRight') atalhosRef.current.avancarLamina()
+          else atalhosRef.current.irPara(laminaIdx - 1)
           return
         }
         if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && modo === 'montagem') {
@@ -1640,7 +1651,7 @@ export function EditorAlbum({
               />
               <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-white/40">
                 {rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}
-                {modo === 'montagem' && !travado ? ' · Montagem: arraste foto sobre foto para trocar · duplo clique na página para editar o layout' : ''}
+                {modo === 'montagem' && !travado ? ' · arraste fotos da bandeja · ↑/↓ trocam o layout · foto sobre foto troca as duas' : ''}
                 {modo === 'designer' && !recortando ? ' · Designer: mova e redimensione os quadros · Esc volta à montagem' : ''}
                 {recortando ? (escolhendoFoco ? ' · clique no ponto principal da foto' : ' · arraste a foto dentro do quadro · Esc conclui') : ''}
                 {zoom > 1 ? ' · arraste o fundo ou role para mover' : ''}
@@ -1679,7 +1690,14 @@ export function EditorAlbum({
                 onCiclar={ciclarLayout}
                 onMais={() => setPainelEsq('layouts')}
               />
-              <button type="button" onClick={() => irPara(laminaIdx + 1)} disabled={laminaIdx >= doc.laminas.length - 1} className="rounded-full p-1.5 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Próxima lâmina (→)" title="Próxima lâmina (→)">
+              <button
+                type="button"
+                onClick={avancarLamina}
+                disabled={laminaIdx >= doc.laminas.length - 1 && (travado || laminaVazia(lamina))}
+                className="rounded-full p-1.5 text-white/80 hover:bg-white/10 disabled:opacity-30"
+                aria-label={laminaIdx >= doc.laminas.length - 1 ? 'Nova lâmina vazia (→)' : 'Próxima lâmina (→)'}
+                title={laminaIdx >= doc.laminas.length - 1 ? 'Nova lâmina vazia (→)' : 'Próxima lâmina (→)'}
+              >
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </button>
             </div>

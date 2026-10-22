@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { laminasIniciais, nomeDoLayout, prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
+import { documentoInicial, laminasIniciais, nomeDoLayout, prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
 
 const base = { nome: 'Casamento Ana & João', numero: 1041, albumConfig: { formato: '30x30', orientacao: 'quadrado' }, laminasInclusas: 25 }
 
@@ -87,4 +87,26 @@ describe('laminasIniciais — 1 a 200', () => {
     [500, 200],
     ['abc', 1],
   ])('%j → %d', (v, esperado) => expect(laminasIniciais(v)).toBe(esperado))
+})
+
+describe('documentoInicial — álbum novo nasce com uma lâmina vazia', () => {
+  it('uma única lâmina, sem quadros, textos ou formas', () => {
+    const d = documentoInicial()
+    expect(d.laminas).toHaveLength(1)
+    expect(d.laminas[0]).toMatchObject({ quadros: [], textos: [], formas: [] })
+    expect(d.primeiraEhCapa).toBe(false)
+  })
+
+  it('modelo com capa: mantém primeiraEhCapa, ainda sem quadros', () => {
+    const d = documentoInicial(true)
+    expect(d.primeiraEhCapa).toBe(true)
+    expect(d.laminas).toHaveLength(1)
+    expect(d.laminas[0].quadros).toEqual([])
+  })
+
+  it('lâminas inclusas do projeto não viram lâminas pré-criadas', () => {
+    const r = prepararLayoutDoProjeto(base)
+    expect(r.ok && r.dados.laminas).toBe(25)
+    expect(documentoInicial().laminas).toHaveLength(1)
+  })
 })

@@ -157,8 +157,6 @@ export function InspetorLamina({
   somenteLeitura,
   onFundo,
   onIrFundos,
-  onAdicionarTexto,
-  onLayoutVazio,
   vao,
   onVao,
   onSalvarTemplate,
@@ -174,8 +172,10 @@ export function InspetorLamina({
   somenteLeitura: boolean
   onFundo: (cor: string) => void
   onIrFundos: () => void
-  onAdicionarTexto: () => void
-  onLayoutVazio: (n: number) => void
+  /** Sem uso desde a diagramação centrada na lâmina; mantido por compatibilidade. */
+  onAdicionarTexto?: () => void
+  /** Sem uso desde a diagramação centrada na lâmina; mantido por compatibilidade. */
+  onLayoutVazio?: (n: number) => void
 }) {
   return (
     <div className="space-y-4 p-4 text-sm">
@@ -196,16 +196,6 @@ export function InspetorLamina({
           <button type="button" onClick={onIrFundos} className="text-xs text-white/70 underline">
             Degradês, texturas e foto de fundo
           </button>
-          <div className="space-y-1">
-            <p className="text-xs text-white/60">Aplicar layout vazio</p>
-            <div className="grid grid-cols-4 gap-1">
-              {[1, 2, 3, 4, 5, 6, 8].map((n) => (
-                <button key={n} type="button" onClick={() => onLayoutVazio(n)} className="rounded bg-white/10 py-1 text-xs hover:bg-white/20">
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
           {vao !== null ? (
             <label className="block text-xs text-white/70">
               <span className="flex justify-between">
@@ -220,19 +210,9 @@ export function InspetorLamina({
               ★ Salvar esta lâmina como template
             </button>
           ) : null}
-          <button type="button" onClick={onAdicionarTexto} className="w-full rounded-md border border-white/20 px-2.5 py-1.5 text-left text-xs hover:bg-white/10">
-            + Caixa de texto
-          </button>
         </>
       ) : null}
-      <div className="space-y-1 text-xs text-white/40">
-        <p>Duplo clique na página: modo Designer · duplo clique na foto: ajustar a foto</p>
-        <p>Shift ou Ctrl/Cmd+clique: seleção múltipla · Ctrl+C / Ctrl+V / Ctrl+D</p>
-        <p>Arraste uma foto sobre outra para trocar as duas</p>
-        <p>Selecione uma foto: a alça azul entre ela e a vizinha redimensiona as duas</p>
-        <p>Ctrl+Z desfaz · Delete apaga · setas movem 1 mm (Shift: 10)</p>
-        <p>Ctrl + rodinha: zoom · Ctrl+0: ajustar à tela</p>
-      </div>
+      <p className="text-xs text-white/40">Arraste fotos da bandeja para a lâmina · ↑/↓ trocam o layout · ←/→ trocam de lâmina</p>
     </div>
   )
 }

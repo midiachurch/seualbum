@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Circle, Copy, Eraser, LayoutGrid, Minus, Plus, Square, SquareDashed, Trash2 } from 'lucide-react'
+import { Circle, Copy, Eraser, Minus, Plus, Square, SquareDashed, Trash2 } from 'lucide-react'
 import { MiniaturaLamina } from '@/components/album-editor/miniatura-lamina'
 import type { FotoNoCanvas } from '@/components/album-editor/tipos'
 import { familiaDe } from '@/lib/album/fontes'
@@ -286,7 +286,6 @@ export function PainelPaginas({
   onLimpar,
   onExcluir,
   onInserir,
-  onLayoutVazio,
 }: {
   laminas: LaminaDoc[]
   geometria: Geometria
@@ -298,11 +297,11 @@ export function PainelPaginas({
   onDuplicar: (i: number) => void
   onLimpar: (i: number) => void
   onExcluir: (i: number) => void
-  /** Nova lâmina depois da ativa: vazia, com N quadros, ou cópia da anterior. */
+  /** Nova lâmina depois da ativa: vazia ou cópia da anterior ('layout' não é mais usado). */
   onInserir: (tipo: 'vazia' | 'layout' | 'duplicar', quadros?: number) => void
-  onLayoutVazio: (i: number, quadros: number) => void
+  /** @deprecated Sem layouts prontos; mantido só por compatibilidade, não é chamado. */
+  onLayoutVazio?: (i: number, quadros: number) => void
 }) {
-  const [qtd, setQtd] = useState(3)
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
       {!somenteLeitura ? (
@@ -316,19 +315,7 @@ export function PainelPaginas({
               <Copy className="h-3.5 w-3.5" aria-hidden /> Duplicar anterior
             </button>
           </div>
-          <div className="flex items-center gap-1">
-            <button type="button" onClick={() => onInserir('layout', qtd)} className="flex flex-1 items-center justify-center gap-1 rounded-md bg-white/10 px-2 py-1.5 text-[11px] hover:bg-white/20">
-              <LayoutGrid className="h-3.5 w-3.5" aria-hidden /> Com layout de
-            </button>
-            <select value={qtd} onChange={(e) => setQtd(Number(e.target.value))} className="rounded-md border border-white/20 bg-[#1c1c1c] px-1 py-1 text-[11px]" aria-label="Fotos no layout">
-              {[1, 2, 3, 4, 5, 6, 8].map((n) => (
-                <option key={n} value={n}>
-                  {n} foto{n > 1 ? 's' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <p className="text-[10px] text-white/40">Modelos de lâmina: aba Modelos.</p>
+          <p className="text-[10px] text-white/40">A lâmina nasce vazia: arraste fotos da bandeja de baixo. ↑/↓ alternam o layout.</p>
         </section>
       ) : null}
       <p className="mb-2 text-xs text-white/60">{laminas.length} lâmina(s). Para reordenar, arraste aqui na fita de baixo.</p>
@@ -346,9 +333,6 @@ export function PainelPaginas({
                 </button>
                 <button type="button" onClick={() => onLimpar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-white/70 hover:bg-white/10">
                   <Eraser className="h-3 w-3" aria-hidden /> Limpar
-                </button>
-                <button type="button" onClick={() => onLayoutVazio(i, qtd)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-white/70 hover:bg-white/10" title={`Aplicar layout vazio de ${qtd} foto(s)`}>
-                  <LayoutGrid className="h-3 w-3" aria-hidden /> Layout
                 </button>
                 <button
                   type="button"

@@ -3,10 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { getAlbumParaEditor, getAprovacoesDoAlbum, getFotosDoEditor, getTemplatesDaEquipe, getVersoesDoAlbum, lerTodasAsLinhas, requireEdicaoDeProducao, type AprovacaoDoAlbum, type FotoDoEditor, type VersaoDoAlbum } from '@/lib/supabase/queries'
 import { isDemoMode } from '@/lib/demo-mode'
-import { documentoVazio, geometria, normalizarDocumento, type DocumentoAlbum } from '@/lib/album/documento'
-import { documentoDoModelo, modeloPorId } from '@/lib/album/modelos'
+import { geometria, normalizarDocumento, type DocumentoAlbum } from '@/lib/album/documento'
+import { modeloPorId } from '@/lib/album/modelos'
 import { normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
-import { prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
+import { documentoInicial, prepararLayoutDoProjeto } from '@/lib/album/preparar-projeto'
 import {
   BUCKET_ALBUNS_LEGADO,
   BUCKET_R2,
@@ -152,11 +152,12 @@ export async function criarAlbumAvulso(input: {
   const orientacao = normalizarOrientacao(input?.orientacao, formato)
   const g = geometria({ formato, orientacao, sangriaMm: 3, margemSeguraMm: 5 })
   if (!g) return { ok: false, erro: 'Formato inválido: use largura x altura em cm, de 5 a 100 (ex.: 30x30).' }
-  const laminas = Math.min(200, Math.max(1, Math.floor(Number(input?.laminasIniciais) || 1)))
   const modelo = modeloPorId(input?.modeloId)
   const fotosEstimadas = Number.isInteger(input?.fotosEstimadas) && Number(input.fotosEstimadas) >= 0 ? Math.min(10000, Number(input.fotosEstimadas)) : null
 
-  const documento: DocumentoAlbum = modelo ? documentoDoModelo(modelo, laminas, g, nome) : documentoVazio(laminas)
+  // Nasce com UMA lâmina vazia (sem quadros predefinidos); o modelo fica gravado e define o estilo.
+  // `laminasIniciais` (páginas previstas) não pré-cria mais lâminas.
+  const documento: DocumentoAlbum = documentoInicial(modelo?.capa ?? false)
   const { data, error } = await supabase
     .from('album_layouts')
     .insert({
@@ -237,7 +238,7 @@ export async function criarLayoutDoProjeto(
       tipo: d.tipo,
       formato: d.formato,
       orientacao: d.orientacao,
-      documento: documentoVazio(d.laminas),
+      documento: documentoInicial(),
       criado_por: user.id,
     })
     .select('id')

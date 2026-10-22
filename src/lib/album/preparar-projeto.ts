@@ -1,4 +1,4 @@
-import { LIMITES } from '@/lib/album/documento'
+import { documentoVazio, LIMITES, type DocumentoAlbum } from '@/lib/album/documento'
 import { laminaEmCm, normalizarFormato, normalizarOrientacao } from '@/lib/resolucao'
 import type { AlbumOrientationValue } from '@/types/platform'
 
@@ -23,6 +23,7 @@ export type DadosDoLayout = {
   tipo: string | null
   formato: string
   orientacao: AlbumOrientationValue
+  /** Lâminas inclusas do projeto (referência) — o documento começa com UMA lâmina vazia. */
   laminas: number
   /** De onde veio o formato — "escolha" e "produto" também são gravados no projeto. */
   origemFormato: 'projeto' | 'produto' | 'escolha'
@@ -51,6 +52,16 @@ export function laminasIniciais(v: unknown) {
   const n = Math.floor(Number(v))
   if (!Number.isFinite(n) || n < 1) return 1
   return Math.min(n, LIMITES.laminas)
+}
+
+/**
+ * Documento com que todo álbum novo nasce: UMA lâmina vazia, sem quadros —
+ * as fotos ficam na bandeja e o designer monta a lâmina arrastando-as (e
+ * alterna layouts pelo teclado). O modelo escolhido define só o estilo usado
+ * depois; não pré-cria quadros. `primeiraEhCapa` segue o modelo (capa).
+ */
+export function documentoInicial(primeiraEhCapa = false): DocumentoAlbum {
+  return { ...documentoVazio(1), primeiraEhCapa }
 }
 
 export function prepararLayoutDoProjeto(

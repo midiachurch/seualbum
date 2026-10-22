@@ -1,5 +1,6 @@
 'use client'
 
+import { ImagePlus } from 'lucide-react'
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Ellipse, Group, Image as KImage, Layer, Line, Path, Rect, Stage, Text as KText, Transformer } from 'react-konva'
 import type Konva from 'konva'
@@ -654,11 +655,14 @@ export function CanvasLamina({
   const rad = gr ? (gr.angulo * Math.PI) / 180 : 0
   const ladrilho = lamina.textura && typeof document !== 'undefined' ? ladrilhoDeTextura(lamina.textura.tipo) : null
   const alvoQuadro = alvoTroca ? lamina.quadros.find((q) => q.id === alvoTroca) : null
+  const laminaVazia = !somenteLeitura && lamina.quadros.length === 0 && lamina.textos.length === 0 && lamina.formas.length === 0
+  // Retângulo da lâmina em px da caixa (para os avisos HTML por cima do palco).
+  const caixaLamina = { left: pan.x + origemX, top: pan.y + origemY, width: g.laminaW * escala, height: g.laminaH * escala }
 
   return (
     <div
       ref={caixaRef}
-      className={`relative h-full w-full overflow-hidden ${soltando ? 'bg-sky-500/10' : ''}`}
+      className="relative h-full w-full overflow-hidden"
       onWheel={(e) => {
         if (e.ctrlKey || e.metaKey) {
           // Zoom no ponteiro: o ponto sob o mouse fica parado.
@@ -679,7 +683,11 @@ export function CanvasLamina({
         e.dataTransfer.dropEffect = 'copy'
         setSoltando(true)
       }}
-      onDragLeave={() => setSoltando(false)}
+      onDragLeave={(e) => {
+        // Entrar no <canvas> filho também dispara dragleave: só limpa ao sair da caixa.
+        if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
+        setSoltando(false)
+      }}
       onDrop={(e) => {
         setSoltando(false)
         const fotoId = e.dataTransfer.getData(MIME_FOTO)
@@ -864,6 +872,22 @@ export function CanvasLamina({
             />
           </Layer>
         </Stage>
+      ) : null}
+      {tamanho.w > 0 && (soltando || laminaVazia) ? (
+        <div
+          className={`pointer-events-none absolute flex items-center justify-center rounded-sm transition-colors ${
+            soltando ? 'border-2 border-dashed border-sky-400 bg-sky-500/10 ring-2 ring-white/60' : ''
+          }`}
+          style={caixaLamina}
+        >
+          {laminaVazia ? (
+            <div className={`flex flex-col items-center gap-2 rounded-lg px-5 py-4 text-center ${soltando ? 'bg-sky-600/90 text-white' : 'bg-black/55 text-white/90'}`}>
+              <ImagePlus className="h-8 w-8" aria-hidden />
+              <p className="text-sm font-medium">Arraste fotos da bandeja para cá</p>
+              <p className="text-xs opacity-75">↑/↓ trocam o layout depois</p>
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

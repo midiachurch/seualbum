@@ -361,7 +361,7 @@ export function PainelFotos({
             type="button"
             onClick={onMontarAutomatico}
             disabled={somenteLeitura || fotos.length === 0}
-            className={cn(CLASSE_BOTAO, 'bg-violet-500 font-semibold text-white hover:bg-violet-400')}
+            className={cn(CLASSE_BOTAO, 'bg-white font-semibold text-[#171717] hover:bg-white/90')}
             aria-label="Montar álbum automaticamente"
           >
             <WandSparkles className="h-3.5 w-3.5" aria-hidden /> Montar automático

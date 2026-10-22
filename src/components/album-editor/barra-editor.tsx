@@ -188,31 +188,15 @@ export function MenuMais({ secoes }: { secoes: ItemMenu[][] }) {
   )
 }
 
-/** Desenho mínimo de uma variação: os quadros sobre a lâmina, com a dobra no meio. */
-function PreviaVariante({ v, g }: { v: Variante; g: Geometria }) {
-  return (
-    <svg viewBox={`0 0 ${g.laminaW} ${g.laminaH}`} className="h-auto w-full" aria-hidden>
-      <rect width={g.laminaW} height={g.laminaH} fill="#F5F5F5" />
-      {v.quadros.map((q) => (
-        <rect key={q.id} x={q.x} y={q.y} width={q.w} height={q.h} fill="#9CA3AF" />
-      ))}
-      <line x1={g.paginaW} y1={0} x2={g.paginaW} y2={g.laminaH} stroke="#D4D4D4" strokeWidth={g.laminaW / 300} />
-    </svg>
-  )
-}
-
 /**
- * "Trocar layout ▾" embaixo da lâmina: as variações para as fotos que estão
- * nela. ▲/▼ (e as setas do teclado) trocam na hora, sem abrir nada.
+ * Indicador de layout embaixo da lâmina (modelo SmartAlbums): solte as fotos
+ * na lâmina e use ▲/▼ (ou as setas do teclado) para alternar as variações.
  */
 export function SeletorLayout({
   variantes,
   atual,
-  geometria: g,
   desabilitado,
-  onAplicar,
   onCiclar,
-  onMais,
 }: {
   variantes: Variante[]
   atual: number | null
@@ -222,79 +206,27 @@ export function SeletorLayout({
   onCiclar: (delta: number) => void
   onMais: () => void
 }) {
-  const [aberto, setAberto] = useState(false)
+  // Fluxo SmartAlbums: solte as fotos na lâmina e use ↑/↓ para alternar os layouts.
   const vazio = variantes.length === 0
   const podeCiclar = !desabilitado && variantes.length > 1
+  const rotulo = vazio
+    ? 'Arraste fotos para a lâmina'
+    : `Layout ${atual !== null ? atual + 1 : '–'} de ${variantes.length} · ↑/↓`
 
   return (
-    <div className="relative flex items-center rounded-full bg-white/5">
+    <div className="flex items-center rounded-full bg-white/5">
       <button type="button" onClick={() => onCiclar(-1)} disabled={!podeCiclar} className="rounded-full p-1.5 hover:bg-white/10 disabled:opacity-30" aria-label="Layout anterior (↑)" title="Layout anterior (↑)">
         <ChevronUp className="h-3.5 w-3.5" aria-hidden />
       </button>
-      <button
-        type="button"
-        onClick={() => setAberto((v) => !v)}
-        disabled={desabilitado || vazio}
-        aria-haspopup="dialog"
-        aria-expanded={aberto}
-        className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium hover:bg-white/10 disabled:opacity-40"
-        title={vazio ? 'Arraste fotos da bandeja para a lâmina' : 'Ver as variações de layout'}
+      <span
+        aria-live="polite"
+        className={cn('px-2.5 py-1 text-[11px] font-medium tabular-nums', vazio || desabilitado ? 'text-white/40' : 'text-white/80')}
       >
-        {vazio ? 'Sem fotos na lâmina' : 'Trocar layout'}
-        {!vazio ? (
-          <span className="tabular-nums text-white/50">
-            {atual !== null ? `${atual + 1}/${variantes.length}` : variantes.length}
-          </span>
-        ) : null}
-        <ChevronDown className="h-3 w-3" aria-hidden />
-      </button>
+        {rotulo}
+      </span>
       <button type="button" onClick={() => onCiclar(1)} disabled={!podeCiclar} className="rounded-full p-1.5 hover:bg-white/10 disabled:opacity-30" aria-label="Próximo layout (↓)" title="Próximo layout (↓)">
         <ChevronDown className="h-3.5 w-3.5" aria-hidden />
       </button>
-
-      {aberto ? (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} aria-hidden />
-          <div
-            role="dialog"
-            aria-label="Variações de layout"
-            onKeyDown={(e) => e.key === 'Escape' && setAberto(false)}
-            className="absolute bottom-full left-1/2 z-50 mb-2 w-[22rem] -translate-x-1/2 rounded-xl border border-white/10 bg-[#1C1C1C] p-3 shadow-2xl"
-          >
-            <p className="mb-2 text-[11px] text-white/50">
-              {variantes[0]?.quadros.length ?? 0} fotos · ↑/↓ alterna sem abrir esta janela
-            </p>
-            <ul className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto">
-              {variantes.map((v, i) => (
-                <li key={v.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onAplicar(i)
-                      setAberto(false)
-                    }}
-                    aria-label={`Layout ${i + 1}`}
-                    aria-pressed={atual === i}
-                    className={cn('block w-full overflow-hidden rounded-md ring-2 hover:ring-white/60', atual === i ? 'ring-white' : 'ring-transparent')}
-                  >
-                    <PreviaVariante v={v} g={g} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={() => {
-                setAberto(false)
-                onMais()
-              }}
-              className="mt-2 w-full rounded-md bg-white/5 py-1.5 text-[11px] text-white/80 hover:bg-white/10"
-            >
-              Mais layouts e templates…
-            </button>
-          </div>
-        </>
-      ) : null}
     </div>
   )
 }
