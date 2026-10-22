@@ -8,9 +8,9 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
-  Check,
   CheckCircle2,
-  Cloud,
+  ChevronLeft,
+  ChevronRight,
   CloudOff,
   Download,
   Eye,
@@ -22,12 +22,15 @@ import {
   LayoutGrid,
   LayoutTemplate,
   Loader2,
-  Lock,
   Maximize2,
   MessageSquare,
   Minimize2,
   Minus,
+  MousePointer2,
+  Move,
   PaintBucket,
+  PanelRightClose,
+  PanelRightOpen,
   Plus,
   Redo2,
   Send,
@@ -35,11 +38,9 @@ import {
   Shapes,
   Share2,
   ShieldCheck,
-  SlidersHorizontal,
   Type,
   Undo2,
-  Wifi,
-  WifiOff,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PainelFotos, type MetaFoto } from '@/components/album-editor/painel-fotos'
@@ -53,6 +54,7 @@ import { Publicar } from '@/components/album-editor/publicar'
 import { Visualizacao } from '@/components/album-editor/visualizacao'
 import { Historico } from '@/components/album-editor/historico'
 import { AprovacaoPainel, ROTULO_STATUS } from '@/components/album-editor/aprovacao-painel'
+import { DialogoMontagem, InfoAlbum, LaminaVizinha, MenuMais, PilulaStatus, SeletorLayout } from '@/components/album-editor/barra-editor'
 import type { FotoNoCanvas, Selecao } from '@/components/album-editor/tipos'
 import {
   formaNova,
@@ -133,21 +135,21 @@ const DESLOCAMENTO_COLAR_MM = 5
 type Entrada = { doc: DocumentoAlbum; rotulo: string; em: number }
 type Historico = { passado: Entrada[]; presente: Entrada; futuro: Entrada[] }
 type EstadoSalvo = 'salvo' | 'pendente' | 'salvando' | 'erro' | 'conflito' | 'travado'
-type PainelEsquerdo = 'fotos' | 'layouts' | 'modelos' | 'fundos' | 'textos' | 'elementos' | 'paginas' | 'config'
+// A biblioteca de fotos é a bandeja fixa embaixo; estes abrem sob demanda pelo menu "⋯".
+type PainelEsquerdo = 'layouts' | 'modelos' | 'fundos' | 'textos' | 'elementos' | 'paginas' | 'config'
 type PainelDireito = 'inspetor' | 'camadas' | 'verificacao' | 'comentarios'
 type Copia = { revisao: number; documento: DocumentoAlbum; em: string }
 type Biblioteca = { pastas: { id: string; nome: string }[]; fotos: Record<string, MetaFoto> }
 type ElementoCopiado = { tipo: 'quadro'; e: Quadro } | { tipo: 'texto'; e: TextoDoc } | { tipo: 'forma'; e: FormaDoc }
 
 const FERRAMENTAS: { chave: PainelEsquerdo; rotulo: string; icone: typeof Images }[] = [
-  { chave: 'fotos', rotulo: 'Fotos', icone: Images },
-  { chave: 'layouts', rotulo: 'Layouts', icone: LayoutGrid },
-  { chave: 'modelos', rotulo: 'Modelos', icone: LayoutTemplate },
+  { chave: 'layouts', rotulo: 'Layouts e templates', icone: LayoutGrid },
+  { chave: 'modelos', rotulo: 'Modelos de álbum', icone: LayoutTemplate },
   { chave: 'fundos', rotulo: 'Fundos', icone: PaintBucket },
   { chave: 'textos', rotulo: 'Textos', icone: Type },
   { chave: 'elementos', rotulo: 'Elementos', icone: Shapes },
   { chave: 'paginas', rotulo: 'Páginas', icone: GalleryHorizontal },
-  { chave: 'config', rotulo: 'Config.', icone: Settings },
+  { chave: 'config', rotulo: 'Configurações', icone: Settings },
 ]
 
 const NIVEL: Record<NivelProblema, { rotulo: string; cor: string; icone: typeof AlertCircle }> = {
@@ -225,9 +227,12 @@ export function EditorAlbum({
   const [usoLocal, setUsoLocal] = useState<{ favoritos: string[]; recentes: Record<string, string> }>({ favoritos: [], recentes: {} })
   const [mostrarGuias, setMostrarGuias] = useState(true)
   const [zoom, setZoom] = useState(1)
-  const [painelEsq, setPainelEsq] = useState<PainelEsquerdo>('fotos')
+  const [painelEsq, setPainelEsq] = useState<PainelEsquerdo | null>(null)
   const [filtroFotos, setFiltroFotos] = useState<{ chave: number; filtro: 'todas' | 'nao-usadas' }>({ chave: 0, filtro: 'todas' })
   const [painelDir, setPainelDir] = useState<PainelDireito>('inspetor')
+  // [☰] recolhe o painel direito e a lâmina ocupa quase toda a largura.
+  const [painelDirAberto, setPainelDirAberto] = useState(true)
+  const [montagemAberta, setMontagemAberta] = useState(false)
   const [modal, setModal] = useState<'publicar' | 'visualizar' | 'historico' | 'aprovacao' | null>(() =>
     abrirInicial === 'compartilhar' ? 'aprovacao' : abrirInicial === 'visualizar' ? 'visualizar' : abrirInicial === 'historico' ? 'historico' : null,
   )
@@ -762,21 +767,56 @@ export function EditorAlbum({
   }
 
   /* ------------------------------ fotos na lâmina ------------------------------ */
-  function soltarFoto(fotoId: string, x: number, y: number, alvo: string | null) {
+  /**
+   * Foto(s) da bandeja soltas na lâmina. `dados` é um id ou vários separados
+   * por vírgula (arrastar a seleção da bandeja).
+   * - Sobre um quadro: coloca a foto; se ela já está em outro quadro desta
+   *   lâmina, as duas trocam de lugar.
+   * - Montagem, fora de quadro (ou várias fotos): refaz a lâmina com o melhor
+   *   layout para as fotos que já estavam + as novas — as setas ↑/↓ ciclam
+   *   as variações em seguida.
+   * - Designer: cria um quadro livre onde soltou.
+   */
+  function soltarFoto(dados: string, x: number, y: number, alvo: string | null) {
     if (!g || travado) return
-    const f = fotos.find((ft) => ft.id === fotoId)
-    if (alvo) {
+    const ids = [...new Set(dados.split(','))].filter((id) => fotos.some((ft) => ft.id === id))
+    if (ids.length === 0) return
+    if (alvo && ids.length === 1) {
+      const fotoId = ids[0]
+      const origem = lamina.quadros.find((q) => q.fotoId === fotoId && q.id !== alvo)
+      if (origem) {
+        trocarFotos(origem.id, alvo)
+        return
+      }
+      const f = fotos.find((ft) => ft.id === fotoId)
       alterarQuadro(alvo, { fotoId, recorte: recorteInicial(f) }, 'Foto colocada no quadro')
       setSelecionados([{ tipo: 'quadro', id: alvo }])
       return
     }
-    const proporcao = f?.largura && f.altura ? f.largura / f.altura : 1.5
-    const h = g.laminaH * 0.45
-    const w = Math.min(g.paginaW, h * proporcao)
-    const novo = quadroNovo(Math.min(Math.max(x - w / 2, 0), g.laminaW - w), Math.min(Math.max(y - h / 2, 0), g.laminaH - h), w, h, fotoId)
-    novo.recorte = recorteInicial(f)
-    alterarNaLamina((l) => ({ ...l, quadros: [...l.quadros, novo] }), 'Adicionada foto')
-    setSelecionados([{ tipo: 'quadro', id: novo.id }])
+    if (modo === 'montagem') {
+      const todas = [...fotosNaLamina, ...ids.filter((id) => !fotosNaLamina.includes(id))].slice(0, MAX_FOTOS_POR_LAMINA)
+      const escolhidas = todas.map((id) => fotosParaLayout.find((f) => f.id === id)).filter((f): f is FotoEditor => Boolean(f))
+      const [v] = variantesDeLayout(escolhidas, g, 1, estiloDoAlbum)
+      if (v) {
+        alterarNaLamina((l) => ({ ...l, quadros: v.quadros.map((q) => ({ ...q, id: novoId() })) }), todas.length > 1 ? `Layout de ${todas.length} fotos` : 'Adicionada foto')
+        setCiclo({ chave: '', idx: 0 })
+        setSelecionadas([])
+        setSelecionados([])
+        return
+      }
+    }
+    const novos = ids.map((fotoId, i) => {
+      const f = fotos.find((ft) => ft.id === fotoId)
+      const proporcao = f?.largura && f.altura ? f.largura / f.altura : 1.5
+      const h = g.laminaH * 0.45
+      const w = Math.min(g.paginaW, h * proporcao)
+      const desloc = i * 8
+      const novo = quadroNovo(Math.min(Math.max(x - w / 2 + desloc, 0), g.laminaW - w), Math.min(Math.max(y - h / 2 + desloc, 0), g.laminaH - h), w, h, fotoId)
+      novo.recorte = recorteInicial(f)
+      return novo
+    })
+    alterarNaLamina((l) => ({ ...l, quadros: [...l.quadros, ...novos] }), novos.length > 1 ? 'Adicionadas fotos' : 'Adicionada foto')
+    setSelecionados(novos.map((q) => ({ tipo: 'quadro' as const, id: q.id })))
   }
 
   function trocarFotos(a: string, b: string) {
@@ -977,6 +1017,36 @@ export function EditorAlbum({
     )
   }
 
+  // Variações para as fotos que estão na lâmina. Entrada em ordem fixa (por id):
+  // aplicar uma variação mexe na ordem dos quadros, e a lista não pode mudar
+  // no meio do ciclo.
+  const fotosDoCiclo = useMemo(() => [...fotosNaLamina].sort(), [fotosNaLamina])
+  const chaveCiclo = `${lamina.id}:${fotosDoCiclo.join(',')}`
+  const variantesCiclo = useMemo(() => {
+    if (!g || fotosDoCiclo.length === 0 || fotosDoCiclo.length > MAX_FOTOS_POR_LAMINA) return []
+    const escolhidas = fotosDoCiclo.map((id) => fotosParaLayout.find((f) => f.id === id)).filter((f): f is FotoEditor => Boolean(f))
+    return variantesDeLayout(escolhidas, g, 12, estiloDoAlbum)
+  }, [g, fotosDoCiclo, fotosParaLayout, estiloDoAlbum])
+  const [ciclo, setCiclo] = useState<{ chave: string; idx: number }>({ chave: '', idx: 0 })
+  const cicloAtual = ciclo.chave === chaveCiclo ? ciclo.idx : null
+
+  /** Próxima (+1) ou anterior (−1) variação de layout para as mesmas fotos, aplicada na hora. */
+  function ciclarLayout(delta: number) {
+    if (travado || variantesCiclo.length < 2) return
+    const n = variantesCiclo.length
+    const idx = ((cicloAtual ?? 0) + delta + n) % n
+    aplicarDoCiclo(idx)
+  }
+
+  function aplicarDoCiclo(idx: number) {
+    const v = variantesCiclo[idx]
+    if (!v || travado) return
+    // Mesmo grupo: apertar a seta várias vezes vira um passo só no histórico.
+    alterarNaLamina((l) => ({ ...l, quadros: v.quadros.map((q) => ({ ...q, id: novoId() })) }), `Layout ${idx + 1} de ${variantesCiclo.length}`, `ciclo-${lamina.id}`)
+    setCiclo({ chave: chaveCiclo, idx })
+    setSelecionados([])
+  }
+
   function aplicarVariante(v: Variante) {
     alterarNaLamina((l) => ({ ...l, quadros: v.quadros.map((q) => ({ ...q, id: novoId() })) }), 'Aplicado layout')
     setSelecionadas([])
@@ -1048,6 +1118,11 @@ export function EditorAlbum({
   }, [problemas])
 
   /* ------------------------------ teclado ------------------------------ */
+  // Espelho dos atalhos de navegação: o listener lê sempre a versão do último render.
+  const atalhosRef = useRef({ irPara, ciclarLayout })
+  useLayoutEffect(() => {
+    atalhosRef.current = { irPara, ciclarLayout }
+  })
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (modal) return
@@ -1103,6 +1178,18 @@ export function EditorAlbum({
         else setModo('montagem')
         return
       }
+      if (selecionados.length === 0) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          e.preventDefault()
+          atalhosRef.current.irPara(laminaIdx + (e.key === 'ArrowRight' ? 1 : -1))
+          return
+        }
+        if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && modo === 'montagem') {
+          e.preventDefault()
+          atalhosRef.current.ciclarLayout(e.key === 'ArrowDown' ? 1 : -1)
+          return
+        }
+      }
       if (selecionados.length === 0 || travado) return
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault()
@@ -1128,7 +1215,7 @@ export function EditorAlbum({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [modal, desfazer, refazer, selecionados, recortando, escolhendoFoco, travado, excluirSelecionados, alterarNaLamina, copiar, colar, duplicarSelecionados])
+  }, [modal, desfazer, refazer, selecionados, recortando, escolhendoFoco, travado, excluirSelecionados, alterarNaLamina, copiar, colar, duplicarSelecionados, laminaIdx, modo])
 
   /* ------------------------------- ações ------------------------------- */
   async function finalizar() {
@@ -1174,18 +1261,64 @@ export function EditorAlbum({
     )
   }
 
-  const botaoTopo = 'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium hover:bg-white/10'
+  const fotosUsadas = fotos.filter((f) => (usos.get(f.id) ?? 0) > 0).length
+  const motivoTravado = !travado
+    ? null
+    : album.projeto
+      ? 'O projeto já foi aprovado: a diagramação está travada.'
+      : status === 'em_producao'
+        ? 'Álbum em produção — versão final bloqueada.'
+        : status === 'finalizado'
+          ? 'Álbum finalizado. Para mudar algo, crie uma nova versão.'
+          : 'O cliente aprovou o álbum — edição travada.'
+  const tituloPainelDir =
+    painelDir === 'camadas'
+      ? 'Camadas'
+      : painelDir === 'verificacao'
+        ? 'Verificação'
+        : painelDir === 'comentarios'
+          ? 'Comentários'
+          : selecionados.length > 1
+            ? `${selecionados.length} selecionados`
+            : quadroSel
+              ? 'Foto'
+              : textoSel
+                ? 'Texto'
+                : formaSel
+                  ? 'Elemento'
+                  : 'Álbum'
+
+  /** Comentários, verificação e camadas abrem no painel direito (e o mostram se estava recolhido). */
+  function abrirNoPainelDireito(p: PainelDireito) {
+    setPainelDir(p)
+    setPainelDirAberto(true)
+  }
+
+  /**
+   * "Montar automático" da bandeja: linha do tempo do evento (EXIF), lâminas
+   * cortadas nos maiores intervalos entre fotos e favoritas (curadoria por
+   * selfie) com o maior quadro do seu momento. Rascunho: tudo fica editável.
+   */
+  function montarAutomatico(laminas: number, capa: boolean) {
+    if (!g || fotosParaLayout.length === 0) return
+    aplicar(
+      () => preencherAutomaticamente(fotosParaLayout, laminas, g, capa, estiloDoAlbum, { agrupar: 'captura', cronologico: true, reutilizacao: 'media' }),
+      'Montagem automática do álbum (rascunho)',
+    )
+    irPara(0)
+  }
 
   return (
     <div ref={raizRef} className="fixed inset-0 z-50 flex flex-col bg-[#141414] text-white">
-      {/* Barra superior */}
-      <header className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+      {/* Barra superior: voltar · ferramentas · status · ações */}
+      <header className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-white/10 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-1.5">
         <Link href={voltarHref} className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-white/70 hover:bg-white/10" aria-label={album.projeto ? 'Voltar ao projeto' : 'Voltar aos álbuns'}>
           <ArrowLeft className="h-4 w-4" aria-hidden />
           <span className="hidden xl:inline">{album.projeto ? 'Projeto' : 'Álbuns'}</span>
         </Link>
-        <div className="min-w-0 flex-1">
-          {album.projeto ? (
+          <div className="min-w-0 max-w-[16rem]">
+            {album.projeto ? (
             <p className="truncate text-sm font-semibold">
               #{album.projeto.numero} · {album.projeto.nome}
             </p>
@@ -1203,116 +1336,87 @@ export function EditorAlbum({
               className="w-full max-w-sm truncate rounded bg-transparent px-1 text-sm font-semibold outline-none hover:bg-white/5 focus:bg-white/10"
             />
           )}
-          <p className="flex items-center gap-1 truncate text-[11px] text-white/50" role="status">
-            {!online ? (
-              <span className="flex items-center gap-1 text-amber-300">
-                <WifiOff className="h-3 w-3" aria-hidden /> Conexão perdida — suas alterações estão sendo guardadas neste navegador
-              </span>
-            ) : sincronizado ? (
-              <span className="flex items-center gap-1 text-emerald-300">
-                <Wifi className="h-3 w-3" aria-hidden /> Conexão restaurada · projeto sincronizado
-              </span>
-            ) : estado === 'salvo' ? (
-              <>
-                <Check className="h-3 w-3" aria-hidden /> Salvo agora
-              </>
-            ) : estado === 'salvando' ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Salvando…
-              </>
-            ) : estado === 'pendente' ? (
-              <>
-                <Cloud className="h-3 w-3" aria-hidden /> Alterações não salvas
-              </>
-            ) : estado === 'travado' ? (
-              <>
-                <Lock className="h-3 w-3" aria-hidden /> Somente leitura
-              </>
-            ) : (
-              <span className="flex items-center gap-1 text-amber-300">
-                <CloudOff className="h-3 w-3" aria-hidden /> {mensagem ?? 'Erro ao salvar'}
-              </span>
-            )}
-            <span className="ml-2 hidden sm:inline">
-              · {album.clienteNome ? `${album.clienteNome} · ` : ''}
-              {album.formato} · {doc.laminas.length * 2} páginas ·{' '}
-            </span>
-            {!album.projeto ? <span className="hidden rounded-full bg-white/10 px-1.5 sm:inline">{ROTULO_STATUS[status]}</span> : null}
-          </p>
-        </div>
-        <div className="flex items-center gap-0.5">
+          </div>
           {!travado ? (
-            <div className="mr-1 hidden items-center rounded-full bg-white/5 p-0.5 md:flex" role="radiogroup" aria-label="Modo">
+            <div className="ml-1 flex items-center rounded-full bg-white/5 p-0.5" role="radiogroup" aria-label="Ferramenta">
               {(
                 [
-                  ['montagem', 'Montagem', 'Escolher layouts e trocar fotos (quadros fixos)'],
-                  ['designer', 'Designer', 'Editar o layout: mover, redimensionar e criar quadros'],
+                  ['montagem', 'Montar: arrastar fotos e trocar layouts', MousePointer2],
+                  ['designer', 'Editar layout: mover e redimensionar quadros', Move],
                 ] as const
-              ).map(([v, r, d]) => (
+              ).map(([v, d, Icone]) => (
                 <button
                   key={v}
                   type="button"
                   role="radio"
                   aria-checked={modo === v}
+                  aria-label={d}
                   title={d}
                   onClick={() => {
                     setModo(v)
                     if (v === 'montagem') setRecortando(false)
                   }}
-                  className={cn('rounded-full px-2.5 py-1 text-[11px] font-medium', modo === v ? 'bg-white text-[#171717]' : 'text-white/70 hover:text-white')}
+                  className={cn('rounded-full p-1.5', modo === v ? 'bg-white text-[#171717]' : 'text-white/70 hover:text-white')}
                 >
-                  {r}
+                  <Icone className="h-4 w-4" aria-hidden />
                 </button>
               ))}
             </div>
           ) : null}
-          <button type="button" onClick={() => desfazer()} disabled={hist.passado.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Desfazer">
+          <button type="button" onClick={() => desfazer()} disabled={hist.passado.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Desfazer (Ctrl+Z)" title="Desfazer (Ctrl+Z)">
             <Undo2 className="h-4 w-4" />
           </button>
-          <button type="button" onClick={refazer} disabled={hist.futuro.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Refazer">
+          <button type="button" onClick={refazer} disabled={hist.futuro.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Refazer (Ctrl+Shift+Z)" title="Refazer (Ctrl+Shift+Z)">
             <Redo2 className="h-4 w-4" />
           </button>
-          <div className="mx-1 hidden items-center rounded-full bg-white/5 md:flex" role="group" aria-label="Zoom">
-            <button type="button" onClick={() => setZoom((z) => [...ZOOMS].reverse().find((v) => v < z) ?? z)} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Diminuir zoom">
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <span className="min-w-[2.75rem] text-center text-[11px] tabular-nums">{Math.round(zoom * 100)}%</span>
-            <button type="button" onClick={() => setZoom((z) => ZOOMS.find((v) => v > z) ?? z)} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Aumentar zoom">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" onClick={() => setZoom(1)} className="rounded-full px-2 py-1 text-[11px] hover:bg-white/10" aria-label="Ajustar à tela">
-              Ajustar
-            </button>
-          </div>
-          <button type="button" onClick={() => setModal('visualizar')} className={botaoTopo}>
-            <Eye className="h-4 w-4" aria-hidden />
-            <span className="hidden lg:inline">Visualizar</span>
-          </button>
-          <button type="button" onClick={alternarTelaCheia} className={botaoTopo} aria-label={telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}>
-            {telaCheia ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
-          </button>
-          <button type="button" onClick={() => setModal('aprovacao')} className={botaoTopo}>
-            <Share2 className="h-4 w-4" aria-hidden />
-            <span className="hidden lg:inline">Compartilhar</span>
-          </button>
-          <button type="button" onClick={() => setModal('historico')} className={botaoTopo} aria-label="Histórico">
-            <History className="h-4 w-4" aria-hidden />
-            <span className="hidden xl:inline">Histórico</span>
-          </button>
+        </div>
+
+        <PilulaStatus
+          online={online}
+          sincronizado={sincronizado}
+          estado={estado}
+          mensagem={mensagem}
+          laminas={doc.laminas.length}
+          fotosUsadas={fotosUsadas}
+          fotosTotal={fotos.length}
+          comentarios={comentariosAbertos.length}
+          erros={erros}
+          avisos={problemas.filter((p) => p.nivel === 'aviso').length}
+          motivoTravado={motivoTravado}
+          statusAlbum={!album.projeto ? ROTULO_STATUS[status] : null}
+          onComentarios={() => abrirNoPainelDireito('comentarios')}
+          onVerificacao={() => abrirNoPainelDireito('verificacao')}
+          onTravado={!album.projeto ? () => setModal('aprovacao') : undefined}
+        />
+
+        <div className="flex items-center justify-end gap-1">
           <button
             type="button"
-            onClick={() => setPainelDir((p) => (p === 'verificacao' ? 'inspetor' : 'verificacao'))}
-            aria-pressed={painelDir === 'verificacao'}
-            className={cn(botaoTopo, painelDir === 'verificacao' ? 'bg-white text-[#171717] hover:bg-white' : 'bg-white/10')}
+            onClick={() => setPainelDirAberto((v) => !v)}
+            aria-pressed={painelDirAberto}
+            aria-label={painelDirAberto ? 'Recolher o painel lateral' : 'Mostrar o painel lateral'}
+            title={painelDirAberto ? 'Recolher o painel lateral' : 'Mostrar o painel lateral'}
+            className={cn('hidden rounded-full p-2 hover:bg-white/10 lg:block', painelDirAberto ? 'text-white' : 'text-white/60')}
           >
-            {problemas.filter((p) => p.nivel !== 'info').length === 0 ? (
-              <ShieldCheck className="h-4 w-4 text-emerald-400" aria-hidden />
-            ) : (
-              <AlertTriangle className={cn('h-4 w-4', erros > 0 ? 'text-red-400' : 'text-amber-400')} aria-hidden />
-            )}
-            <span className="hidden sm:inline">Verificar</span>
+            {painelDirAberto ? <PanelRightClose className="h-4 w-4" aria-hidden /> : <PanelRightOpen className="h-4 w-4" aria-hidden />}
           </button>
-          <Button size="sm" variant="outline" className="ml-1 border-white/20 bg-transparent text-white hover:bg-white/10" onClick={() => setModal('publicar')} disabled={estado === 'conflito'}>
+          <MenuMais
+            secoes={[
+              FERRAMENTAS.map((f) => ({ rotulo: f.rotulo, icone: f.icone, onClick: () => setPainelEsq(f.chave) })),
+              [
+                { rotulo: 'Camadas', icone: Layers, onClick: () => abrirNoPainelDireito('camadas') },
+                { rotulo: 'Verificar o álbum', icone: ShieldCheck, onClick: () => abrirNoPainelDireito('verificacao') },
+                { rotulo: 'Comentários', icone: MessageSquare, onClick: () => abrirNoPainelDireito('comentarios') },
+              ],
+              [
+                { rotulo: 'Visualizar como livro', icone: Eye, onClick: () => setModal('visualizar') },
+                { rotulo: 'Compartilhar / aprovação', icone: Share2, onClick: () => setModal('aprovacao') },
+                { rotulo: 'Histórico de versões', icone: History, onClick: () => setModal('historico') },
+                { rotulo: telaCheia ? 'Sair da tela cheia' : 'Tela cheia', icone: telaCheia ? Minimize2 : Maximize2, onClick: alternarTelaCheia },
+              ],
+            ]}
+          />
+          <Button size="sm" variant="outline" className="ml-1 border-white/20 bg-transparent text-white hover:bg-white/10" onClick={() => setModal('publicar')} disabled={doc.laminas.length === 0}>
             {album.projeto ? <Send className="h-4 w-4" aria-hidden /> : <Download className="h-4 w-4" aria-hidden />}
             <span className="hidden sm:inline">{album.projeto ? 'Publicar' : 'Exportar'}</span>
           </Button>
@@ -1324,558 +1428,593 @@ export function EditorAlbum({
           ) : null}
         </div>
       </header>
-
-      {estado === 'conflito' ? (
-        <div role="alert" className="flex items-center gap-2 bg-amber-400 px-4 py-2 text-sm text-[#171717]">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          {mensagem}
-          <button type="button" onClick={() => window.location.reload()} className="ml-auto rounded bg-[#171717] px-3 py-1 text-xs font-semibold text-white">
-            Recarregar
-          </button>
-        </div>
-      ) : null}
-      {travado ? (
-        <div className="flex items-center gap-2 bg-emerald-600/90 px-4 py-2 text-sm">
-          <Lock className="h-4 w-4 shrink-0" aria-hidden />
-          {album.projeto
-            ? 'O projeto já foi aprovado: esta diagramação está travada para edição.'
-            : status === 'em_producao'
-              ? 'Álbum em produção — versão final bloqueada.'
-              : status === 'finalizado'
-                ? 'Álbum finalizado — versão final bloqueada. Para mudar algo, crie uma nova versão.'
-                : 'O cliente aprovou o álbum — edição travada.'}
-          {!album.projeto ? (
-            <button type="button" onClick={() => setModal('aprovacao')} className="ml-auto rounded bg-white/20 px-3 py-1 text-xs font-semibold hover:bg-white/30">
-              {status === 'aprovado' ? 'Finalizar ou reabrir' : 'Produção e nova versão'}
-            </button>
-          ) : null}
-        </div>
-      ) : status === 'alteracoes_solicitadas' || status === 'em_revisao' ? (
-        <div className="flex items-center gap-2 bg-amber-500/90 px-4 py-2 text-sm text-[#171717]">
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          {status === 'em_revisao' ? 'Em revisão' : 'O cliente solicitou alterações'} — {comentariosAbertos.length} comentário(s) em aberto.
-          <button type="button" onClick={() => setPainelDir('comentarios')} className="ml-auto rounded bg-[#171717] px-3 py-1 text-xs font-semibold text-white">
-            Ver comentários
-          </button>
-        </div>
-      ) : null}
-      {copiaEncontrada ? (
-        <div role="alert" className="flex flex-wrap items-center gap-2 bg-sky-500 px-4 py-2 text-sm text-[#0A0A0A]">
-          <CloudOff className="h-4 w-4 shrink-0" aria-hidden />
-          Encontramos alterações deste álbum que não chegaram a ser salvas ({new Date(copiaEncontrada.em).toLocaleString('pt-BR')}).
-          <div className="ml-auto flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const c = copiaEncontrada
-                setCopiaEncontrada(null)
-                aplicar(() => normalizarDocumento(c.documento), 'Recuperadas alterações não salvas')
-              }}
-              className="rounded bg-[#0A0A0A] px-3 py-1 text-xs font-semibold text-white"
-            >
-              Recuperar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCopiaEncontrada(null)
-                gravarCopia(album.id, null)
-              }}
-              className="rounded bg-white/50 px-3 py-1 text-xs font-semibold"
-            >
-              Descartar
-            </button>
+      {/* Só o que exige uma decisão vira aviso; o resto vive na pílula de status. */}
+      {estado === 'conflito' || copiaEncontrada ? (
+        <div className="pointer-events-none absolute inset-x-0 top-14 z-40 flex flex-col items-center gap-2 px-4">
+          <div className="pointer-events-auto w-full max-w-2xl space-y-2 [&>div]:rounded-xl [&>div]:shadow-2xl">
+            {estado === 'conflito' ? (
+              <div role="alert" className="flex items-center gap-2 bg-amber-400 px-4 py-2 text-sm text-[#171717]">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+                {mensagem}
+                <button type="button" onClick={() => window.location.reload()} className="ml-auto rounded bg-[#171717] px-3 py-1 text-xs font-semibold text-white">
+                        Recarregar
+                </button>
+              </div>
+            ) : null}
+            {copiaEncontrada ? (
+              <div role="alert" className="flex flex-wrap items-center gap-2 bg-sky-500 px-4 py-2 text-sm text-[#0A0A0A]">
+                <CloudOff className="h-4 w-4 shrink-0" aria-hidden />
+                Encontramos alterações deste álbum que não chegaram a ser salvas ({new Date(copiaEncontrada.em).toLocaleString('pt-BR')}).
+                <div className="ml-auto flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const c = copiaEncontrada
+                            setCopiaEncontrada(null)
+                            aplicar(() => normalizarDocumento(c.documento), 'Recuperadas alterações não salvas')
+                          }}
+                          className="rounded bg-[#0A0A0A] px-3 py-1 text-xs font-semibold text-white"
+                        >
+                          Recuperar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCopiaEncontrada(null)
+                            gravarCopia(album.id, null)
+                          }}
+                          className="rounded bg-white/50 px-3 py-1 text-xs font-semibold"
+                        >
+                          Descartar
+                        </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
-
       <div className="flex min-h-0 flex-1">
-        {/* Barra lateral esquerda: ferramentas + painel */}
-        <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-white/10 bg-[#0A0A0A] py-2" aria-label="Ferramentas">
-          {FERRAMENTAS.map((f) => (
-            <button
-              key={f.chave}
-              type="button"
-              onClick={() => setPainelEsq(f.chave)}
-              aria-pressed={painelEsq === f.chave}
-              className={cn('flex w-14 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[10px]', painelEsq === f.chave ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white')}
-            >
-              <f.icone className="h-5 w-5" aria-hidden />
-              {f.rotulo}
-            </button>
-          ))}
-        </nav>
-        <aside className="hidden w-72 shrink-0 flex-col border-r border-white/10 bg-[#0F0F0F] md:flex">
-          {painelEsq === 'fotos' ? (
-            <PainelFotos
-              key={filtroFotos.chave}
-              albumId={album.id}
-              projetoId={album.projeto?.id ?? null}
-              fotos={fotos}
-              usos={usos}
-              selecionadas={selecionadas}
-              pastas={biblioteca.pastas}
-              meta={metaDe}
-              filtroInicial={filtroFotos.filtro}
-              somenteLeitura={travado}
-              onAlternarSelecao={(id) => setSelecionadas((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= MAX_FOTOS_POR_LAMINA ? s : [...s, id]))}
-              onSelecionarVarias={(ids) => setSelecionadas(ids.slice(0, MAX_FOTOS_POR_LAMINA))}
-              onLimparSelecao={() => setSelecionadas([])}
-              onFotosNovas={(novas, substituir) =>
-                setFotos((lista) => {
-                  if (!substituir) return [...lista, ...novas]
-                  // Projeto: lista recarregada — preserva o que já foi medido/gerado.
-                  const antigas = new Map(lista.map((f) => [f.id, f]))
-                  return novas.map((f) => {
-                    const a = antigas.get(f.id)
-                    return a ? { ...f, ...a, url: f.url } : f
-                  })
-                })
-              }
-              onRemoverFoto={async (id) => {
-                const r = await removerFotoAlbum(album.id, id)
-                if (r.ok) {
-                  setFotos((lista) => lista.filter((f) => f.id !== id))
-                  setSelecionadas((s) => s.filter((x) => x !== id))
-                } else setMensagem(r.erro)
-              }}
-              onVerLayouts={() => setPainelEsq('layouts')}
-              onCriarPagina={criarPaginaComSelecao}
-              onMeta={alterarMeta}
-              onCriarPasta={criarPasta}
-            />
-          ) : painelEsq === 'layouts' ? (
-            <PainelLayouts
-              geometria={g}
-              fotosMapa={fotosMapa}
-              variantes={variantes}
-              origem={origemVariantes}
-              selecionadas={selecionadas.length}
-              totalFotos={fotos.length}
-              sugestaoLaminas={album.projeto?.laminasInclusas ?? Math.max(1, Math.ceil(fotos.length / 4))}
-              estiloInicial={estiloDoAlbum.id}
-              temConteudo={temConteudo}
-              temQuadrosVazios={temQuadrosVazios(doc)}
-              somenteLeitura={travado}
-              fotosSelecionadas={fotosSelecionadasObj}
-              respeitarOrdem={respeitarOrdem}
-              assinatura={assinatura}
-              reorganizacoes={reorganizacoes}
-              templates={templates}
-              podeSalvarTemplate={lamina.quadros.length > 0}
-              onRespeitarOrdem={setRespeitarOrdem}
-              onReordenar={(ordem) => setSelecionadas(ordem)}
-              onAplicar={aplicarVariante}
-              onAplicarTemplate={aplicarTemplateNaLamina}
-              onFavoritarTemplate={favoritar}
-              onExcluirTemplate={excluirTemplatePersonalizado}
-              onSalvarTemplate={salvarComoTemplate}
-              onPreencher={preencher}
-            />
-          ) : painelEsq === 'modelos' ? (
-            <PainelModelos
-              geometria={g}
-              temConteudo={temConteudo}
-              somenteLeitura={travado}
-              onAplicar={(m, n) => {
-                aplicar(() => documentoDoModelo(m, n, g, album.projeto?.nome ?? nome), `Aplicado modelo ${m.nome}`)
-                irPara(0)
-              }}
-              onAplicarNaLamina={aplicarModeloNaLamina}
-            />
-          ) : painelEsq === 'fundos' ? (
-            <PainelFundos
-              lamina={lamina}
-              fotos={fotos}
-              somenteLeitura={travado}
-              onCor={(cor, todas) =>
-                aplicar((d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, fundo: cor })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, fundo: cor }))), 'Alterado o fundo', `fundo-${todas}`)
-              }
-              onImagem={(fundo, todas) =>
-                aplicar(
-                  (d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, fundoImagem: fundo })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, fundoImagem: fundo }))),
-                  'Alterada a foto de fundo',
-                  `fundoimg-${todas}`,
-                )
-              }
-              onGradiente={(gr, todas) =>
-                aplicar(
-                  (d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, fundoGradiente: gr })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, fundoGradiente: gr }))),
-                  'Alterado o degradê',
-                  `grad-${todas}`,
-                )
-              }
-              onTextura={(t, todas) =>
-                aplicar(
-                  (d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, textura: t })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, textura: t }))),
-                  'Alterada a textura',
-                  `textura-${todas}`,
-                )
-              }
-            />
-          ) : painelEsq === 'textos' ? (
-            <PainelTextos somenteLeitura={travado} onAdicionar={adicionarTexto} />
-          ) : painelEsq === 'elementos' ? (
-            <PainelElementos somenteLeitura={travado} onAdicionar={adicionarForma} />
-          ) : painelEsq === 'paginas' ? (
-            <PainelPaginas
-              laminas={doc.laminas}
-              geometria={g}
-              fotos={fotosMapa}
-              ativa={laminaIdx}
-              primeiraEhCapa={doc.primeiraEhCapa}
-              somenteLeitura={travado}
-              onIr={irPara}
-              onDuplicar={duplicarLamina}
-              onLimpar={limparLamina}
-              onExcluir={excluirLamina}
-              onInserir={inserirLamina}
-              onLayoutVazio={layoutVazioNa}
-            />
-          ) : (
-            <PainelConfiguracoes
-              avulso={!album.projeto}
-              nome={nome}
-              clienteNome={album.clienteNome}
-              tipo={album.tipo}
-              formato={album.formato}
-              orientacao={album.orientacao}
-              sangria={album.sangriaMm}
-              margem={album.margemSeguraMm}
-              primeiraEhCapa={doc.primeiraEhCapa}
-              mostrarGuias={mostrarGuias}
-              somenteLeitura={travado}
-              onSalvarDados={async (d) => {
-                const r = await atualizarDadosAlbum(album.id, d)
-                if (!r.ok) return r.erro
-                if (d.nome) setNome(d.nome)
-                router.refresh()
-                return null
-              }}
-              onCapa={(v) => aplicar((d) => ({ ...d, primeiraEhCapa: v }), v ? 'Primeira lâmina virou capa' : 'Primeira lâmina deixou de ser capa')}
-              onGuias={setMostrarGuias}
-            />
-          )}
-        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative flex min-h-0 flex-1 bg-[#1C1C1C]">
+            {painelEsq ? (
+              <aside className="absolute inset-y-0 left-0 z-30 flex w-80 max-w-[85vw] flex-col border-r border-white/10 bg-[#0F0F0F] shadow-2xl">
+                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                  <p className="text-sm font-semibold">{FERRAMENTAS.find((f) => f.chave === painelEsq)?.rotulo}</p>
+                  <button type="button" onClick={() => setPainelEsq(null)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10" aria-label="Fechar painel">
+                    <X className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col">
+                {painelEsq === 'layouts' ? (
+                  <PainelLayouts
+                    geometria={g}
+                    fotosMapa={fotosMapa}
+                    variantes={variantes}
+                    origem={origemVariantes}
+                    selecionadas={selecionadas.length}
+                    totalFotos={fotos.length}
+                    sugestaoLaminas={album.projeto?.laminasInclusas ?? Math.max(1, Math.ceil(fotos.length / 4))}
+                    estiloInicial={estiloDoAlbum.id}
+                    temConteudo={temConteudo}
+                    temQuadrosVazios={temQuadrosVazios(doc)}
+                    somenteLeitura={travado}
+                    fotosSelecionadas={fotosSelecionadasObj}
+                    respeitarOrdem={respeitarOrdem}
+                    assinatura={assinatura}
+                    reorganizacoes={reorganizacoes}
+                    templates={templates}
+                    podeSalvarTemplate={lamina.quadros.length > 0}
+                    onRespeitarOrdem={setRespeitarOrdem}
+                    onReordenar={(ordem) => setSelecionadas(ordem)}
+                    onAplicar={aplicarVariante}
+                    onAplicarTemplate={aplicarTemplateNaLamina}
+                    onFavoritarTemplate={favoritar}
+                    onExcluirTemplate={excluirTemplatePersonalizado}
+                    onSalvarTemplate={salvarComoTemplate}
+                    onPreencher={preencher}
+                  />
+                ) : painelEsq === 'modelos' ? (
+                  <PainelModelos
+                    geometria={g}
+                    temConteudo={temConteudo}
+                    somenteLeitura={travado}
+                    onAplicar={(m, n) => {
+                      aplicar(() => documentoDoModelo(m, n, g, album.projeto?.nome ?? nome), `Aplicado modelo ${m.nome}`)
+                      irPara(0)
+                    }}
+                    onAplicarNaLamina={aplicarModeloNaLamina}
+                  />
+                ) : painelEsq === 'fundos' ? (
+                  <PainelFundos
+                    lamina={lamina}
+                    fotos={fotos}
+                    somenteLeitura={travado}
+                    onCor={(cor, todas) =>
+                      aplicar((d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, fundo: cor })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, fundo: cor }))), 'Alterado o fundo', `fundo-${todas}`)
+                    }
+                    onImagem={(fundo, todas) =>
+                      aplicar(
+                        (d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, fundoImagem: fundo })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, fundoImagem: fundo }))),
+                        'Alterada a foto de fundo',
+                        `fundoimg-${todas}`,
+                      )
+                    }
+                    onGradiente={(gr, todas) =>
+                      aplicar(
+                        (d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, fundoGradiente: gr })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, fundoGradiente: gr }))),
+                        'Alterado o degradê',
+                        `grad-${todas}`,
+                      )
+                    }
+                    onTextura={(t, todas) =>
+                      aplicar(
+                        (d) => (todas ? { ...d, laminas: d.laminas.map((l) => ({ ...l, textura: t })) } : trocarLamina(d, laminaIdx, (l) => ({ ...l, textura: t }))),
+                        'Alterada a textura',
+                        `textura-${todas}`,
+                      )
+                    }
+                  />
+                ) : painelEsq === 'textos' ? (
+                  <PainelTextos somenteLeitura={travado} onAdicionar={adicionarTexto} />
+                ) : painelEsq === 'elementos' ? (
+                  <PainelElementos somenteLeitura={travado} onAdicionar={adicionarForma} />
+                ) : painelEsq === 'paginas' ? (
+                  <PainelPaginas
+                    laminas={doc.laminas}
+                    geometria={g}
+                    fotos={fotosMapa}
+                    ativa={laminaIdx}
+                    primeiraEhCapa={doc.primeiraEhCapa}
+                    somenteLeitura={travado}
+                    onIr={irPara}
+                    onDuplicar={duplicarLamina}
+                    onLimpar={limparLamina}
+                    onExcluir={excluirLamina}
+                    onInserir={inserirLamina}
+                    onLayoutVazio={layoutVazioNa}
+                  />
+                ) : (
+                  <PainelConfiguracoes
+                    avulso={!album.projeto}
+                    nome={nome}
+                    clienteNome={album.clienteNome}
+                    tipo={album.tipo}
+                    formato={album.formato}
+                    orientacao={album.orientacao}
+                    sangria={album.sangriaMm}
+                    margem={album.margemSeguraMm}
+                    primeiraEhCapa={doc.primeiraEhCapa}
+                    mostrarGuias={mostrarGuias}
+                    somenteLeitura={travado}
+                    onSalvarDados={async (d) => {
+                      const r = await atualizarDadosAlbum(album.id, d)
+                      if (!r.ok) return r.erro
+                      if (d.nome) setNome(d.nome)
+                      router.refresh()
+                      return null
+                    }}
+                    onCapa={(v) => aplicar((d) => ({ ...d, primeiraEhCapa: v }), v ? 'Primeira lâmina virou capa' : 'Primeira lâmina deixou de ser capa')}
+                    onGuias={setMostrarGuias}
+                  />
+                )}
+                </div>
+              </aside>
+            ) : null}
+            <LaminaVizinha lamina={doc.laminas[laminaIdx - 1]} geometria={g} fotos={fotosMapa} lado="anterior" onIr={() => irPara(laminaIdx - 1)} />
+            <main className="relative min-w-0 flex-1">
+              <CanvasLamina
+                key={lamina.id}
+                geometria={g}
+                lamina={lamina}
+                fotos={fotosMapa}
+                selecao={selecao}
+                selecionados={selecionados}
+                recortando={recortando}
+                modo={modo}
+                escolhendoFoco={escolhendoFoco}
+                onEntrarDesigner={() => !travado && setModo('designer')}
+                onAjustarFoto={(id) => {
+                  const q = lamina.quadros.find((x) => x.id === id)
+                  setSelecionados([{ tipo: 'quadro', id }])
+                  setPainelDir('inspetor')
+                  if (q?.fotoId) setRecortando(true)
+                  else if (!travado) setModo('designer')
+                }}
+                onEscolherFoco={definirFoco}
+                mostrarGuias={mostrarGuias}
+                zoom={zoom}
+                somenteLeitura={travado}
+                onZoom={setZoom}
+                onSelecionar={selecionar}
+                onAlterarQuadro={(id, patch) => alterarQuadro(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
+                onAlterarTexto={(id, patch) => alterarTexto(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
+                onAlterarForma={(id, patch) => alterarForma(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
+                onMoverVarios={moverVarios}
+                onAjustarQuadros={(patches) => {
+                  const m = new Map(patches.map((p) => [p.id, p.patch]))
+                  alterarNaLamina((l) => ({ ...l, quadros: l.quadros.map((q) => (m.has(q.id) ? { ...q, ...m.get(q.id) } : q)) }), 'Ajustada a divisória entre fotos')
+                }}
+                onTrocarFotos={trocarFotos}
+                onSoltarFoto={soltarFoto}
+                onDimensoes={aoDescobrirDimensoes}
+              />
+              <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-white/40">
+                {rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}
+                {modo === 'montagem' && !travado ? ' · Montagem: arraste foto sobre foto para trocar · duplo clique na página para editar o layout' : ''}
+                {modo === 'designer' && !recortando ? ' · Designer: mova e redimensione os quadros · Esc volta à montagem' : ''}
+                {recortando ? (escolhendoFoco ? ' · clique no ponto principal da foto' : ' · arraste a foto dentro do quadro · Esc conclui') : ''}
+                {zoom > 1 ? ' · arraste o fundo ou role para mover' : ''}
+              </p>
+              {boasVindas ? (
+                <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-xs text-[#171717] shadow-lg">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
+                  Seu projeto foi salvo automaticamente.
+                  <button type="button" onClick={() => setBoasVindas(false)} className="font-semibold underline">
+                    Continuar edição
+                  </button>
+                </div>
+              ) : null}
+            </main>
+            <LaminaVizinha lamina={doc.laminas[laminaIdx + 1]} geometria={g} fotos={fotosMapa} lado="proxima" onIr={() => irPara(laminaIdx + 1)} />
+          </div>
 
-        <main className="relative min-w-0 flex-1 bg-[#1C1C1C]">
-          <CanvasLamina
-            key={lamina.id}
-            geometria={g}
-            lamina={lamina}
-            fotos={fotosMapa}
-            selecao={selecao}
-            selecionados={selecionados}
-            recortando={recortando}
-            modo={modo}
-            escolhendoFoco={escolhendoFoco}
-            onEntrarDesigner={() => !travado && setModo('designer')}
-            onAjustarFoto={(id) => {
-              const q = lamina.quadros.find((x) => x.id === id)
-              setSelecionados([{ tipo: 'quadro', id }])
-              setPainelDir('inspetor')
-              if (q?.fotoId) setRecortando(true)
-              else if (!travado) setModo('designer')
-            }}
-            onEscolherFoco={definirFoco}
-            mostrarGuias={mostrarGuias}
-            zoom={zoom}
-            somenteLeitura={travado}
-            onZoom={setZoom}
-            onSelecionar={selecionar}
-            onAlterarQuadro={(id, patch) => alterarQuadro(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
-            onAlterarTexto={(id, patch) => alterarTexto(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
-            onAlterarForma={(id, patch) => alterarForma(id, patch, rotuloDoMovimento(patch), grupoDoMovimento(patch))}
-            onMoverVarios={moverVarios}
-            onAjustarQuadros={(patches) => {
-              const m = new Map(patches.map((p) => [p.id, p.patch]))
-              alterarNaLamina((l) => ({ ...l, quadros: l.quadros.map((q) => (m.has(q.id) ? { ...q, ...m.get(q.id) } : q)) }), 'Ajustada a divisória entre fotos')
-            }}
-            onTrocarFotos={trocarFotos}
-            onSoltarFoto={soltarFoto}
-            onDimensoes={aoDescobrirDimensoes}
-          />
-          <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-white/40">
-            {rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}
-            {modo === 'montagem' && !travado ? ' · Montagem: arraste foto sobre foto para trocar · duplo clique na página para editar o layout' : ''}
-            {modo === 'designer' && !recortando ? ' · Designer: mova e redimensione os quadros · Esc volta à montagem' : ''}
-            {recortando ? (escolhendoFoco ? ' · clique no ponto principal da foto' : ' · arraste a foto dentro do quadro · Esc conclui') : ''}
-            {zoom > 1 ? ' · arraste o fundo ou role para mover' : ''}
-          </p>
-          {boasVindas ? (
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-xs text-[#171717] shadow-lg">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
-              Seu projeto foi salvo automaticamente.
-              <button type="button" onClick={() => setBoasVindas(false)} className="font-semibold underline">
-                Continuar edição
+          {/* Navegação da lâmina: ◀ · trocar layout · ▶ */}
+          <div className="flex items-center gap-2 border-t border-white/10 bg-[#141414] px-3 py-1.5">
+            <div className="flex flex-1 items-center gap-2 text-[11px] text-white/50">
+              <span className="font-medium text-white/80">{rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}</span>
+              <span className="tabular-nums">
+                {laminaIdx + 1}/{doc.laminas.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => irPara(laminaIdx - 1)} disabled={laminaIdx === 0} className="rounded-full p-1.5 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Lâmina anterior (←)" title="Lâmina anterior (←)">
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+              </button>
+              <SeletorLayout
+                variantes={variantesCiclo}
+                atual={cicloAtual}
+                geometria={g}
+                desabilitado={travado}
+                onAplicar={aplicarDoCiclo}
+                onCiclar={ciclarLayout}
+                onMais={() => setPainelEsq('layouts')}
+              />
+              <button type="button" onClick={() => irPara(laminaIdx + 1)} disabled={laminaIdx >= doc.laminas.length - 1} className="rounded-full p-1.5 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Próxima lâmina (→)" title="Próxima lâmina (→)">
+                <ChevronRight className="h-4 w-4" aria-hidden />
               </button>
             </div>
-          ) : null}
-        </main>
+            <div className="flex flex-1 items-center justify-end">
+              <div className="flex items-center rounded-full bg-white/5" role="group" aria-label="Zoom">
+                <button type="button" onClick={() => setZoom((z) => [...ZOOMS].reverse().find((v) => v < z) ?? z)} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Diminuir zoom (Ctrl −)">
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-1 py-1 text-center text-[11px] tabular-nums hover:bg-white/10" aria-label="Ajustar à tela (Ctrl 0)" title="Ajustar à tela">
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button type="button" onClick={() => setZoom((z) => ZOOMS.find((v) => v > z) ?? z)} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Aumentar zoom (Ctrl +)">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
 
-        <aside className="hidden w-72 shrink-0 flex-col border-l border-white/10 bg-[#0F0F0F] lg:flex">
-          <div className="grid grid-cols-4 border-b border-white/10 text-[10px]" role="tablist" aria-label="Painel direito">
-            {(
-              [
-                ['inspetor', 'Propriedades', SlidersHorizontal],
-                ['camadas', 'Camadas', Layers],
-                ['comentarios', 'Comentários', MessageSquare],
-                ['verificacao', 'Verificar', ShieldCheck],
-              ] as const
-            ).map(([v, r, Icone]) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={painelDir === v}
-                onClick={() => setPainelDir(v)}
-                className={cn('relative flex flex-col items-center gap-0.5 py-2', painelDir === v ? 'border-b-2 border-white text-white' : 'text-white/50 hover:text-white')}
-              >
-                <Icone className="h-4 w-4" aria-hidden />
-                {r}
-                {v === 'comentarios' && comentariosAbertos.length > 0 ? (
-                  <span className="absolute right-2 top-1 rounded-full bg-sky-400 px-1 text-[9px] font-bold text-[#0A0A0A]">{comentariosAbertos.length}</span>
-                ) : null}
-              </button>
-            ))}
+          <div className="border-t border-white/10 bg-[#0F0F0F]">
+          <FitaLaminas
+            laminas={doc.laminas}
+            geometria={g}
+            fotos={fotosMapa}
+            ativa={laminaIdx}
+            primeiraEhCapa={doc.primeiraEhCapa}
+            problemasPorLamina={problemasPorLamina}
+            comentariosPorLamina={comentariosPorLamina}
+            somenteLeitura={travado}
+            onIr={irPara}
+            onAdicionar={() => inserirLamina('vazia')}
+            onDuplicar={duplicarLamina}
+            onLimpar={limparLamina}
+            onExcluir={excluirLamina}
+            onMover={(de, para) => {
+              if (para < 0 || para >= doc.laminas.length || de === para) return
+              aplicar((d) => {
+                const lista = [...d.laminas]
+                const [item] = lista.splice(de, 1)
+                lista.splice(para, 0, item)
+                return { ...d, laminas: lista }
+              }, 'Reordenadas as páginas')
+              setAtiva(para)
+            }}
+          />
           </div>
-          {painelDir === 'inspetor' && selecionados.length > 0 && !travado ? <BarraAlinhamento quantos={selecionados.length} onAlinhar={alinhar} /> : null}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {painelDir === 'verificacao' ? (
-              <div className="space-y-3 p-4">
-                {problemas.length === 0 ? (
-                  <p className="flex items-start gap-2 text-sm text-emerald-300">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                    <span>
-                      <strong className="block">Álbum pronto</strong>
-                      Nenhum problema encontrado.
-                    </span>
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-sm text-white/80">
-                      {problemas.length} ponto(s) encontrado(s)
-                      {erros > 0 ? <span className="block text-xs text-red-300">Erros impedem a finalização.</span> : null}
-                    </p>
-                    <ul className="space-y-2">
-                      {problemas.map((p, i) => {
-                        const n = NIVEL[p.nivel]
-                        return (
-                          <li key={i}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (p.acao === 'fotos-nao-usadas') {
-                                  setPainelEsq('fotos')
-                                  setFiltroFotos((f) => ({ chave: f.chave + 1, filtro: 'nao-usadas' }))
-                                  return
-                                }
-                                setAtiva(p.laminaIndice)
-                                setRecortando(false)
-                                if (p.elementoId) {
-                                  const l = doc.laminas[p.laminaIndice]
-                                  const tipo = l?.quadros.some((q) => q.id === p.elementoId) ? 'quadro' : l?.textos.some((t) => t.id === p.elementoId) ? 'texto' : 'forma'
-                                  setSelecionados([{ tipo, id: p.elementoId }])
-                                } else setSelecionados([])
-                              }}
-                              className="flex w-full items-start gap-2 rounded-lg bg-white/5 p-2.5 text-left text-xs hover:bg-white/10"
-                            >
-                              <n.icone className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', n.cor)} aria-hidden />
-                              <span>
-                                <span className="font-semibold text-white/80">
-                                  {n.rotulo} · {p.laminaIndice >= 0 ? rotuloDaLamina(p.laminaIndice, doc.primeiraEhCapa, false) : 'Álbum'}
-                                </span>
-                                <span className="block text-white/70">{p.mensagem}</span>
-                              </span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </>
-                )}
-              </div>
-            ) : painelDir === 'comentarios' ? (
-              <div className="space-y-3 p-4 text-sm">
-                {album.projeto ? (
-                  <p className="text-white/60">
-                    Os comentários do cliente deste projeto ficam na{' '}
-                    <Link href={`/admin/projetos/${album.projeto.id}/prova`} className="underline">
-                      prova
-                    </Link>
-                    .
-                  </p>
-                ) : !aprovacaoAtual ? (
-                  <p className="text-white/60">Ainda não houve envio para o cliente. Use Compartilhar → Enviar para aprovação.</p>
-                ) : aprovacaoAtual.comentarios.length === 0 ? (
-                  <p className="text-white/60">Sem comentários no envio {aprovacaoAtual.numero}.</p>
-                ) : (
-                  [...new Set(aprovacaoAtual.comentarios.map((c) => c.laminaIndice))]
-                    .sort((a, b) => a - b)
-                    .map((li) => {
-                      const cs = aprovacaoAtual.comentarios.filter((c) => c.laminaIndice === li)
-                      return (
-                        <div key={li} className="rounded-lg bg-white/5 p-2">
-                          <button type="button" onClick={() => irPara(li)} className="text-xs font-semibold underline">
-                            {aprovacaoAtual.laminas[li]?.rotulo ?? `Lâmina ${li + 1}`} · {cs.length} comentário(s)
-                          </button>
-                          <ul className="mt-1 space-y-1">
-                            {cs.map((c) => (
-                              <li key={c.id} className="flex items-start gap-2 text-xs">
-                                {c.origem === 'cliente' ? (
-                                  <input
-                                    type="checkbox"
-                                    checked={c.resolvido}
-                                    aria-label="Resolvido"
-                                    onChange={async (e) => {
-                                      const r = await resolverComentarioAlbum(c.id, e.target.checked)
-                                      if (r.ok) void carregarComentarios()
-                                    }}
-                                    className="mt-0.5 accent-white"
-                                  />
-                                ) : (
-                                  <span className="w-3.5" />
-                                )}
-                                <span className={cn(c.resolvido && 'text-white/40 line-through')}>
-                                  <strong>{c.origem === 'equipe' ? `${c.autor} (equipe)` : c.autor}:</strong> {c.texto}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )
+
+          {/* Bandeja de fotos: a biblioteca inteira, embaixo, como no SmartAlbums. */}
+          <div className="h-56 shrink-0 border-t border-white/10 bg-[#0F0F0F] xl:h-64">
+              <PainelFotos
+                key={filtroFotos.chave}
+                albumId={album.id}
+                projetoId={album.projeto?.id ?? null}
+                fotos={fotos}
+                usos={usos}
+                selecionadas={selecionadas}
+                pastas={biblioteca.pastas}
+                meta={metaDe}
+                filtroInicial={filtroFotos.filtro}
+                somenteLeitura={travado}
+                onAlternarSelecao={(id) => setSelecionadas((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= MAX_FOTOS_POR_LAMINA ? s : [...s, id]))}
+                onSelecionarVarias={(ids) => setSelecionadas(ids.slice(0, MAX_FOTOS_POR_LAMINA))}
+                onLimparSelecao={() => setSelecionadas([])}
+                onFotosNovas={(novas, substituir) =>
+                  setFotos((lista) => {
+                    if (!substituir) return [...lista, ...novas]
+                    // Projeto: lista recarregada — preserva o que já foi medido/gerado.
+                    const antigas = new Map(lista.map((f) => [f.id, f]))
+                    return novas.map((f) => {
+                      const a = antigas.get(f.id)
+                      return a ? { ...f, ...a, url: f.url } : f
                     })
-                )}
-              </div>
-            ) : painelDir === 'camadas' ? (
-              <PainelCamadas
-                lamina={lamina}
-                selecionados={selecionados}
-                nomeDaFoto={nomeDaFoto}
-                somenteLeitura={travado}
-                onSelecionar={(s, aditivo) => selecionar(s, aditivo)}
-                onAlternar={alternarCamada}
-                onMover={(s, d) => mudarOrdem(d, s)}
-              />
-            ) : selecionados.length > 1 && !travado ? (
-              <InspetorMultiplo
-                itens={selecionados
-                  .map((s): CaixaSelecionada | null => {
-                    const c = caixaDe(s)
-                    return c ? { id: s.id, tipo: s.tipo, x: c.x, y: c.y, w: c.w, h: c.h } : null
                   })
-                  .filter((x): x is CaixaSelecionada => Boolean(x))}
-                onAlterarVarios={(patches, rotulo) => {
-                  const m = new Map(patches.map((p) => [p.id, p.patch]))
-                  alterarNaLamina(
-                    (l) => ({
-                      ...l,
-                      quadros: l.quadros.map((q) => (m.has(q.id) ? { ...q, ...m.get(q.id) } : q)),
-                      textos: l.textos.map((t) => {
-                        const p = m.get(t.id)
-                        return p ? { ...t, x: p.x ?? t.x, y: p.y ?? t.y, w: p.w ?? t.w } : t
-                      }),
-                      formas: l.formas.map((f) => (m.has(f.id) ? { ...f, ...m.get(f.id) } : f)),
-                    }),
-                    rotulo,
-                  )
-                }}
-                onLote={selecionados.some((x) => x.tipo === 'quadro') ? aplicarLote : undefined}
-                onExcluir={excluirSelecionados}
-                onDuplicar={duplicarSelecionados}
-              />
-            ) : quadroSel ? (
-              <InspetorQuadro
-                geometria={g}
-                quadro={quadroSel}
-                foto={
-                  fotoSel
-                    ? {
-                        nome: fotoSel.nome,
-                        largura: fotoSel.largura,
-                        altura: fotoSel.altura,
-                        estouro: fotoSel.estouro,
-                        fx: metaDe(fotoSel.id).foco?.fx ?? fotoSel.fx,
-                        fy: metaDe(fotoSel.id).foco?.fy ?? fotoSel.fy,
-                        focoManual: Boolean(metaDe(fotoSel.id).foco) || fotoSel.focoManual,
-                      }
-                    : null
                 }
-                recortando={recortando}
-                escolhendoFoco={escolhendoFoco}
-                onRecortar={(v) => {
-                  setRecortando(v)
-                  if (!v) setEscolhendoFoco(false)
+                onRemoverFoto={async (id) => {
+                  const r = await removerFotoAlbum(album.id, id)
+                  if (r.ok) {
+                    setFotos((lista) => lista.filter((f) => f.id !== id))
+                    setSelecionadas((s) => s.filter((x) => x !== id))
+                  } else setMensagem(r.erro)
                 }}
-                onEscolherFoco={setEscolhendoFoco}
-                onAlterar={(patch) => !travado && alterarQuadro(quadroSel.id, patch, 'Ajustada a foto', `inspetor-${quadroSel.id}-${Object.keys(patch).join()}`)}
-                onOrdem={(d) => mudarOrdem(d)}
-                onExcluir={excluirSelecionados}
-                onDuplicar={duplicarSelecionados}
+                onVerLayouts={() => setPainelEsq('layouts')}
+                onMontarAutomatico={() => setMontagemAberta(true)}
+                onCriarPagina={criarPaginaComSelecao}
+                onMeta={alterarMeta}
+                onCriarPasta={criarPasta}
               />
-            ) : textoSel ? (
-              <InspetorTexto
-                texto={textoSel}
-                onAlterar={(patch) => !travado && alterarTexto(textoSel.id, patch, 'Alterado o texto', `inspetor-${textoSel.id}-${Object.keys(patch).join()}`)}
-                onOrdem={(d) => mudarOrdem(d)}
-                onExcluir={excluirSelecionados}
-                onDuplicar={duplicarSelecionados}
-              />
-            ) : formaSel ? (
-              <InspetorForma
-                forma={formaSel}
-                onAlterar={(patch) => !travado && alterarForma(formaSel.id, patch, 'Alterado o elemento', `inspetor-${formaSel.id}-${Object.keys(patch).join()}`)}
-                onOrdem={(d) => mudarOrdem(d)}
-                onExcluir={excluirSelecionados}
-                onDuplicar={duplicarSelecionados}
-              />
-            ) : (
-              <InspetorLamina
-                lamina={lamina}
-                indice={laminaIdx}
-                primeiraEhCapa={doc.primeiraEhCapa}
-                comentarios={comentariosPorLamina.get(laminaIdx) ?? 0}
-                somenteLeitura={travado}
-                onFundo={(cor) => aplicar((d) => trocarLamina(d, laminaIdx, (l) => ({ ...l, fundo: cor })), 'Alterado o fundo', `fundo-${laminaIdx}`)}
-                onIrFundos={() => setPainelEsq('fundos')}
-                onAdicionarTexto={() => adicionarTexto({ texto: 'Seu texto aqui' })}
-                onLayoutVazio={(n) => layoutVazioNa(laminaIdx, n)}
-                vao={vao}
-                onVao={mudarEspacamento}
-                onSalvarTemplate={salvarComoTemplate}
-              />
-            )}
           </div>
-        </aside>
+        </div>
+
+        {painelDirAberto ? (
+          <aside className="hidden w-72 shrink-0 flex-col border-l border-white/10 bg-[#0F0F0F] lg:flex">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/60">{tituloPainelDir}</p>
+              {painelDir !== 'inspetor' ? (
+                <button type="button" onClick={() => setPainelDir('inspetor')} className="text-[11px] text-white/60 underline-offset-2 hover:text-white hover:underline">
+                  Voltar
+                </button>
+              ) : null}
+            </div>
+            {painelDir === 'inspetor' && selecionados.length > 1 && modo === 'designer' && !travado ? <BarraAlinhamento quantos={selecionados.length} onAlinhar={alinhar} /> : null}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {painelDir === 'verificacao' ? (
+                <div className="space-y-3 p-4">
+                  {problemas.length === 0 ? (
+                    <p className="flex items-start gap-2 text-sm text-emerald-300">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      <span>
+                        <strong className="block">Álbum pronto</strong>
+                        Nenhum problema encontrado.
+                      </span>
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-white/80">
+                        {problemas.length} ponto(s) encontrado(s)
+                        {erros > 0 ? <span className="block text-xs text-red-300">Erros impedem a finalização.</span> : null}
+                      </p>
+                      <ul className="space-y-2">
+                        {problemas.map((p, i) => {
+                          const n = NIVEL[p.nivel]
+                          return (
+                            <li key={i}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (p.acao === 'fotos-nao-usadas') {
+                                    setFiltroFotos((f) => ({ chave: f.chave + 1, filtro: 'nao-usadas' }))
+                                    return
+                                  }
+                                  setAtiva(p.laminaIndice)
+                                  setRecortando(false)
+                                  if (p.elementoId) {
+                                    const l = doc.laminas[p.laminaIndice]
+                                    const tipo = l?.quadros.some((q) => q.id === p.elementoId) ? 'quadro' : l?.textos.some((t) => t.id === p.elementoId) ? 'texto' : 'forma'
+                                    setSelecionados([{ tipo, id: p.elementoId }])
+                                  } else setSelecionados([])
+                                }}
+                                className="flex w-full items-start gap-2 rounded-lg bg-white/5 p-2.5 text-left text-xs hover:bg-white/10"
+                              >
+                                <n.icone className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', n.cor)} aria-hidden />
+                                <span>
+                                  <span className="font-semibold text-white/80">
+                                    {n.rotulo} · {p.laminaIndice >= 0 ? rotuloDaLamina(p.laminaIndice, doc.primeiraEhCapa, false) : 'Álbum'}
+                                  </span>
+                                  <span className="block text-white/70">{p.mensagem}</span>
+                                </span>
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              ) : painelDir === 'comentarios' ? (
+                <div className="space-y-3 p-4 text-sm">
+                  {album.projeto ? (
+                    <p className="text-white/60">
+                      Os comentários do cliente deste projeto ficam na{' '}
+                      <Link href={`/admin/projetos/${album.projeto.id}/prova`} className="underline">
+                        prova
+                      </Link>
+                      .
+                    </p>
+                  ) : !aprovacaoAtual ? (
+                    <p className="text-white/60">Ainda não houve envio para o cliente. Use Compartilhar → Enviar para aprovação.</p>
+                  ) : aprovacaoAtual.comentarios.length === 0 ? (
+                    <p className="text-white/60">Sem comentários no envio {aprovacaoAtual.numero}.</p>
+                  ) : (
+                    [...new Set(aprovacaoAtual.comentarios.map((c) => c.laminaIndice))]
+                      .sort((a, b) => a - b)
+                      .map((li) => {
+                        const cs = aprovacaoAtual.comentarios.filter((c) => c.laminaIndice === li)
+                        return (
+                          <div key={li} className="rounded-lg bg-white/5 p-2">
+                            <button type="button" onClick={() => irPara(li)} className="text-xs font-semibold underline">
+                              {aprovacaoAtual.laminas[li]?.rotulo ?? `Lâmina ${li + 1}`} · {cs.length} comentário(s)
+                            </button>
+                            <ul className="mt-1 space-y-1">
+                              {cs.map((c) => (
+                                <li key={c.id} className="flex items-start gap-2 text-xs">
+                                  {c.origem === 'cliente' ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={c.resolvido}
+                                      aria-label="Resolvido"
+                                      onChange={async (e) => {
+                                        const r = await resolverComentarioAlbum(c.id, e.target.checked)
+                                        if (r.ok) void carregarComentarios()
+                                      }}
+                                      className="mt-0.5 accent-white"
+                                    />
+                                  ) : (
+                                    <span className="w-3.5" />
+                                  )}
+                                  <span className={cn(c.resolvido && 'text-white/40 line-through')}>
+                                    <strong>{c.origem === 'equipe' ? `${c.autor} (equipe)` : c.autor}:</strong> {c.texto}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )
+                      })
+                  )}
+                </div>
+              ) : painelDir === 'camadas' ? (
+                <PainelCamadas
+                  lamina={lamina}
+                  selecionados={selecionados}
+                  nomeDaFoto={nomeDaFoto}
+                  somenteLeitura={travado}
+                  onSelecionar={(s, aditivo) => selecionar(s, aditivo)}
+                  onAlternar={alternarCamada}
+                  onMover={(s, d) => mudarOrdem(d, s)}
+                />
+              ) : selecionados.length > 1 && !travado ? (
+                <InspetorMultiplo
+                  itens={selecionados
+                    .map((s): CaixaSelecionada | null => {
+                      const c = caixaDe(s)
+                      return c ? { id: s.id, tipo: s.tipo, x: c.x, y: c.y, w: c.w, h: c.h } : null
+                    })
+                    .filter((x): x is CaixaSelecionada => Boolean(x))}
+                  onAlterarVarios={(patches, rotulo) => {
+                    const m = new Map(patches.map((p) => [p.id, p.patch]))
+                    alterarNaLamina(
+                      (l) => ({
+                        ...l,
+                        quadros: l.quadros.map((q) => (m.has(q.id) ? { ...q, ...m.get(q.id) } : q)),
+                        textos: l.textos.map((t) => {
+                          const p = m.get(t.id)
+                          return p ? { ...t, x: p.x ?? t.x, y: p.y ?? t.y, w: p.w ?? t.w } : t
+                        }),
+                        formas: l.formas.map((f) => (m.has(f.id) ? { ...f, ...m.get(f.id) } : f)),
+                      }),
+                      rotulo,
+                    )
+                  }}
+                  onLote={selecionados.some((x) => x.tipo === 'quadro') ? aplicarLote : undefined}
+                  onExcluir={excluirSelecionados}
+                  onDuplicar={duplicarSelecionados}
+                />
+              ) : quadroSel ? (
+                <InspetorQuadro
+                  geometria={g}
+                  quadro={quadroSel}
+                  foto={
+                    fotoSel
+                      ? {
+                          nome: fotoSel.nome,
+                          largura: fotoSel.largura,
+                          altura: fotoSel.altura,
+                          estouro: fotoSel.estouro,
+                          fx: metaDe(fotoSel.id).foco?.fx ?? fotoSel.fx,
+                          fy: metaDe(fotoSel.id).foco?.fy ?? fotoSel.fy,
+                          focoManual: Boolean(metaDe(fotoSel.id).foco) || fotoSel.focoManual,
+                        }
+                      : null
+                  }
+                  recortando={recortando}
+                  escolhendoFoco={escolhendoFoco}
+                  onRecortar={(v) => {
+                    setRecortando(v)
+                    if (!v) setEscolhendoFoco(false)
+                  }}
+                  onEscolherFoco={setEscolhendoFoco}
+                  onAlterar={(patch) => !travado && alterarQuadro(quadroSel.id, patch, 'Ajustada a foto', `inspetor-${quadroSel.id}-${Object.keys(patch).join()}`)}
+                  onOrdem={(d) => mudarOrdem(d)}
+                  onExcluir={excluirSelecionados}
+                  onDuplicar={duplicarSelecionados}
+                />
+              ) : textoSel ? (
+                <InspetorTexto
+                  texto={textoSel}
+                  onAlterar={(patch) => !travado && alterarTexto(textoSel.id, patch, 'Alterado o texto', `inspetor-${textoSel.id}-${Object.keys(patch).join()}`)}
+                  onOrdem={(d) => mudarOrdem(d)}
+                  onExcluir={excluirSelecionados}
+                  onDuplicar={duplicarSelecionados}
+                />
+              ) : formaSel ? (
+                <InspetorForma
+                  forma={formaSel}
+                  onAlterar={(patch) => !travado && alterarForma(formaSel.id, patch, 'Alterado o elemento', `inspetor-${formaSel.id}-${Object.keys(patch).join()}`)}
+                  onOrdem={(d) => mudarOrdem(d)}
+                  onExcluir={excluirSelecionados}
+                  onDuplicar={duplicarSelecionados}
+                />
+              ) : (
+                <>
+                  <InfoAlbum
+                    formato={album.formato}
+                    orientacao={album.orientacao}
+                    sangria={album.sangriaMm}
+                    margem={album.margemSeguraMm}
+                    laminas={doc.laminas.length}
+                    capa={doc.primeiraEhCapa}
+                    fotosUsadas={fotosUsadas}
+                    fotosTotal={fotos.length}
+                  />
+                  <InspetorLamina
+                  lamina={lamina}
+                  indice={laminaIdx}
+                  primeiraEhCapa={doc.primeiraEhCapa}
+                  comentarios={comentariosPorLamina.get(laminaIdx) ?? 0}
+                  somenteLeitura={travado}
+                  onFundo={(cor) => aplicar((d) => trocarLamina(d, laminaIdx, (l) => ({ ...l, fundo: cor })), 'Alterado o fundo', `fundo-${laminaIdx}`)}
+                  onIrFundos={() => setPainelEsq('fundos')}
+                  onAdicionarTexto={() => adicionarTexto({ texto: 'Seu texto aqui' })}
+                  onLayoutVazio={(n) => layoutVazioNa(laminaIdx, n)}
+                  vao={vao}
+                  onVao={mudarEspacamento}
+                  onSalvarTemplate={salvarComoTemplate}
+                />
+                </>
+              )}
+            </div>
+          </aside>
+        ) : null}
       </div>
 
-      <footer className="border-t border-white/10 bg-[#0F0F0F]">
-        <FitaLaminas
-          laminas={doc.laminas}
-          geometria={g}
-          fotos={fotosMapa}
-          ativa={laminaIdx}
-          primeiraEhCapa={doc.primeiraEhCapa}
-          problemasPorLamina={problemasPorLamina}
-          comentariosPorLamina={comentariosPorLamina}
-          somenteLeitura={travado}
-          onIr={irPara}
-          onAdicionar={() => inserirLamina('vazia')}
-          onDuplicar={duplicarLamina}
-          onLimpar={limparLamina}
-          onExcluir={excluirLamina}
-          onMover={(de, para) => {
-            if (para < 0 || para >= doc.laminas.length || de === para) return
-            aplicar((d) => {
-              const lista = [...d.laminas]
-              const [item] = lista.splice(de, 1)
-              lista.splice(para, 0, item)
-              return { ...d, laminas: lista }
-            }, 'Reordenadas as páginas')
-            setAtiva(para)
+      {montagemAberta ? (
+        <DialogoMontagem
+          sugestaoLaminas={album.projeto?.laminasInclusas ?? Math.max(1, Math.ceil(fotos.length / 4))}
+          totalFotos={fotos.length}
+          favoritas={fotosParaLayout.filter((f) => f.favorita).length}
+          capa={doc.primeiraEhCapa}
+          temConteudo={temConteudo}
+          onCancelar={() => setMontagemAberta(false)}
+          onMontar={(laminas, capa) => {
+            setMontagemAberta(false)
+            montarAutomatico(laminas, capa)
           }}
         />
-      </footer>
+      ) : null}
 
       <Publicar
         aberto={modal === 'publicar'}

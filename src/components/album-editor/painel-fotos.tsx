@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { Check, FolderPlus, LayoutGrid, Plus, Search, Star, Trash2, UploadCloud } from 'lucide-react'
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Ellipsis, ImagePlus, ListChecks, Plus, Search, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { MIME_FOTO, urlParaMiniatura } from '@/components/album-editor/tipos'
 import { listarFotosDoEditor, registrarFotosAlbum } from '@/lib/actions/album-editor'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
@@ -23,6 +23,7 @@ type Orientacao = 'todas' | 'horizontal' | 'vertical' | 'quadrada' | 'panoramica
 type Ordem = 'nome' | 'captura' | 'orientacao' | 'envio'
 
 const ROTULO_PRIORIDADE: Record<Prioridade, string> = { principal: 'Principal', secundaria: 'Secundária', complementar: 'Complementar' }
+const ROTULO_FILTRO: Record<Filtro, string> = { todas: 'Todas', 'nao-usadas': 'Não usadas', usadas: 'Usadas', favoritas: 'Favoritas' }
 
 function orientacaoDe(f: FotoDoEditor): Exclude<Orientacao, 'todas'> | null {
   if (!f.largura || !f.altura) return null
@@ -34,6 +35,47 @@ function orientacaoDe(f: FotoDoEditor): Exclude<Orientacao, 'todas'> | null {
 }
 
 const NOME_ORIENTACAO: Record<Exclude<Orientacao, 'todas'>, string> = { horizontal: 'Horizontal', vertical: 'Vertical', quadrada: 'Quadrada', panoramica: 'Panorâmica' }
+
+/* Tamanho das miniaturas da bandeja: lembrado no navegador (localStorage pode
+ * falhar em aba anônima/bloqueado — aí vale só a memória desta aba). */
+const TAMANHO_MIN = 72
+const TAMANHO_MAX = 200
+const TAMANHO_PADRAO = 112
+const CHAVE_TAMANHO = 'seualbum:editor:tamanho-miniatura'
+let tamanhoEmMemoria: number | null = null
+const ouvintesTamanho = new Set<() => void>()
+
+function limitarTamanho(v: number) {
+  return Math.min(TAMANHO_MAX, Math.max(TAMANHO_MIN, Math.round(v)))
+}
+
+function lerTamanho(): number {
+  if (tamanhoEmMemoria !== null) return tamanhoEmMemoria
+  try {
+    const salvo = Number(window.localStorage.getItem(CHAVE_TAMANHO))
+    if (Number.isFinite(salvo) && salvo > 0) return limitarTamanho(salvo)
+  } catch {
+    // Sem acesso ao localStorage: usa o padrão.
+  }
+  return TAMANHO_PADRAO
+}
+
+function gravarTamanho(v: number) {
+  tamanhoEmMemoria = limitarTamanho(v)
+  try {
+    window.localStorage.setItem(CHAVE_TAMANHO, String(tamanhoEmMemoria))
+  } catch {
+    // Fica só na memória desta aba.
+  }
+  ouvintesTamanho.forEach((o) => o())
+}
+
+function assinarTamanho(ouvinte: () => void) {
+  ouvintesTamanho.add(ouvinte)
+  return () => {
+    ouvintesTamanho.delete(ouvinte)
+  }
+}
 
 /** Pastas e arquivos soltos de um "arrastar e soltar" (inclui pastas inteiras). */
 async function arquivosDoArrasto(dt: DataTransfer): Promise<File[]> {
@@ -59,11 +101,20 @@ async function arquivosDoArrasto(dt: DataTransfer): Promise<File[]> {
   return saida
 }
 
+function pedirNovaPasta(onCriarPasta: (nome: string) => string | null): string | null {
+  const nome = window.prompt('Nome da pasta')
+  return nome ? onCriarPasta(nome) : null
+}
+
+const CLASSE_SELECT = 'h-7 rounded-md border border-white/20 bg-[#1c1c1c] px-1.5 text-[11px] text-white'
+const CLASSE_BOTAO = 'flex h-7 items-center gap-1 rounded-md px-2 text-[11px] disabled:opacity-50'
+
 /**
- * Biblioteca de fotos do editor. Envio (botão, arquivos ou pastas inteiras
- * arrastadas) roda em segundo plano, 3 por vez, sem travar a edição, e já
- * gera as versões leves. Organização: pastas, favoritas e prioridade
- * (principal / secundária / complementar — o Smart Layout dá mais destaque).
+ * Biblioteca de fotos do editor, em forma de bandeja larga embaixo da lâmina
+ * (a altura vem do pai). Envio (botão, arquivos ou pastas inteiras arrastadas)
+ * roda em segundo plano, 3 por vez, sem travar a edição, e já gera as versões
+ * leves. Organização: pastas, favoritas e prioridade (principal / secundária /
+ * complementar — o Smart Layout dá mais destaque).
  */
 export function PainelFotos({
   albumId,
@@ -80,8 +131,8 @@ export function PainelFotos({
   onLimparSelecao,
   onFotosNovas,
   onRemoverFoto,
-  onVerLayouts,
   onCriarPagina,
+  onMontarAutomatico,
   onMeta,
   onCriarPasta,
 }: {
@@ -100,8 +151,11 @@ export function PainelFotos({
   /** Avulso: as fotos novas; projeto: a lista inteira recarregada. */
   onFotosNovas: (fotos: FotoDoEditor[], substituir: boolean) => void
   onRemoverFoto: (id: string) => void
-  onVerLayouts: () => void
+  /** Sem uso na bandeja; mantido para o pai continuar compilando. */
+  onVerLayouts?: () => void
   onCriarPagina: () => void
+  /** Monta o álbum com as fotos (só aparece se informado). */
+  onMontarAutomatico?: () => void
   onMeta: (ids: string[], patch: MetaFoto) => void
   onCriarPasta: (nome: string) => string | null
 }) {
@@ -109,10 +163,14 @@ export function PainelFotos({
   const [orientacao, setOrientacao] = useState<Orientacao>('todas')
   const [pasta, setPasta] = useState<string>('')
   const [busca, setBusca] = useState('')
+  const [buscaAberta, setBuscaAberta] = useState(false)
   const [ordem, setOrdem] = useState<Ordem>('envio')
   const [progresso, setProgresso] = useState<{ feitas: number; total: number } | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [arrastandoArquivo, setArrastandoArquivo] = useState(false)
+  // Menu "⋯" de uma foto: posição fixa na tela (a bandeja rola e cortaria um menu absoluto).
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number; paraCima: boolean } | null>(null)
+  const tamanho = useSyncExternalStore(assinarTamanho, lerTamanho, () => TAMANHO_PADRAO)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const contagem = useMemo(
@@ -237,11 +295,12 @@ export function PainelFotos({
   }
 
   const pct = progresso ? Math.round((progresso.feitas / progresso.total) * 100) : 0
-  const selecaoMeta = selecionadas.length > 0 ? selecionadas : []
+  const fotoDoMenu = menu ? fotos.find((f) => f.id === menu.id) : undefined
+  const metaDoMenu = fotoDoMenu ? meta(fotoDoMenu.id) : null
 
   return (
     <div
-      className={cn('flex h-full min-h-0 flex-col', arrastandoArquivo && 'bg-sky-500/10')}
+      className={cn('relative flex h-full min-h-0 flex-col', arrastandoArquivo && 'bg-sky-500/10')}
       onDragOver={(e) => {
         if (somenteLeitura || !e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
@@ -257,58 +316,8 @@ export function PainelFotos({
         void enviar(await arquivosDoArrasto(e.dataTransfer))
       }}
     >
-      <div className="space-y-2 border-b border-white/10 p-3">
-        <div className="grid grid-cols-4 gap-1 text-[10px]" role="radiogroup" aria-label="Filtrar fotos">
-          {(
-            [
-              ['todas', 'Todas'],
-              ['usadas', 'Usadas'],
-              ['nao-usadas', 'Não usadas'],
-              ['favoritas', 'Favoritas'],
-            ] as const
-          ).map(([v, r]) => (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={filtro === v}
-              onClick={() => setFiltro(v)}
-              className={cn('rounded-md px-1 py-1 leading-tight', filtro === v ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/80 hover:bg-white/20')}
-            >
-              {r}
-              <span className="block tabular-nums opacity-70">{contagem[v]}</span>
-            </button>
-          ))}
-        </div>
-        <label className="relative block">
-          <span className="sr-only">Pesquisar fotos</span>
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" aria-hidden />
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar arquivo" className="w-full rounded-md border border-white/20 bg-white/5 py-1.5 pl-7 pr-2 text-xs text-white" />
-        </label>
-        <div className="grid grid-cols-3 gap-1">
-          <select value={orientacao} onChange={(e) => setOrientacao(e.target.value as Orientacao)} className="rounded-md border border-white/20 bg-[#1c1c1c] px-1 py-1 text-[11px] text-white" aria-label="Orientação">
-            <option value="todas">Orientação</option>
-            <option value="horizontal">Horizontais</option>
-            <option value="vertical">Verticais</option>
-            <option value="quadrada">Quadradas</option>
-            <option value="panoramica">Panorâmicas</option>
-          </select>
-          <select value={pasta} onChange={(e) => setPasta(e.target.value)} className="rounded-md border border-white/20 bg-[#1c1c1c] px-1 py-1 text-[11px] text-white" aria-label="Pasta">
-            <option value="">Pastas</option>
-            <option value="__sem">Sem pasta</option>
-            {pastas.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nome}
-              </option>
-            ))}
-          </select>
-          <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="rounded-md border border-white/20 bg-[#1c1c1c] px-1 py-1 text-[11px] text-white" aria-label="Ordenar">
-            <option value="envio">Envio</option>
-            <option value="nome">Nome</option>
-            <option value="captura">Captura</option>
-            <option value="orientacao">Orientação</option>
-          </select>
-        </div>
+      {/* Barra de ferramentas: uma linha (quebra em telas estreitas). */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-white/10 px-2 py-1.5">
         {!somenteLeitura ? (
           <>
             <input
@@ -325,194 +334,369 @@ export function PainelFotos({
               }}
             />
             {progresso ? (
-              <div className="space-y-1 rounded-lg bg-white/5 p-2 text-[11px] text-white/80" role="status">
-                <p>Enviando fotos… pode continuar editando</p>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="flex h-7 items-center gap-2 rounded-md bg-white/5 px-2 text-[11px] text-white/80" role="status" title="Enviando fotos… pode continuar editando">
+                <span className="whitespace-nowrap">Enviando…</span>
+                <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
                   <div className="h-full bg-sky-400 transition-all" style={{ width: `${pct}%` }} />
                 </div>
-                <p className="tabular-nums">
-                  {pct}% · {progresso.feitas} de {progresso.total} fotos
-                </p>
+                <span className="whitespace-nowrap tabular-nums">
+                  {progresso.feitas}/{progresso.total}
+                </span>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-white/30 px-2 py-2.5 text-xs text-white/80 hover:bg-white/10"
+                className={cn(CLASSE_BOTAO, 'bg-white font-semibold text-[#171717] hover:bg-white/90')}
+                aria-label="Importar fotos (ou arraste fotos e pastas para a bandeja)"
+                title="Importar fotos — ou arraste fotos e pastas para cá"
               >
-                <UploadCloud className="h-5 w-5" aria-hidden />
-                Arraste fotos ou pastas, ou clique para enviar
+                <ImagePlus className="h-3.5 w-3.5" aria-hidden /> Importar fotos
               </button>
             )}
           </>
         ) : null}
-        {erro ? (
-          <p role="alert" className="text-xs text-red-300">
-            {erro}
-          </p>
+        {onMontarAutomatico ? (
+          <button
+            type="button"
+            onClick={onMontarAutomatico}
+            disabled={somenteLeitura || fotos.length === 0}
+            className={cn(CLASSE_BOTAO, 'bg-violet-500 font-semibold text-white hover:bg-violet-400')}
+            aria-label="Montar álbum automaticamente"
+          >
+            <WandSparkles className="h-3.5 w-3.5" aria-hidden /> Montar automático
+          </button>
         ) : null}
-      </div>
 
-      {selecionadas.length > 0 ? (
-        <div className="space-y-1.5 border-b border-white/10 bg-sky-500/10 p-2.5 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{selecionadas.length} selecionada(s)</span>
-            <button type="button" onClick={onLimparSelecao} className="text-white/70 underline">
-              Limpar
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-1">
-            <button type="button" disabled={somenteLeitura} onClick={onCriarPagina} className="flex items-center justify-center gap-1 rounded-md bg-white px-2 py-1.5 font-semibold text-[#171717] disabled:opacity-50">
-              <Plus className="h-3.5 w-3.5" aria-hidden /> Criar página
-            </button>
-            <button type="button" onClick={onVerLayouts} className="flex items-center justify-center gap-1 rounded-md bg-white/15 px-2 py-1.5 hover:bg-white/25">
-              <LayoutGrid className="h-3.5 w-3.5" aria-hidden /> Composições
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-1">
-            <button type="button" onClick={() => onMeta(selecaoMeta, { favorita: !selecionadas.every((id) => meta(id).favorita) })} className="rounded-md bg-white/10 px-1 py-1 hover:bg-white/20">
-              ★ Favoritar
-            </button>
-            <select
-              value=""
-              onChange={(e) => onMeta(selecaoMeta, { prioridade: (e.target.value || null) as Prioridade | null })}
-              className="rounded-md border-0 bg-white/10 px-1 py-1 text-white"
-              aria-label="Prioridade das selecionadas"
+        <select value={filtro} onChange={(e) => setFiltro(e.target.value as Filtro)} className={CLASSE_SELECT} aria-label="Filtrar fotos">
+          {(['todas', 'nao-usadas', 'usadas', 'favoritas'] as const).map((v) => (
+            <option key={v} value={v}>
+              {ROTULO_FILTRO[v]} ({contagem[v]})
+            </option>
+          ))}
+        </select>
+        <select value={orientacao} onChange={(e) => setOrientacao(e.target.value as Orientacao)} className={CLASSE_SELECT} aria-label="Orientação">
+          <option value="todas">Orientação</option>
+          <option value="horizontal">Horizontais</option>
+          <option value="vertical">Verticais</option>
+          <option value="quadrada">Quadradas</option>
+          <option value="panoramica">Panorâmicas</option>
+        </select>
+
+        <div className="flex items-center gap-1" role="radiogroup" aria-label="Pastas">
+          {[{ id: '', nome: 'Todas' }, ...pastas, { id: '__sem', nome: 'Sem pasta' }].map((p) => (
+            <button
+              key={p.id || '__todas'}
+              type="button"
+              role="radio"
+              aria-checked={pasta === p.id}
+              onClick={() => setPasta(p.id)}
+              className={cn('h-6 max-w-32 truncate rounded-full px-2 text-[11px]', pasta === p.id ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/80 hover:bg-white/20')}
             >
-              <option value="">Prioridade…</option>
-              <option value="principal">Principal</option>
-              <option value="secundaria">Secundária</option>
-              <option value="complementar">Complementar</option>
-            </select>
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value === '__nova') {
-                  const nome = window.prompt('Nome da pasta')
-                  const nova = nome ? onCriarPasta(nome) : null
-                  if (nova) onMeta(selecaoMeta, { pasta: nova })
-                } else onMeta(selecaoMeta, { pasta: e.target.value === '__sem' ? null : e.target.value })
-              }}
-              className="rounded-md border-0 bg-white/10 px-1 py-1 text-white"
-              aria-label="Mover selecionadas para pasta"
-            >
-              <option value="">Pasta…</option>
-              {pastas.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome}
-                </option>
-              ))}
-              <option value="__sem">Sem pasta</option>
-              <option value="__nova">+ Nova pasta</option>
-            </select>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px] text-white/60">
-          <span>Clique para selecionar · arraste para a lâmina</span>
+              {p.nome}
+            </button>
+          ))}
           <button
             type="button"
             onClick={() => {
-              const nome = window.prompt('Nome da pasta')
-              if (nome) onCriarPasta(nome)
+              const nova = pedirNovaPasta(onCriarPasta)
+              if (nova) setPasta(nova)
             }}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-white/10"
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20"
             aria-label="Nova pasta"
+            title="Nova pasta"
           >
-            <FolderPlus className="h-3.5 w-3.5" aria-hidden /> Pasta
+            <Plus className="h-3.5 w-3.5" aria-hidden />
           </button>
         </div>
-      )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={CLASSE_SELECT} aria-label="Ordenar">
+          <option value="envio">Envio</option>
+          <option value="nome">Nome</option>
+          <option value="captura">Captura</option>
+          <option value="orientacao">Orientação</option>
+        </select>
+
+        {buscaAberta || busca ? (
+          <label className="relative block">
+            <span className="sr-only">Pesquisar fotos</span>
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" aria-hidden />
+            <input
+              // Abre por clique na lupa: o foco vai para onde o usuário pediu.
+              autoFocus
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onBlur={() => setBuscaAberta(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setBusca('')
+                  setBuscaAberta(false)
+                }
+              }}
+              placeholder="Pesquisar arquivo"
+              className="h-7 w-40 rounded-md border border-white/20 bg-white/5 pl-7 pr-2 text-xs text-white"
+            />
+          </label>
+        ) : (
+          <button type="button" onClick={() => setBuscaAberta(true)} className={cn(CLASSE_BOTAO, 'px-1.5 text-white/80 hover:bg-white/10')} aria-label="Pesquisar fotos" title="Pesquisar">
+            <Search className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        )}
+
         {visiveis.length > 0 ? (
-          <button type="button" onClick={() => onSelecionarVarias(visiveis.map((f) => f.id))} className="mb-1.5 text-[11px] text-white/60 underline">
-            Selecionar as {Math.min(visiveis.length, 12)} primeiras visíveis
+          <button
+            type="button"
+            onClick={() => onSelecionarVarias(visiveis.map((f) => f.id))}
+            className={cn(CLASSE_BOTAO, 'px-1.5 text-white/80 hover:bg-white/10')}
+            aria-label={`Selecionar as ${Math.min(visiveis.length, 12)} primeiras visíveis`}
+            title={`Selecionar as ${Math.min(visiveis.length, 12)} primeiras visíveis`}
+          >
+            <ListChecks className="h-3.5 w-3.5" aria-hidden />
           </button>
         ) : null}
+
+        {erro ? (
+          <p role="alert" className="max-w-60 truncate text-[11px] text-red-300" title={erro}>
+            {erro}
+          </p>
+        ) : null}
+
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {selecionadas.length > 0 ? (
+            <div className="flex items-center gap-1 rounded-md bg-sky-500/15 px-1 py-0.5 text-[11px]">
+              <button
+                type="button"
+                disabled={somenteLeitura}
+                onClick={onCriarPagina}
+                className={cn(CLASSE_BOTAO, 'h-6 bg-white font-semibold text-[#171717]')}
+                aria-label={`Criar lâmina com ${selecionadas.length} foto(s)`}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden /> Criar lâmina com {selecionadas.length}
+              </button>
+              <button
+                type="button"
+                onClick={() => onMeta(selecionadas, { favorita: !selecionadas.every((id) => meta(id).favorita) })}
+                className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 hover:bg-white/20"
+                aria-label="Favoritar selecionadas"
+                title="Favoritar selecionadas"
+              >
+                <Star className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <select
+                value=""
+                onChange={(e) => onMeta(selecionadas, { prioridade: (e.target.value || null) as Prioridade | null })}
+                className="h-6 w-24 rounded-md border-0 bg-white/10 px-1 text-white"
+                aria-label="Prioridade das selecionadas"
+              >
+                <option value="">Prioridade…</option>
+                <option value="principal">Principal</option>
+                <option value="secundaria">Secundária</option>
+                <option value="complementar">Complementar</option>
+              </select>
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value === '__nova') {
+                    const nova = pedirNovaPasta(onCriarPasta)
+                    if (nova) onMeta(selecionadas, { pasta: nova })
+                  } else if (e.target.value) onMeta(selecionadas, { pasta: e.target.value === '__sem' ? null : e.target.value })
+                }}
+                className="h-6 w-20 rounded-md border-0 bg-white/10 px-1 text-white"
+                aria-label="Mover selecionadas para pasta"
+              >
+                <option value="">Pasta…</option>
+                {pastas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+                <option value="__sem">Sem pasta</option>
+                <option value="__nova">+ Nova pasta</option>
+              </select>
+              <button type="button" onClick={onLimparSelecao} className="flex h-6 items-center gap-0.5 rounded-md px-1.5 text-white/70 hover:bg-white/10" aria-label="Limpar seleção">
+                <X className="h-3 w-3" aria-hidden /> Limpar
+              </button>
+            </div>
+          ) : null}
+          <label className="flex items-center gap-1.5 text-[11px] text-white/60">
+            <span className="sr-only">Tamanho das miniaturas</span>
+            <span aria-hidden className="text-[9px]">▪</span>
+            <input
+              type="range"
+              min={TAMANHO_MIN}
+              max={TAMANHO_MAX}
+              step={4}
+              value={tamanho}
+              onChange={(e) => gravarTamanho(Number(e.target.value))}
+              className="w-24 accent-sky-400"
+              aria-valuetext={`${tamanho} pixels`}
+            />
+            <span aria-hidden className="text-sm">■</span>
+          </label>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {visiveis.length === 0 ? (
           <p className="p-4 text-center text-xs text-white/50">
-            {fotos.length === 0 ? 'Envie as fotos do álbum para começar.' : 'Nenhuma foto neste filtro.'}
+            {fotos.length === 0 ? (somenteLeitura ? 'Nenhuma foto no álbum.' : 'Importe ou arraste as fotos do álbum para começar.') : 'Nenhuma foto neste filtro.'}
           </p>
         ) : (
-          <ul className="grid grid-cols-2 gap-2">
+          <ul className="grid gap-2" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${tamanho}px, 1fr))` }} aria-label="Fotos do álbum">
             {visiveis.map((f) => {
               const n = usos.get(f.id) ?? 0
               const m = meta(f.id)
-              const marcada = selecionadas.includes(f.id)
+              const ordemSelecao = selecionadas.indexOf(f.id)
+              const marcada = ordemSelecao >= 0
               const o = orientacaoDe(f)
+              const detalhes = `${f.nome}${f.largura && f.altura ? ` · ${f.largura}×${f.altura}` : ''}${o ? ` · ${NOME_ORIENTACAO[o]}` : ''}`
               return (
-                <li key={f.id} className="group relative">
+                <li key={f.id} className="group relative min-w-0">
                   <button
                     type="button"
                     draggable={!somenteLeitura}
                     onDragStart={(e) => {
-                      e.dataTransfer.setData(MIME_FOTO, f.id)
+                      // Arrastar uma foto da seleção leva a seleção inteira (na ordem em que foi marcada).
+                      e.dataTransfer.setData(MIME_FOTO, marcada ? selecionadas.join(',') : f.id)
                       e.dataTransfer.effectAllowed = 'copy'
                     }}
                     onClick={() => onAlternarSelecao(f.id)}
                     aria-pressed={marcada}
                     aria-label={`${f.nome}${n ? `, usada ${n} vez(es)` : ', não utilizada'}`}
-                    className={cn('relative block aspect-[4/3] w-full overflow-hidden rounded-md bg-white/5', marcada && 'ring-2 ring-sky-400')}
+                    title={detalhes}
+                    className={cn('relative block aspect-[5/4] w-full overflow-hidden rounded-md bg-white/5', marcada && 'ring-2 ring-sky-400')}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- versão leve da foto (Storage). */}
-                    <img src={urlParaMiniatura(f)} alt="" loading="lazy" draggable={false} className={cn('h-full w-full object-cover', n > 0 && !marcada && 'opacity-60')} />
-                    <span
-                      className={cn(
-                        'absolute bottom-1 left-1 flex items-center gap-0.5 rounded px-1 text-[10px] font-semibold',
-                        n > 0 ? 'bg-emerald-500 text-white' : 'bg-black/70 text-white/90',
-                      )}
-                    >
-                      {n > 0 ? (
-                        <>
-                          <Check className="h-2.5 w-2.5" aria-hidden />
-                          Usada{n > 1 ? ` ${n}×` : ''}
-                        </>
-                      ) : (
-                        'Não utilizada'
-                      )}
-                    </span>
+                    <img src={urlParaMiniatura(f)} alt="" loading="lazy" draggable={false} className={cn('h-full w-full object-cover', n > 0 && !marcada && 'opacity-50')} />
+                    {n > 0 ? (
+                      <span className="absolute bottom-1 left-1 rounded bg-emerald-500 px-1 text-[10px] font-semibold tabular-nums text-white">✓ {n}x</span>
+                    ) : null}
                     {m.prioridade ? (
-                      <span className="absolute right-1 bottom-1 rounded bg-violet-500 px-1 text-[9px] font-semibold text-white">{ROTULO_PRIORIDADE[m.prioridade]}</span>
+                      <span className="absolute bottom-1 right-1 rounded bg-violet-500 px-1 text-[9px] font-semibold text-white">{ROTULO_PRIORIDADE[m.prioridade]}</span>
                     ) : null}
                     {marcada ? (
-                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-400 text-[10px] font-bold text-[#0A0A0A]">
-                        {selecionadas.indexOf(f.id) + 1}
-                      </span>
+                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-400 text-[10px] font-bold text-[#0A0A0A]">{ordemSelecao + 1}</span>
                     ) : null}
                   </button>
                   <button
                     type="button"
                     onClick={() => onMeta([f.id], { favorita: !m.favorita })}
-                    className={cn('absolute left-1 top-1 rounded bg-black/60 p-0.5', m.favorita ? 'text-amber-300' : 'hidden text-white/80 group-hover:block')}
-                    aria-label={m.favorita ? 'Tirar dos favoritos' : 'Favoritar'}
+                    className={cn(
+                      'absolute left-1 top-1 rounded bg-black/60 p-0.5',
+                      m.favorita ? 'text-amber-300' : 'text-white/80 opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+                    )}
+                    aria-label={m.favorita ? `Tirar ${f.nome} dos favoritos` : `Favoritar ${f.nome}`}
                     aria-pressed={Boolean(m.favorita)}
                   >
-                    <Star className="h-3.5 w-3.5" fill={m.favorita ? 'currentColor' : 'none'} />
+                    <Star className="h-3.5 w-3.5" fill={m.favorita ? 'currentColor' : 'none'} aria-hidden />
                   </button>
-                  <p className="mt-0.5 truncate text-[10px] text-white/70" title={f.nome}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (menu?.id === f.id) return setMenu(null)
+                      const r = e.currentTarget.getBoundingClientRect()
+                      const paraCima = r.bottom + 260 > window.innerHeight
+                      setMenu({ id: f.id, x: Math.min(r.left, window.innerWidth - 200), y: paraCima ? window.innerHeight - r.top + 4 : r.bottom + 4, paraCima })
+                    }}
+                    className={cn(
+                      'absolute top-1 rounded bg-black/60 p-0.5 text-white/90 hover:bg-black/80',
+                      marcada ? 'right-7' : 'right-1',
+                      menu?.id === f.id ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+                    )}
+                    aria-label={`Mais ações para ${f.nome}`}
+                    aria-haspopup="menu"
+                    aria-expanded={menu?.id === f.id}
+                  >
+                    <Ellipsis className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                  <p className="mt-0.5 truncate text-[10px] text-white/60" title={detalhes}>
                     {f.nome}
                   </p>
-                  <p className="text-[10px] tabular-nums text-white/40">
-                    {f.largura && f.altura ? `${f.largura}×${f.altura}` : '…'}
-                    {o ? ` · ${NOME_ORIENTACAO[o]}` : ''}
-                  </p>
-                  {!projetoId && n === 0 && !somenteLeitura ? (
-                    <button
-                      type="button"
-                      onClick={() => onRemoverFoto(f.id)}
-                      className="absolute right-1 top-7 hidden rounded bg-black/70 p-1 text-white group-hover:block"
-                      aria-label={`Remover ${f.nome} do álbum`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  ) : null}
                 </li>
               )
             })}
           </ul>
         )}
       </div>
+
+      {menu && fotoDoMenu && metaDoMenu ? (
+        <>
+          <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Fechar menu" onClick={() => setMenu(null)} />
+          <div
+            role="menu"
+            aria-label={`Ações de ${fotoDoMenu.nome}`}
+            className="fixed z-50 w-48 rounded-lg border border-white/15 bg-[#1c1c1c] p-1 text-xs text-white shadow-xl"
+            style={menu.paraCima ? { left: menu.x, bottom: menu.y } : { left: menu.x, top: menu.y }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setMenu(null)
+            }}
+          >
+            <p className="truncate px-2 pb-1 pt-0.5 text-[10px] text-white/50" title={fotoDoMenu.nome}>
+              {fotoDoMenu.nome}
+            </p>
+            <p className="px-2 pt-1 text-[10px] uppercase tracking-wide text-white/40">Prioridade</p>
+            {([null, 'principal', 'secundaria', 'complementar'] as const).map((p) => (
+              <button
+                key={p ?? 'nenhuma'}
+                type="button"
+                role="menuitemradio"
+                aria-checked={(metaDoMenu.prioridade ?? null) === p}
+                onClick={() => {
+                  onMeta([fotoDoMenu.id], { prioridade: p })
+                  setMenu(null)
+                }}
+                className={cn('block w-full rounded px-2 py-1 text-left hover:bg-white/10', (metaDoMenu.prioridade ?? null) === p && 'text-sky-300')}
+              >
+                {p ? ROTULO_PRIORIDADE[p] : 'Nenhuma'}
+              </button>
+            ))}
+            <p className="border-t border-white/10 px-2 pt-1.5 text-[10px] uppercase tracking-wide text-white/40">Mover para pasta</p>
+            {[...pastas, { id: '__sem', nome: 'Sem pasta' }].map((p) => {
+              const atual = p.id === '__sem' ? !metaDoMenu.pasta : metaDoMenu.pasta === p.id
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={atual}
+                  onClick={() => {
+                    onMeta([fotoDoMenu.id], { pasta: p.id === '__sem' ? null : p.id })
+                    setMenu(null)
+                  }}
+                  className={cn('block w-full truncate rounded px-2 py-1 text-left hover:bg-white/10', atual && 'text-sky-300')}
+                >
+                  {p.nome}
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const nova = pedirNovaPasta(onCriarPasta)
+                if (nova) onMeta([fotoDoMenu.id], { pasta: nova })
+                setMenu(null)
+              }}
+              className="block w-full rounded px-2 py-1 text-left text-white/80 hover:bg-white/10"
+            >
+              + Nova pasta
+            </button>
+            {!projetoId && !somenteLeitura && !usos.get(fotoDoMenu.id) ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onRemoverFoto(fotoDoMenu.id)
+                  setMenu(null)
+                }}
+                className="mt-0.5 flex w-full items-center gap-1.5 rounded border-t border-white/10 px-2 py-1 text-left text-red-300 hover:bg-red-500/15"
+              >
+                <Trash2 className="h-3 w-3" aria-hidden /> Remover do álbum
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </div>
   )
 }

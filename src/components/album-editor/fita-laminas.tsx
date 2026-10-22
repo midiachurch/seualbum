@@ -7,7 +7,8 @@ import type { FotoNoCanvas } from '@/components/album-editor/tipos'
 import { rotuloDaLamina, type Geometria, type LaminaDoc } from '@/lib/album/documento'
 import { cn } from '@/lib/utils'
 
-const LARGURA_MINI = 132
+// Fita fina embaixo da lâmina (editor enxuto): a área nobre é da lâmina.
+const LARGURA_MINI = 96
 
 /** Fita de lâminas (rodapé do editor): navegar, reordenar arrastando, duplicar, excluir. */
 export function FitaLaminas({
@@ -89,7 +90,7 @@ export function FitaLaminas({
             <button type="button" onClick={() => onIr(i)} aria-label={`Ir para ${rotulo(i)}`} aria-current={i === ativa ? 'true' : undefined}>
               <MiniaturaLamina lamina={lamina} geometria={geometria} fotos={fotos} largura={LARGURA_MINI} />
             </button>
-            <div className="flex items-center justify-between gap-1 text-[11px] text-white/70">
+            <div className="flex items-center justify-between gap-1 text-[10px] text-white/70">
               <span className="tabular-nums">
                 <span className="font-medium">{rotulo(i)}</span>
                 {paginas(i) ? <span className="ml-1 text-white/40">{paginas(i)}</span> : null}
@@ -107,7 +108,8 @@ export function FitaLaminas({
               ) : null}
             </div>
             {i === ativa && !somenteLeitura ? (
-              <div className="flex items-center justify-between">
+              // Ações por cima da miniatura, só no hover/foco: a fita não cresce.
+              <div className="absolute inset-x-1.5 top-1.5 hidden items-center justify-between rounded bg-black/75 group-focus-within:flex group-hover:flex">
                 <button type="button" onClick={() => onMover(i, i - 1)} disabled={i === 0} className="rounded p-1 text-white/70 hover:bg-white/10 disabled:opacity-30" aria-label="Mover para a esquerda">
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>

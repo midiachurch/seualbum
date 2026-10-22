@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { geometria, type FotoEditor, type Geometria } from '@/lib/album/documento'
 import {
+  contagensPorMomento,
   documentoDoModelo,
   ESTILOS,
   GRADES_POR_PAGINA,
   gradesDePagina,
   layoutsVazios,
   MODELOS_DE_ALBUM,
+  ordenarCronologicamente,
   preencherAutomaticamente,
   preencherQuadrosVazios,
   temQuadrosVazios,
@@ -255,6 +257,120 @@ describe('Montagem automática — agrupamento, reutilização e ordem', () => {
       const primeiro = [...v.quadros].sort((a, b) => (a.x + a.w / 2 < g.paginaW ? 0 : 1) - (b.x + b.w / 2 < g.paginaW ? 0 : 1) || a.y - b.y || a.x - b.x)[0]
       expect(primeiro.fotoId).toBe('f0')
     }
+  })
+})
+
+describe('Montagem automática cronológica — linha do tempo, momentos e favoritas', () => {
+  const g = geo('30x30', 'quadrado')
+  const T0 = Date.parse('2026-10-02T14:00:00Z')
+  /** Foto de câmera: nome sequencial, horário em segundos a partir de T0 (null = sem EXIF), horizontal ou vertical. */
+  const foto = (n: number, seg: number | null, extra: Partial<FotoEditor> = {}): FotoEditor => ({
+    id: `IMG_${String(n).padStart(4, '0')}`,
+    url: '',
+    nome: `IMG_${String(n).padStart(4, '0')}.jpg`,
+    largura: n % 3 === 1 ? 4000 : 6000,
+    altura: n % 3 === 1 ? 6000 : 4000,
+    capturadaEm: seg === null ? null : new Date(T0 + seg * 1000).toISOString(),
+    ...extra,
+  })
+  const idsPorLamina = (d: { laminas: { quadros: { fotoId: string | null }[] }[] }) => d.laminas.map((l) => l.quadros.map((q) => q.fotoId!))
+  const embaralhar = <T,>(l: T[]) => l.map((x, i) => [x, (i * 7919) % 101] as const).sort((a, b) => a[1] - b[1]).map(([x]) => x)
+
+  it('ordem só pela captura: favorita e obrigatória não furam a fila', () => {
+    const lista = Array.from({ length: 8 }, (_, i) => foto(i, i * 600, i === 6 ? { favorita: true } : i === 7 ? { obrigatoria: true } : {}))
+    expect(ordenarCronologicamente(embaralhar(lista)).map((f) => f.id)).toEqual(lista.map((f) => f.id))
+    const d = preencherAutomaticamente(embaralhar(lista), 2, g, false, ESTILOS[0], { agrupar: 'captura', cronologico: true })
+    const [primeira, segunda] = idsPorLamina(d)
+    const pos = (id: string) => lista.findIndex((f) => f.id === id)
+    expect(Math.max(...primeira.map(pos))).toBeLessThan(Math.min(...segunda.map(pos)))
+    expect(primeira).not.toContain('IMG_0006')
+    // Sem o modo cronológico, a ordem editorial antiga ainda põe obrigatória e favorita na abertura.
+    const antigo = idsPorLamina(preencherAutomaticamente(embaralhar(lista), 2, g, false, ESTILOS[0], { agrupar: 'captura' }))
+    expect(antigo[0]).toEqual(expect.arrayContaining(['IMG_0006', 'IMG_0007']))
+  })
+
+  it('rajada de segundos não se divide entre lâminas quando há um intervalo grande perto', () => {
+    // 0–30 min a cada 10 min; rajada IMG_0004–0006 em 20 s; depois a cada 10 min.
+    const segundos = [0, 600, 1200, 1800, 1860, 1870, 1880, 2480, 3080, 3680]
+    const lista = segundos.map((s, i) => foto(i, s))
+    // Clássico, 2 lâminas: o ritmo pede [6, 4] — cortaria a rajada entre 0005 e 0006.
+    expect(contagensPorMomento(lista, [6, 4])).toEqual([7, 3])
+    const d = preencherAutomaticamente(lista, 2, g, false, ESTILOS[0], { agrupar: 'captura', cronologico: true })
+    const [primeira, segunda] = idsPorLamina(d)
+    expect(primeira).toEqual(expect.arrayContaining(['IMG_0004', 'IMG_0005', 'IMG_0006']))
+    expect(segunda).toHaveLength(3)
+    // Modo antigo: fatia fixa no ritmo, a rajada se parte.
+    const antigo = idsPorLamina(preencherAutomaticamente(lista, 2, g, false, ESTILOS[0], { agrupar: 'captura' }))
+    expect(antigo.map((l) => l.length)).toEqual([6, 4])
+  })
+
+  it('cortes ficam dentro de ±1 do ritmo, entre 1 e 16, e somam o total', () => {
+    const lista = Array.from({ length: 40 }, (_, i) => foto(i, i * 30 + (i % 5 === 0 ? 900 * i : 0)))
+    const alvo = [3, 2, 4, 2, 3, 3, 2, 4, 2, 3, 3, 2, 4, 3]
+    const r = contagensPorMomento(lista, alvo)
+    expect(r.reduce((a, b) => a + b, 0)).toBe(40)
+    r.forEach((c, i) => {
+      expect(Math.abs(c - alvo[i])).toBeLessThanOrEqual(1)
+      expect(c).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  it('lâmina com favorita fica com uma foto a menos e a favorita no maior quadro', () => {
+    // Intervalos iguais: só a favorita decide. Clássico, 6 fotos em 2 lâminas → ritmo [4, 2].
+    const lista = Array.from({ length: 6 }, (_, i) => foto(i, i * 120, i === 1 ? { favorita: true } : {}))
+    expect(contagensPorMomento(lista, [4, 2])).toEqual([3, 3])
+    const d = preencherAutomaticamente(lista, 2, g, false, ESTILOS[0], { agrupar: 'captura', cronologico: true })
+    expect(idsPorLamina(d).map((l) => l.length)).toEqual([3, 3])
+    const q = d.laminas[0].quadros
+    const maior = Math.max(...q.map((x) => x.w * x.h))
+    const daFavorita = q.find((x) => x.fotoId === 'IMG_0001')!
+    expect(daFavorita.w * daFavorita.h).toBeGreaterThanOrEqual(maior * 0.99)
+  })
+
+  it('álbum inteiro: toda lâmina com favorita a põe no maior quadro, sem tirar ninguém da linha do tempo', () => {
+    const lista = Array.from({ length: 60 }, (_, i) => foto(i, i * 45 + Math.floor(i / 6) * 1200, i % 7 === 3 ? { favorita: true } : {}))
+    for (const estilo of ESTILOS) {
+      const d = preencherAutomaticamente(embaralhar(lista), 15, g, false, estilo, { agrupar: 'captura', cronologico: true })
+      const ordem = idsPorLamina(d).map((ids) => ids.map((id) => lista.findIndex((f) => f.id === id)))
+      expect(ordem.flat().sort((a, b) => a - b)).toEqual(lista.map((_, i) => i))
+      for (let i = 1; i < ordem.length; i++) if (ordem[i].length && ordem[i - 1].length) expect(Math.min(...ordem[i])).toBeGreaterThan(Math.max(...ordem[i - 1]))
+      for (const l of d.laminas) {
+        if (!l.quadros.some((q) => lista.find((f) => f.id === q.fotoId)?.favorita)) continue
+        const maior = Math.max(...l.quadros.map((q) => q.w * q.h))
+        const emDestaque = l.quadros.some((q) => lista.find((f) => f.id === q.fotoId)?.favorita && q.w * q.h >= maior * 0.99)
+        expect(emDestaque, `${estilo.id}: favorita no maior quadro`).toBe(true)
+      }
+    }
+  })
+
+  it('fotos sem data ficam logo depois da vizinha de nome datada (as primeiras abrem o álbum)', () => {
+    const lista = [
+      foto(0, null), // antes de qualquer datada: abre
+      foto(1, 0),
+      foto(2, 300),
+      foto(3, null), // segue a 0002
+      foto(4, 900),
+      foto(5, 600), // tirada antes da 0004: passa na frente
+      foto(6, null), // segue a 0005 (vizinha de nome), mesmo ela tendo mudado de lugar
+    ]
+    expect(ordenarCronologicamente(embaralhar(lista)).map((f) => f.id)).toEqual(['IMG_0000', 'IMG_0001', 'IMG_0002', 'IMG_0003', 'IMG_0005', 'IMG_0006', 'IMG_0004'])
+    // Nenhuma data: fica a ordem do nome.
+    const semData = [foto(10, null), foto(2, null), foto(1, null)]
+    expect(ordenarCronologicamente(semData).map((f) => f.id)).toEqual(['IMG_0001', 'IMG_0002', 'IMG_0010'])
+  })
+
+  it('respeitar a ordem vence o cronológico', () => {
+    const lista = [foto(2, 600), foto(1, 0), foto(3, 1200), foto(0, 1800)]
+    const d = preencherAutomaticamente(lista, 1, g, false, ESTILOS[0], { cronologico: true, respeitarOrdem: true })
+    const lidos = [...d.laminas[0].quadros].sort((a, b) => (a.x + a.w / 2 < g.paginaW ? 0 : 1) - (b.x + b.w / 2 < g.paginaW ? 0 : 1) || a.y - b.y || a.x - b.x)
+    expect(lidos[0].fotoId).toBe('IMG_0002')
+  })
+
+  it('cronologico: false é exatamente o modo antigo', () => {
+    const lista = Array.from({ length: 30 }, (_, i) => foto(i, i * 200, i % 4 === 0 ? { favorita: true } : {}))
+    const a = idsPorLamina(preencherAutomaticamente(lista, 8, g, false, ESTILOS[1], { agrupar: 'captura' }))
+    const b = idsPorLamina(preencherAutomaticamente(lista, 8, g, false, ESTILOS[1], { agrupar: 'captura', cronologico: false }))
+    expect(b).toEqual(a)
   })
 })
 

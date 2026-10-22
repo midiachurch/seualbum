@@ -443,6 +443,38 @@ export function ordenarFotos(fotos: FotoEditor[]): FotoEditor[] {
   return ordem.map((id) => porId.get(id)).filter((f): f is FotoEditor => Boolean(f))
 }
 
+/** Instante da captura (EXIF) em ms, ou null quando a foto não tem data válida. */
+function instante(f: FotoEditor): number | null {
+  const t = f.capturadaEm ? Date.parse(f.capturadaEm) : NaN
+  return Number.isFinite(t) ? t : null
+}
+
+const porNome = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' })
+
+/**
+ * Linha do tempo do evento (preparação → cerimônia → festa): só a data de
+ * captura manda — favoritas e obrigatórias NÃO furam a fila. Empate de
+ * horário fica na ordem do nome do arquivo.
+ *
+ * Fotos sem data: a base é a ordem pelo nome (IMG_0123, IMG_0124… — o
+ * contador da câmera é sequencial), e cada foto sem data "pega carona" logo
+ * depois da última foto datada que vem antes dela nessa ordem; as que vêm
+ * antes de qualquer datada abrem o álbum. Assim um arquivo sem EXIF fica
+ * junto dos vizinhos de nome, em vez de ir parar no fim.
+ */
+export function ordenarCronologicamente(fotos: FotoEditor[]): FotoEditor[] {
+  const base = fotos.map((f, i) => ({ f, i })).sort((a, b) => porNome.compare(a.f.nome, b.f.nome) || a.i - b.i)
+  const soltas: FotoEditor[] = []
+  const blocos: { t: number; ordem: number; fotos: FotoEditor[] }[] = []
+  base.forEach(({ f }, ordem) => {
+    const t = instante(f)
+    if (t === null) (blocos.length > 0 ? blocos[blocos.length - 1].fotos : soltas).push(f)
+    else blocos.push({ t, ordem, fotos: [f] })
+  })
+  blocos.sort((a, b) => a.t - b.t || a.ordem - b.ordem)
+  return [...soltas, ...blocos.flatMap((b) => b.fotos)]
+}
+
 /** Quantas fotos em cada lâmina: segue o ritmo do estilo e fecha a conta com o total. */
 function distribuir(total: number, laminas: number, ritmo: number[]): number[] {
   const base = Array.from({ length: laminas }, (_, i) => ritmo[i % ritmo.length])
@@ -463,6 +495,81 @@ function distribuir(total: number, laminas: number, ritmo: number[]): number[] {
   return alvo
 }
 
+/** Cada foto a mais ou a menos que o alvo do ritmo custa isto. */
+const PESO_DESVIO_DO_RITMO = 0.4
+/** Lâmina com favorita que não abriu espaço (ficou com o alvo cheio). */
+const PESO_FAVORITA_SEM_RESPIRO = 1
+/** Variante em que a favorita não ocupa o maior quadro da lâmina. */
+const PESO_FAVORITA_PEQUENA = 1.5
+
+/** Pontos por cortar entre a foto b-1 e a b: quanto maior o intervalo, melhor (log, para segundos × minutos pesarem diferente). */
+function folgaDoCorte(tempos: (number | null)[], b: number) {
+  const ta = tempos[b - 1]
+  const tb = tempos[b]
+  return ta === null || tb === null ? 0 : Math.log1p(Math.abs(tb - ta) / 1000)
+}
+
+/**
+ * Fotos por lâmina seguindo os momentos: em vez de fatiar o grupo nas
+ * contagens exatas do ritmo, cada lâmina pode ter ±1 foto (entre 1 e
+ * MAX_FOTOS_POR_LAMINA) e os cortes caem nos MAIORES intervalos entre fotos
+ * vizinhas — uma rajada de segundos não se divide entre duas lâminas. Lâmina
+ * com favorita tenta ficar com uma foto a menos (mais espaço para ela); a
+ * sobra vai para a vizinha. Programação dinâmica sobre as posições de corte
+ * (O(n·k), determinística; empate fica com o primeiro corte encontrado).
+ */
+export function contagensPorMomento(grupo: FotoEditor[], alvo: number[]): number[] {
+  const n = grupo.length
+  const k = alvo.length
+  if (k <= 1 || n === 0) return alvo
+  const tempos = grupo.map(instante)
+  const favoritasAte = [0]
+  for (const f of grupo) favoritasAte.push(favoritasAte[favoritasAte.length - 1] + (f.favorita ? 1 : 0))
+
+  // melhor: posição do corte → maior pontuação até ali; origens[i]: de onde veio o corte da lâmina i.
+  let melhor = new Map<number, number>([[0, 0]])
+  const origens: Map<number, number>[] = []
+  for (let i = 0; i < k; i++) {
+    const proximo = new Map<number, number>()
+    const origem = new Map<number, number>()
+    const restam = k - i - 1
+    for (const [a, pontos] of melhor) {
+      for (let c = Math.max(1, alvo[i] - 1); c <= Math.min(MAX_FOTOS_POR_LAMINA, alvo[i] + 1); c++) {
+        const b = a + c
+        if (n - b < restam) break
+        if (restam === 0 && b !== n) continue
+        const temFavorita = favoritasAte[b] - favoritasAte[a] > 0
+        const p =
+          pontos -
+          PESO_DESVIO_DO_RITMO * Math.abs(c - alvo[i]) -
+          (temFavorita && alvo[i] > 1 && c >= alvo[i] ? PESO_FAVORITA_SEM_RESPIRO : 0) +
+          (b < n ? folgaDoCorte(tempos, b) : 0)
+        if (!proximo.has(b) || p > proximo.get(b)! + 1e-9) {
+          proximo.set(b, p)
+          origem.set(b, a)
+        }
+      }
+    }
+    origens.push(origem)
+    melhor = proximo
+  }
+  // Sem solução dentro de ±1 (não deve acontecer: o próprio alvo soma n): fica o ritmo.
+  if (!melhor.has(n)) return alvo
+  const contagens: number[] = []
+  for (let i = k - 1, b = n; i >= 0; i--) {
+    const a = origens[i].get(b)!
+    contagens.unshift(b - a)
+    b = a
+  }
+  return contagens
+}
+
+/** A favorita (alguma, se houver várias) está no maior quadro da variante? Empate de área conta. */
+function favoritaNoMaior(v: Variante, favoritas: Set<string>) {
+  const maior = Math.max(...v.quadros.map((q) => q.w * q.h))
+  return v.quadros.some((q) => q.fotoId !== null && favoritas.has(q.fotoId) && q.w * q.h >= maior * 0.99)
+}
+
 export type Agrupamento = 'captura' | 'pasta' | 'cor' | 'nenhum'
 export type Reutilizacao = 'baixa' | 'media' | 'alta'
 
@@ -472,6 +579,12 @@ export type OpcoesDeMontagem = {
   /** Baixa = máxima variedade de templates; alta = consistência (repete os mesmos). */
   reutilizacao?: Reutilizacao
   respeitarOrdem?: boolean
+  /**
+   * Linha do tempo do evento (EXIF): ordem só pela captura, cortes entre
+   * lâminas nos maiores intervalos e favoritas destacadas sem sair do lugar.
+   * `respeitarOrdem` continua mandando na ordem.
+   */
+  cronologico?: boolean
 }
 
 /** Intervalo entre fotos que separa dois momentos ("making of" → "cerimônia"). */
@@ -534,6 +647,8 @@ function laminasPorGrupo(tamanhos: number[], total: number): number[] {
  * → grupos (momentos/pastas/cor) → lâminas por grupo → fotos por lâmina no
  * ritmo do estilo → template de cada lâmina, com variedade ou repetição
  * conforme a reutilização pedida. É um RASCUNHO: tudo fica editável.
+ * Com `cronologico`, a ordem é a linha do tempo (EXIF), os cortes entre
+ * lâminas caem nos intervalos e as favoritas ganham espaço e o maior quadro.
  */
 export function preencherAutomaticamente(
   fotos: FotoEditor[],
@@ -543,7 +658,7 @@ export function preencherAutomaticamente(
   estilo: Estilo = ESTILOS[0],
   opcoes: OpcoesDeMontagem = {},
 ): DocumentoAlbum {
-  const ordenadas = opcoes.respeitarOrdem ? fotos : ordenarFotos(fotos)
+  const ordenadas = opcoes.respeitarOrdem ? fotos : opcoes.cronologico ? ordenarCronologicamente(fotos) : ordenarFotos(fotos)
   const n = Math.max(1, Math.min(laminasDesejadas, ordenadas.length || 1))
   let grupos = agruparFotos(ordenadas, opcoes.agrupar ?? 'nenhum')
   // Mais grupos que lâminas: junta os grupos em sequência até caber.
@@ -560,11 +675,16 @@ export function preencherAutomaticamente(
   const familia = (v: Variante) => v.id.replace(/-\d+$/, '')
   const reutilizacao = opcoes.reutilizacao ?? 'media'
   const escolher = (escolhidas: FotoEditor[]) => {
-    const candidatas = variantesDeLayout(escolhidas, g, 8, estilo, { respeitarOrdem: opcoes.respeitarOrdem })
+    // Cronológico: a favorita não sai do lugar na história, mas ganha o maior quadro da lâmina.
+    const favoritas = new Set(opcoes.cronologico ? escolhidas.filter((f) => f.favorita).map((f) => f.id) : [])
+    // Favorita sem prioridade entra no Smart Layout como "secundária" (só para o casamento de quadros).
+    const paraLayout = favoritas.size > 0 ? escolhidas.map((f) => (favoritas.has(f.id) && !f.prioridade ? { ...f, prioridade: 'secundaria' as const } : f)) : escolhidas
+    const candidatas = variantesDeLayout(paraLayout, g, 8, estilo, { respeitarOrdem: opcoes.respeitarOrdem })
     if (candidatas.length === 0) return null
     const nota = (v: Variante) => {
       const u = usos.get(familia(v)) ?? 0
-      return v.erro + (reutilizacao === 'baixa' ? 0.8 * u : reutilizacao === 'media' ? 0.3 * u : -0.5 * Math.min(u, 3))
+      const favoritaPequena = favoritas.size > 0 && !favoritaNoMaior(v, favoritas) ? PESO_FAVORITA_PEQUENA : 0
+      return v.erro + favoritaPequena + (reutilizacao === 'baixa' ? 0.8 * u : reutilizacao === 'media' ? 0.3 * u : -0.5 * Math.min(u, 3))
     }
     const melhor = [...candidatas].sort((a, b) => nota(a) - nota(b))[0]
     usos.set(familia(melhor), (usos.get(familia(melhor)) ?? 0) + 1)
@@ -574,7 +694,8 @@ export function preencherAutomaticamente(
   const laminas: LaminaDoc[] = []
   grupos.forEach((grupo, gi) => {
     const qtdLaminas = Math.max(1, porGrupo[gi] || 1)
-    const contagens = distribuir(grupo.length, Math.min(qtdLaminas, grupo.length), estilo.ritmo)
+    const ritmo = distribuir(grupo.length, Math.min(qtdLaminas, grupo.length), estilo.ritmo)
+    const contagens = opcoes.cronologico ? contagensPorMomento(grupo, ritmo) : ritmo
     let cursor = 0
     for (const qtd of contagens) {
       const escolhidas = grupo.slice(cursor, cursor + qtd)
