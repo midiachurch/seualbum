@@ -1,4 +1,5 @@
 import { CtaButtons, type CtaAction } from '@/components/marketing/cta-buttons'
+import { atributosImagem } from '@/lib/imagens-locais'
 
 interface CtaBandProps {
   eyebrow?: string
@@ -19,7 +20,13 @@ export function CtaBand({ eyebrow, title, description, actions, image }: CtaBand
       {image ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
-          <img src={image} alt="" loading="lazy" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-25 grayscale" />
+          <img
+            {...atributosImagem(image)}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 -z-10 h-full w-full object-cover opacity-25"
+          />
           <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#171717] via-[#171717]/70 to-[#171717]/40" />
         </>
       ) : null}

@@ -80,7 +80,7 @@ export default async function PrecosPage() {
             { href: '/auth/register', label: 'Criar conta do estúdio' },
             { href: '/dashboard/novo-pedido', label: 'Começar um pedido', variant: 'secondary' },
           ]}
-          image="https://picsum.photos/seed/seualbum-precos-cta/1600/900"
+          image="/images/cta/precos.webp"
         />
       </main>
       <SiteFooter />

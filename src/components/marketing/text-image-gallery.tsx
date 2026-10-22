@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { atributosImagem } from '@/lib/imagens-locais'
 
 export interface TextImageItem {
   image: string
@@ -26,7 +27,13 @@ export function TextImageGallery({ items }: TextImageGalleryProps) {
         <div key={item.title} className="flex flex-col gap-8 sm:flex-row sm:items-center">
           <div className="relative aspect-video w-full shrink-0 overflow-hidden sm:w-3/5">
             {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
-            <img src={item.image} alt={item.alt} className="h-full w-full object-cover grayscale contrast-[1.05]" />
+            <img
+              {...atributosImagem(item.image, '(min-width: 640px) 30vw, 100vw')}
+              alt={item.alt}
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
           </div>
           <div className="sm:w-2/5">
             <h3 className="text-title text-[#444444]">{item.title}</h3>

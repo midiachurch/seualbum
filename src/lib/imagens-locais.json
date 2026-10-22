@@ -1,0 +1,117 @@
+{
+  "/images/albuns/20x20.webp": {
+    "largura": 960,
+    "altura": 540,
+    "larguraSm": 480
+  },
+  "/images/albuns/25x25.webp": {
+    "largura": 960,
+    "altura": 540,
+    "larguraSm": 480
+  },
+  "/images/albuns/30x30.webp": {
+    "largura": 960,
+    "altura": 540,
+    "larguraSm": 480
+  },
+  "/images/albuns/30x40.webp": {
+    "largura": 960,
+    "altura": 540,
+    "larguraSm": 480
+  },
+  "/images/cta/album-maos.webp": {
+    "largura": 1600,
+    "altura": 900,
+    "larguraSm": 800
+  },
+  "/images/cta/como-funciona.webp": {
+    "largura": 1600,
+    "altura": 900,
+    "larguraSm": 800
+  },
+  "/images/cta/criar-album.webp": {
+    "largura": 1600,
+    "altura": 900,
+    "larguraSm": 800
+  },
+  "/images/cta/precos.webp": {
+    "largura": 1600,
+    "altura": 900,
+    "larguraSm": 800
+  },
+  "/images/estilos/classico.webp": {
+    "largura": 720,
+    "altura": 960,
+    "larguraSm": 360
+  },
+  "/images/estilos/editorial.webp": {
+    "largura": 720,
+    "altura": 960,
+    "larguraSm": 360
+  },
+  "/images/estilos/fineart.webp": {
+    "largura": 720,
+    "altura": 960,
+    "larguraSm": 360
+  },
+  "/images/estilos/minimalista.webp": {
+    "largura": 720,
+    "altura": 960,
+    "larguraSm": 360
+  },
+  "/images/estilos/moderno.webp": {
+    "largura": 720,
+    "altura": 960,
+    "larguraSm": 360
+  },
+  "/images/home/passo-01-envio.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/home/passo-02-producao.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/home/passo-03-aprovacao.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/processo/entrega.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/processo/envio.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/processo/processo.webp": {
+    "largura": 1200,
+    "altura": 1500,
+    "larguraSm": 600
+  },
+  "/images/processo/prova.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/servicos/estudio.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  },
+  "/images/servicos/servicos.webp": {
+    "largura": 1200,
+    "altura": 1500,
+    "larguraSm": 600
+  },
+  "/images/servicos/whitelabel.webp": {
+    "largura": 1200,
+    "altura": 900,
+    "larguraSm": 600
+  }
+}

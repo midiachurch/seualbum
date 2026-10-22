@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import { CtaButtons, type CtaAction } from '@/components/marketing/cta-buttons'
+import { atributosImagem } from '@/lib/imagens-locais'
 
 interface PageHeroProps {
   eyebrow: string
@@ -42,8 +43,14 @@ export function PageHero({ eyebrow, title, description, actions, image, imageAlt
 
         <div className="relative lg:col-span-6 lg:col-start-7 xl:col-span-6 xl:col-start-7">
           <div className="aspect-[4/5] overflow-hidden sm:aspect-[4/3] lg:aspect-[4/5]">
+            {/* Acima da dobra no desktop: prioridade alta e sem lazy. */}
             {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
-            <img src={image} alt={imageAlt} className="h-full w-full object-cover grayscale contrast-[1.05]" />
+            <img
+              {...atributosImagem(image, '(min-width: 1024px) 50vw, 100vw')}
+              alt={imageAlt}
+              fetchPriority="high"
+              className="h-full w-full object-cover"
+            />
           </div>
           {/* Filete deslocado — o "passe-partout" editorial que dá profundidade sem sombra. */}
           <div aria-hidden className="pointer-events-none absolute -bottom-4 -left-4 hidden h-2/3 w-2/3 border border-[#444444]/20 lg:block" />

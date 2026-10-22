@@ -14,25 +14,25 @@ const SEED_CATALOG: AlbumOption[] = [
     id: 'formato-20x20',
     name: '20 × 20',
     description: 'Compacto e versátil — ideal para ensaios, mini álbuns e presentes.',
-    image: 'https://picsum.photos/seed/album-20x20/960/540',
+    image: '/images/albuns/20x20.webp',
   },
   {
     id: 'formato-25x25',
     name: '25 × 25',
     description: 'O equilíbrio entre presença na estante e portabilidade no dia a dia.',
-    image: 'https://picsum.photos/seed/album-25x25/960/540',
+    image: '/images/albuns/25x25.webp',
   },
   {
     id: 'formato-30x30',
     name: '30 × 30',
     description: 'Nosso formato mais escolhido para casamentos e grandes celebrações.',
-    image: 'https://picsum.photos/seed/album-30x30/960/540',
+    image: '/images/albuns/30x30.webp',
   },
   {
     id: 'formato-30x40',
     name: '30 × 40',
     description: 'Para histórias que pedem mais espaço e impacto em cada lâmina.',
-    image: 'https://picsum.photos/seed/album-30x40/960/540',
+    image: '/images/albuns/30x40.webp',
   },
 ]
 

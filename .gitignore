@@ -34,3 +34,6 @@ site-piloto/
 /e2e/editor/.auth/
 /blob-report/
 .claude/
+
+# Originais licenciados do Envato (pesados); o site usa as versões de public/images/
+/_envato-raw/

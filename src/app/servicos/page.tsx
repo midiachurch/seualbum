@@ -62,8 +62,8 @@ export default function ServicosPage() {
             { href: '/auth/register', label: 'Criar conta do estúdio' },
             { href: '/precos', label: 'Ver planos e preços', variant: 'secondary' },
           ]}
-          image="https://picsum.photos/seed/seualbum-servicos/1200/1500"
-          imageAlt="Lâminas de um álbum fotográfico diagramado dispostas sobre a mesa"
+          image="/images/servicos/servicos.webp"
+          imageAlt="Fotos impressas espalhadas sobre a mesa durante a seleção do álbum"
         />
 
         <ValuePillars
@@ -80,8 +80,8 @@ export default function ServicosPage() {
           eyebrow="White label"
           title="O álbum é seu. A marca também."
           description="Não aparecemos na prova, nos arquivos nem na conversa com o seu cliente. Para quem recebe o álbum, todo o trabalho saiu do seu estúdio."
-          image="https://picsum.photos/seed/seualbum-whitelabel/1200/900"
-          imageAlt="Fotógrafa entregando um álbum impresso a um casal"
+          image="/images/servicos/whitelabel.webp"
+          imageAlt="Mãos segurando um álbum com etiqueta em branco para a marca do fotógrafo"
           bullets={[
             'Link de prova sem nenhuma marca nossa',
             'Arquivos finais sem assinatura de terceiros',
@@ -94,8 +94,8 @@ export default function ServicosPage() {
           eyebrow="Para estúdios"
           title="Volume alto, fila curta."
           description="Na assinatura mensal, o estúdio tem uma cota de álbuns por mês e cada pedido vai direto para a fila de diagramação, sem passar pelo checkout. Nos planos maiores, o prazo de entrega é menor."
-          image="https://picsum.photos/seed/seualbum-estudio/1200/900"
-          imageAlt="Estúdio fotográfico com álbuns organizados na estante"
+          image="/images/servicos/estudio.webp"
+          imageAlt="Câmera fotográfica vintage, moldura e livros sobre a mesa"
         >
           <CtaButtons
             actions={[
@@ -113,7 +113,7 @@ export default function ServicosPage() {
             { href: '/auth/register', label: 'Criar conta do estúdio' },
             { href: '/dashboard/novo-pedido', label: 'Começar um pedido', variant: 'secondary' },
           ]}
-          image="https://picsum.photos/seed/seualbum-servicos-cta/1600/900"
+          image="/images/cta/album-maos.webp"
         />
       </main>
       <SiteFooter />

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { atributosImagem } from '@/lib/imagens-locais'
 
 interface EditorialSplitProps {
   eyebrow: string
@@ -38,10 +39,11 @@ export function EditorialSplit({
           <div className="aspect-[4/3] overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
             <img
-              src={image}
+              {...atributosImagem(image, '(min-width: 1024px) 58vw, 100vw')}
               alt={imageAlt}
               loading="lazy"
-              className="h-full w-full object-cover grayscale contrast-[1.05] motion-safe:transition-transform motion-safe:duration-700 motion-safe:group-hover:scale-[1.03]"
+              decoding="async"
+              className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-700 motion-safe:group-hover:scale-[1.03]"
             />
           </div>
         </div>

@@ -44,8 +44,8 @@ export default async function ComoFuncionaPage() {
             { href: '/dashboard/novo-pedido', label: 'Começar um pedido' },
             { href: '/auth/register', label: 'Criar conta do estúdio', variant: 'secondary' },
           ]}
-          image="https://picsum.photos/seed/seualbum-processo/1200/1500"
-          imageAlt="Fotógrafo revisando lâminas de um álbum sobre a mesa de trabalho"
+          image="/images/processo/processo.webp"
+          imageAlt="Pessoa folheando um álbum fotográfico sobre a mesa de trabalho"
           provas={[
             { icon: Smartphone, label: 'Envio direto do celular' },
             ...(menorPrazo !== null ? [{ icon: Clock, label: `Entrega a partir de ${menorPrazo} dias úteis` }] : []),
@@ -63,8 +63,8 @@ export default async function ComoFuncionaPage() {
           eyebrow="01 · Envio"
           title="As fotos saem do seu celular, sem cabo e sem pendrive."
           description="Selecione as imagens direto da galeria do telefone. Se a seleção for grande demais, cole o link de uma pasta do Google Drive ou do Dropbox."
-          image="https://picsum.photos/seed/seualbum-envio/1200/900"
-          imageAlt="Mãos segurando um celular com a galeria de fotos de um casamento"
+          image="/images/processo/envio.webp"
+          imageAlt="Mão segurando um celular que mostra a foto de uma noiva"
           bullets={[
             'Upload direto da galeria do celular',
             'Ou um link do Google Drive ou Dropbox',
@@ -77,8 +77,8 @@ export default async function ComoFuncionaPage() {
           eyebrow="02 · Prova online"
           title="Seu cliente aprova o álbum sem sair de casa."
           description="Quando a diagramação fica pronta, você recebe um link de prova com a sua marca para compartilhar com o cliente. Os ajustes voltam para a produção dentro das rodadas de revisão do seu plano."
-          image="https://picsum.photos/seed/seualbum-prova/1200/900"
-          imageAlt="Casal visualizando a prova de um álbum em um notebook"
+          image="/images/processo/prova.webp"
+          imageAlt="Casal abraçado no sofá olhando a prova do álbum em um notebook"
           bullets={[
             'Link de aprovação white label',
             'Status do pedido acompanhado pelo painel',
@@ -91,8 +91,8 @@ export default async function ComoFuncionaPage() {
           eyebrow="03 · Entrega"
           title="Arquivo final pronto para a gráfica que você já usa."
           description="Com a prova aprovada, você baixa o arquivo final preparado para impressão e envia direto para o laboratório. Sem retrabalho de exportação."
-          image="https://picsum.photos/seed/seualbum-entrega/1200/900"
-          imageAlt="Álbum fotográfico impresso aberto sobre uma mesa clara"
+          image="/images/processo/entrega.webp"
+          imageAlt="Álbum fotográfico impresso aberto sobre uma mesa de madeira"
         >
           <CtaButtons actions={[{ href: '/dashboard/novo-pedido', label: 'Enviar meu primeiro álbum' }]} />
         </EditorialSplit>
@@ -146,7 +146,7 @@ export default async function ComoFuncionaPage() {
             { href: '/dashboard/novo-pedido', label: 'Começar um pedido' },
             { href: '/auth/register', label: 'Criar conta', variant: 'secondary' },
           ]}
-          image="https://picsum.photos/seed/seualbum-como-cta/1600/900"
+          image="/images/cta/como-funciona.webp"
         />
       </main>
       <SiteFooter />

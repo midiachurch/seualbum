@@ -1,34 +1,42 @@
+import { atributosImagem } from '@/lib/imagens-locais'
+
 /**
  * Os cinco estilos oferecidos no briefing (`ESTILOS_DESIGN` em step-briefing).
  * A constante não é importada de lá porque aquele módulo é client component —
  * num server component o import viraria referência de cliente, não o array.
- * Fotografias de exemplo (picsum) até o portfólio real ser cadastrado.
+ * Fotografias de exemplo (licenciadas, em `public/images/estilos`) até o
+ * portfólio real ser cadastrado.
  */
 const ESTILOS = [
   {
     nome: 'Clássico',
     texto: 'Composições simétricas, respiro generoso e uma narrativa que atravessa gerações.',
-    image: 'https://picsum.photos/seed/seualbum-classico/720/960',
+    image: '/images/estilos/classico.webp',
+    alt: 'Noivos em fotografia preto e branco',
   },
   {
     nome: 'Moderno',
     texto: 'Ritmo dinâmico, recortes ousados e sequências que alternam detalhe e panorama.',
-    image: 'https://picsum.photos/seed/seualbum-moderno/720/960',
+    image: '/images/estilos/moderno.webp',
+    alt: 'Casal diante de uma parede de tijolos, a noiva segurando flores',
   },
   {
     nome: 'Editorial',
     texto: 'Lâminas com cara de revista: hierarquia forte, fotos protagonistas e tensão visual.',
-    image: 'https://picsum.photos/seed/seualbum-editorial/720/960',
+    image: '/images/estilos/editorial.webp',
+    alt: 'Noiva com vestido volumoso em fundo cinza de estúdio',
   },
   {
     nome: 'Minimalista',
     texto: 'Poucas fotos por lâmina, muito espaço em branco e foco total no essencial.',
-    image: 'https://picsum.photos/seed/seualbum-minimalista/720/960',
+    image: '/images/estilos/minimalista.webp',
+    alt: 'Noiva com buquê sobre fundo branco e limpo',
   },
   {
     nome: 'Fine art',
     texto: 'Tratamento autoral e contemplativo, pensado para impressão em papéis especiais.',
-    image: 'https://picsum.photos/seed/seualbum-fineart/720/960',
+    image: '/images/estilos/fineart.webp',
+    alt: 'Noiva com véu de renda junto a um vitral',
   },
 ]
 
@@ -60,10 +68,11 @@ export function DesignStyles({
               <div className="aspect-[3/4] overflow-hidden bg-[#F5F5F5]">
                 {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
                 <img
-                  src={estilo.image}
-                  alt={`Exemplo de fotografia para álbum no estilo ${estilo.nome.toLowerCase()}`}
+                  {...atributosImagem(estilo.image, '(min-width: 1024px) 20vw, (min-width: 640px) 50vw, 72vw')}
+                  alt={estilo.alt}
                   loading="lazy"
-                  className="h-full w-full object-cover grayscale contrast-[1.05] motion-safe:transition-transform motion-safe:duration-700 motion-safe:group-hover:scale-105"
+                  decoding="async"
+                  className="h-full w-full object-cover motion-safe:transition-transform motion-safe:duration-700 motion-safe:group-hover:scale-105"
                 />
               </div>
               <h3 className="text-title mt-5 text-[#444444]">{estilo.nome}</h3>

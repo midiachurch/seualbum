@@ -152,7 +152,7 @@ export default async function CriarAlbumPage() {
             { href: '/dashboard/novo-pedido', label: 'Começar meu álbum' },
             { href: '/auth/register', label: 'Criar conta do estúdio', variant: 'secondary' },
           ]}
-          image="https://picsum.photos/seed/seualbum-criar-cta/1600/900"
+          image="/images/cta/criar-album.webp"
         />
       </main>
       <SiteFooter />

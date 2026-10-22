@@ -13,29 +13,29 @@ export const metadata: Metadata = {
 // demais dados (capas, acabamentos, preços) serem cadastrados nas próximas etapas.
 const FORMATOS: TextImageItem[] = [
   {
-    image: 'https://picsum.photos/seed/album-20x20/960/540',
-    alt: 'Álbum fotográfico no formato 20 por 20 centímetros',
+    image: '/images/albuns/20x20.webp',
+    alt: 'Álbum quadrado preto de 20 por 20 centímetros com folha de palmeira, tesoura e barbante',
     title: '20 × 20',
     description: 'Compacto e versátil — ideal para ensaios, mini álbuns e presentes.',
     href: '/portfolio',
   },
   {
-    image: 'https://picsum.photos/seed/album-25x25/960/540',
-    alt: 'Álbum fotográfico no formato 25 por 25 centímetros',
+    image: '/images/albuns/25x25.webp',
+    alt: 'Álbum de capa dura branca de 25 por 25 centímetros sobre fundo bege com flores',
     title: '25 × 25',
     description: 'O equilíbrio entre presença na estante e portabilidade no dia a dia.',
     href: '/portfolio',
   },
   {
-    image: 'https://picsum.photos/seed/album-30x30/960/540',
-    alt: 'Álbum fotográfico no formato 30 por 30 centímetros',
+    image: '/images/albuns/30x30.webp',
+    alt: 'Álbum preto de 30 por 30 centímetros sobre mármore cinza',
     title: '30 × 30',
     description: 'Nosso formato mais escolhido para casamentos e grandes celebrações.',
     href: '/portfolio',
   },
   {
-    image: 'https://picsum.photos/seed/album-30x40/960/540',
-    alt: 'Álbum fotográfico no formato 30 por 40 centímetros',
+    image: '/images/albuns/30x40.webp',
+    alt: 'Álbum paisagem de 30 por 40 centímetros aberto, com fotos de família ao ar livre',
     title: '30 × 40',
     description: 'Para histórias que pedem mais espaço e impacto em cada lâmina.',
     href: '/portfolio',

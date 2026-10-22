@@ -21,10 +21,10 @@ export const ALBUM_TYPE_OPTIONS: VisualOption<AlbumTypeValue>[] = [
 ]
 
 export const ALBUM_FORMAT_OPTIONS: VisualOption<string>[] = [
-  { value: '20x20', label: '20 × 20', description: 'Compacto e versátil.', image: 'https://picsum.photos/seed/album-20x20/640/480' },
-  { value: '25x25', label: '25 × 25', description: 'Equilíbrio entre presença e portabilidade.', image: 'https://picsum.photos/seed/album-25x25/640/480' },
-  { value: '30x30', label: '30 × 30', description: 'O mais escolhido para celebrações grandes.', image: 'https://picsum.photos/seed/album-30x30/640/480' },
-  { value: '30x40', label: '30 × 40', description: 'Mais espaço e impacto por lâmina.', image: 'https://picsum.photos/seed/album-30x40/640/480' },
+  { value: '20x20', label: '20 × 20', description: 'Compacto e versátil.', image: '/images/albuns/20x20.webp' },
+  { value: '25x25', label: '25 × 25', description: 'Equilíbrio entre presença e portabilidade.', image: '/images/albuns/25x25.webp' },
+  { value: '30x30', label: '30 × 30', description: 'O mais escolhido para celebrações grandes.', image: '/images/albuns/30x30.webp' },
+  { value: '30x40', label: '30 × 40', description: 'Mais espaço e impacto por lâmina.', image: '/images/albuns/30x40.webp' },
 ]
 
 export const ALBUM_ORIENTATION_OPTIONS: VisualOption<AlbumOrientationValue>[] = [
