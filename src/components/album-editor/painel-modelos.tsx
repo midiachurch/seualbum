@@ -40,6 +40,7 @@ export function PainelModelos({
             key={c}
             type="button"
             onClick={() => setCategoria(c)}
+            aria-pressed={categoria === c}
             className={cn('rounded-full px-2.5 py-1 text-[11px]', categoria === c ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#6B6B6B] hover:bg-[#EAEAEA]')}
           >
             {c}

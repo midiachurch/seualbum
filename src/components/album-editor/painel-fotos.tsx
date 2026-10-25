@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Ellipsis, ImagePlus, Plus, Search, SlidersHorizontal, Star, Trash2, WandSparkles, X } from 'lucide-react'
+import { Ellipsis, ImagePlus, ListChecks, Plus, Search, SlidersHorizontal, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { MIME_FOTO, urlParaMiniatura } from '@/components/album-editor/tipos'
 import { listarFotosDoEditor, registrarFotosAlbum } from '@/lib/actions/album-editor'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
@@ -9,6 +9,7 @@ import { gerarDerivados, registrarDerivados } from '@/lib/album/derivados'
 import { enviarArquivoAlbum } from '@/lib/upload-album'
 import type { FotoDoEditor } from '@/lib/supabase/queries'
 import type { DerivadoFoto } from '@/types/database'
+import { MAX_FOTOS_POR_LAMINA } from '@/lib/album/modelos'
 import { cn } from '@/lib/utils'
 // randomUUID só existe em HTTPS/localhost; este funciona também pelo IP da rede.
 import { novoUuid } from '@/store/usePedidoWizardStore'
@@ -127,6 +128,7 @@ export function PainelFotos({
   filtroInicial,
   somenteLeitura,
   onAlternarSelecao,
+  onSelecionarVarias,
   onLimparSelecao,
   onFotosNovas,
   onRemoverFoto,
@@ -421,6 +423,18 @@ export function PainelFotos({
           </button>
         )}
 
+        {visiveis.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onSelecionarVarias(visiveis.map((f) => f.id))}
+            className={cn(CLASSE_BOTAO, 'px-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]')}
+            aria-label={`Selecionar as ${Math.min(visiveis.length, MAX_FOTOS_POR_LAMINA)} primeiras visíveis`}
+            title={`Selecionar as ${Math.min(visiveis.length, MAX_FOTOS_POR_LAMINA)} primeiras visíveis`}
+          >
+            <ListChecks className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        ) : null}
+
         {erro ? (
           <p role="alert" className="max-w-60 truncate rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700" title={erro}>
             {erro}
@@ -546,7 +560,7 @@ export function PainelFotos({
                       <span className="absolute bottom-1 right-1 rounded bg-white/90 px-1 text-[9px] font-semibold text-violet-700 shadow">{ROTULO_PRIORIDADE[m.prioridade]}</span>
                     ) : null}
                     {marcada ? (
-                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#171717] text-[10px] font-bold text-white shadow">{ordemSelecao + 1}</span>
+                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#171717] text-[10px] font-bold text-white shadow ring-2 ring-white">{ordemSelecao + 1}</span>
                     ) : null}
                   </button>
                   <button

@@ -102,7 +102,9 @@ export function PainelLayouts({
   const [agrupar, setAgrupar] = useState<Agrupamento>('captura')
   const [reutilizacao, setReutilizacao] = useState<Reutilizacao>('media')
   const n = Number(laminas)
-  const fotosDoPreenchimento = soSelecionadas ? selecionadas : totalFotos
+  // Sem seleção a opção some (o checkbox fica desabilitado e não daria para desmarcar).
+  const usarSoSelecionadas = soSelecionadas && selecionadas > 0
+  const fotosDoPreenchimento = usarSoSelecionadas ? selecionadas : totalFotos
 
   // Com fotos escolhidas, a biblioteca abre filtrada pela quantidade delas e ordenada por compatibilidade.
   const nFiltro = filtro.nFotos ?? (fotosSelecionadas.length > 0 ? fotosSelecionadas.length : null)
@@ -152,7 +154,7 @@ export function PainelLayouts({
               <div className="space-y-2 rounded-lg border border-[#EAEAEA] bg-[#F5F5F5] p-2">
                 <p className="flex items-center justify-between text-xs">
                   <span className="text-[#6B6B6B]">Assinatura</span>
-                  <code className="rounded bg-[#F5F5F5] text-[#6B6B6B] px-1.5 py-0.5 font-semibold tracking-wider">{assinatura}</code>
+                  <code className="rounded bg-white px-1.5 py-0.5 font-semibold tracking-wider text-[#171717] ring-1 ring-[#EAEAEA]">{assinatura}</code>
                 </p>
                 <label className="flex items-start gap-2 text-xs text-[#6B6B6B]">
                   <input type="checkbox" checked={respeitarOrdem} onChange={(e) => onRespeitarOrdem(e.target.checked)} className="mt-0.5 accent-[#171717]" />
@@ -169,7 +171,7 @@ export function PainelLayouts({
                           key={r.assinatura}
                           type="button"
                           onClick={() => onReordenar(r.ordem)}
-                          className={cn('rounded px-1.5 py-0.5 text-[11px]', r.assinatura === assinatura ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#171717] hover:bg-[#EAEAEA]')}
+                          className={cn('rounded px-1.5 py-0.5 text-[11px]', r.assinatura === assinatura ? 'bg-[#171717] text-white' : 'bg-white text-[#171717] ring-1 ring-[#EAEAEA] hover:bg-[#EAEAEA]')}
                           title={`${r.exatos} template(s) com encaixe exato`}
                         >
                           {r.assinatura} <span className="opacity-60">· {r.exatos}</span>
@@ -187,13 +189,13 @@ export function PainelLayouts({
                   type="button"
                   disabled={somenteLeitura}
                   onClick={() => onAplicar(v)}
-                  className="rounded-lg p-1.5 text-left bg-[#F5F5F5] ring-1 ring-[#EAEAEA] hover:ring-[#171717] disabled:opacity-50"
+                  className="rounded-lg p-1.5 text-left bg-[#F5F5F5] ring-1 ring-[#EAEAEA] hover:ring-[#171717] disabled:opacity-50 disabled:hover:ring-[#EAEAEA]"
                   aria-label={`Aplicar a composição ${i + 1} na lâmina atual`}
                 >
                   <MiniaturaLamina lamina={{ ...novaLamina(), id: v.id, quadros: v.quadros }} geometria={geometria} fotos={fotosMapa} largura={236} />
                   <span className="mt-1 flex justify-between text-[11px] text-[#6B6B6B]">
                     <span>Composição {String(i + 1).padStart(2, '0')}</span>
-                    <span className="rounded bg-[#F5F5F5] text-[#6B6B6B] px-1.5">{tipoDaComposicao(v)}</span>
+                    <span className="rounded bg-white px-1.5 text-[#6B6B6B] ring-1 ring-[#EAEAEA]">{tipoDaComposicao(v)}</span>
                   </span>
                 </button>
               ))}
@@ -214,6 +216,7 @@ export function PainelLayouts({
                   key={v}
                   type="button"
                   onClick={() => setFiltro((f) => ({ ...f, aba: v }))}
+                  aria-pressed={filtro.aba === v}
                   className={cn('rounded-full px-2.5 py-1 text-[11px]', filtro.aba === v ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#6B6B6B] hover:bg-[#EAEAEA]')}
                 >
                   {r}
@@ -267,7 +270,7 @@ export function PainelLayouts({
                       <span className="min-w-0 flex-1 truncate text-[#6B6B6B]" title={t.nome}>
                         {t.nome}
                       </span>
-                      <code className="rounded bg-[#F5F5F5] text-[#6B6B6B] px-1 text-[10px]">{t.assinatura}</code>
+                      <code className="rounded bg-white px-1 text-[10px] text-[#6B6B6B] ring-1 ring-[#EAEAEA]">{t.assinatura}</code>
                       {c && c.nivel !== 'incompativel' ? <span className={cn('rounded px-1 text-[10px]', NIVEL_COMPAT[c.nivel].cor)}>{NIVEL_COMPAT[c.nivel].rotulo}</span> : null}
                       <button type="button" onClick={() => onFavoritarTemplate(t)} className={cn('rounded p-0.5', t.favorito ? 'text-amber-500' : 'text-[#9A9A9A] hover:text-[#171717]')} aria-label={t.favorito ? 'Tirar dos favoritos' : 'Favoritar'} aria-pressed={Boolean(t.favorito)}>
                         <Star className="h-3.5 w-3.5" fill={t.favorito ? 'currentColor' : 'none'} />
@@ -356,7 +359,7 @@ export function PainelLayouts({
               </>
             ) : null}
             <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
-              <input type="checkbox" checked={soSelecionadas} onChange={(e) => setSoSelecionadas(e.target.checked)} disabled={selecionadas === 0} className="accent-[#171717]" />
+              <input type="checkbox" checked={usarSoSelecionadas} onChange={(e) => setSoSelecionadas(e.target.checked)} disabled={selecionadas === 0} className="accent-[#171717]" />
               Usar só as {selecionadas} foto(s) selecionadas
             </label>
             <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
@@ -377,7 +380,7 @@ export function PainelLayouts({
                   laminas: Math.floor(n) || 1,
                   capa,
                   estilo,
-                  soSelecionadas,
+                  soSelecionadas: usarSoSelecionadas,
                   usarQuadrosDoModelo: usarQuadros && temQuadrosVazios,
                   agrupar,
                   reutilizacao,

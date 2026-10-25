@@ -751,6 +751,7 @@ export function ProofViewer({
               onChange={(e) => setDraft(e.target.value)}
               placeholder={pinDaLaminaAtual ? (pinDaLaminaAtual.largura ? 'O que ajustar nesta área?' : 'O que ajustar neste ponto?') : 'Descreva a alteração. Ex.: trocar esta foto'}
               rows={2}
+              aria-label="Orientação de alteração"
               className="min-h-[44px] flex-1 resize-none rounded-xl border border-[#DDDDDD] bg-white px-3 py-2 text-base text-[#171717] placeholder:text-[#9A9A9A] focus:outline-none focus:ring-2 focus:ring-[#171717] lg:text-sm"
             />
             <button
@@ -862,7 +863,16 @@ export function ProofViewer({
           <p className="truncate text-sm font-semibold leading-tight">{projectName}</p>
           <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[#6B6B6B]">
             {versoesOrdenadas.length > 1 ? (
-              <div className="relative shrink-0">
+              <div
+                className="relative shrink-0"
+                onKeyDown={(e) => {
+                  // Esc fecha só o menu (sem cair no atalho global que volta para a galeria).
+                  if (e.key === 'Escape' && menuVersoes) {
+                    e.stopPropagation()
+                    setMenuVersoes(false)
+                  }
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => setMenuVersoes((v) => !v)}

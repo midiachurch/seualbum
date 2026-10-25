@@ -199,6 +199,11 @@ export function AprovacaoCliente({ album }: { album: AlbumPublico }) {
                 <PencilLine className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 Alterações solicitadas por {album.decididoPorNome}. O designer vai preparar uma nova versão.
               </p>
+            ) : !aberto ? (
+              <p className="flex items-start gap-2 rounded-xl bg-[#F5F5F5] p-3 text-sm text-[#6B6B6B]">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                Esta versão não está mais em aprovação: o designer enviou uma nova ou cancelou o envio.
+              </p>
             ) : (
               <>
                 <p className="text-sm text-[#6B6B6B]">
@@ -291,7 +296,7 @@ export function AprovacaoCliente({ album }: { album: AlbumPublico }) {
       </div>
 
       {/* Celular: as decisões ficam sempre à mão, presas na base da tela. */}
-      {album.status !== 'aprovado' && album.status !== 'alteracoes' ? (
+      {aberto ? (
         <div className="sticky bottom-0 z-10 border-t border-[#EAEAEA] bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
           {acoes}
         </div>

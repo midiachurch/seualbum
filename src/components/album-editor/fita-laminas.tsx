@@ -82,7 +82,7 @@ export function FitaLaminas({
             }}
             className={cn(
               'group relative flex shrink-0 flex-col gap-1 rounded-lg p-1.5 transition-colors',
-              i === ativa ? 'bg-white shadow-sm ring-2 ring-[#171717]' : 'hover:bg-white',
+              i === ativa ? 'bg-white shadow-sm ring-2 ring-[#171717]' : 'hover:bg-[#F5F5F5]',
               sobre === i && arrastando !== i && 'ring-2 ring-pink-400',
               arrastando === i && 'opacity-40',
             )}
@@ -146,7 +146,7 @@ export function FitaLaminas({
         type="button"
         disabled={somenteLeitura}
         onClick={() => onAdicionar(ativa)}
-        className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#DDDDDD] bg-white px-4 text-xs text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-50"
+        className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#DDDDDD] bg-white px-4 text-xs text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:pointer-events-none disabled:opacity-50"
         style={{ minWidth: LARGURA_MINI / 1.4 }}
       >
         <Plus className="h-5 w-5" aria-hidden />

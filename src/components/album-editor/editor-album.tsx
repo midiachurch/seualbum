@@ -25,11 +25,13 @@ import {
   Maximize2,
   MessageSquare,
   Minimize2,
+  Minus,
   MousePointer2,
   Move,
   PaintBucket,
   PanelRightClose,
   PanelRightOpen,
+  Plus,
   Redo2,
   Send,
   Settings,
@@ -1659,7 +1661,8 @@ export function EditorAlbum({
           </div>
 
           {/* Navegação da lâmina: ◀ · trocar layout · ▶ */}
-          <div className="flex items-center justify-center gap-1.5 border-t border-[#EAEAEA] bg-white px-3 py-1.5">
+          <div className="flex items-center gap-1.5 border-t border-[#EAEAEA] bg-white px-3 py-1.5">
+            <div className="flex-1" />
             <button type="button" onClick={() => irPara(laminaIdx - 1)} disabled={laminaIdx === 0} className="rounded-full p-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30" aria-label="Lâmina anterior (←)" title="Lâmina anterior (←)">
               <ChevronLeft className="h-4 w-4" aria-hidden />
             </button>
@@ -1683,6 +1686,19 @@ export function EditorAlbum({
             >
               <ChevronRight className="h-4 w-4" aria-hidden />
             </button>
+            <div className="flex flex-1 items-center justify-end">
+              <div className="flex items-center rounded-full border border-[#EAEAEA] text-[#6B6B6B]" role="group" aria-label="Zoom">
+                <button type="button" onClick={() => setZoom((z) => [...ZOOMS].reverse().find((v) => v < z) ?? z)} disabled={zoom <= ZOOMS[0]} className="rounded-full p-1.5 hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30" aria-label="Diminuir zoom (Ctrl −)" title="Diminuir zoom (Ctrl −)">
+                  <Minus className="h-3.5 w-3.5" aria-hidden />
+                </button>
+                <button type="button" onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-1 py-1 text-center text-[11px] tabular-nums hover:bg-[#F5F5F5] hover:text-[#171717]" aria-label="Ajustar à tela (Ctrl 0)" title="Ajustar à tela (Ctrl 0)">
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button type="button" onClick={() => setZoom((z) => ZOOMS.find((v) => v > z) ?? z)} disabled={zoom >= ZOOMS[ZOOMS.length - 1]} className="rounded-full p-1.5 hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30" aria-label="Aumentar zoom (Ctrl +)" title="Aumentar zoom (Ctrl +)">
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-[#EAEAEA] bg-white">

@@ -604,6 +604,8 @@ export function InspetorMultiplo({
   const [raioLote, setRaioLote] = useState(0)
   const [opacLote, setOpacLote] = useState(100)
   const ref = itens[itens.length - 1]
+  // Os ids selecionados podem sumir (ex.: desfazer com vários itens marcados).
+  if (!ref) return null
   const comAltura = (i: CaixaSelecionada) => i.tipo !== 'texto'
   const igualar = (modo: 'largura' | 'altura' | 'tamanho') =>
     onAlterarVarios(

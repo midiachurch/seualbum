@@ -62,7 +62,7 @@ export function PainelFundos({
               disabled={somenteLeitura}
               onClick={() => onCor(c, todas)}
               aria-label={`Fundo ${c}`}
-              className={cn('h-7 rounded-md ring-1 ring-[#EAEAEA]', lamina.fundo === c && 'ring-2 ring-[#171717]')}
+              className={cn('h-7 rounded-md ring-1 ring-[#DDDDDD] disabled:opacity-50', lamina.fundo === c && 'ring-2 ring-[#171717] ring-offset-2 ring-offset-white')}
               style={{ background: c }}
             />
           ))}
@@ -82,7 +82,7 @@ export function PainelFundos({
               disabled={somenteLeitura}
               onClick={() => onGradiente(gr, todas)}
               aria-label={`Degradê ${gr.de} a ${gr.para}`}
-              className="h-7 rounded-md ring-1 ring-[#EAEAEA]"
+              className="h-7 rounded-md ring-1 ring-[#DDDDDD] disabled:opacity-50"
               style={{ background: `linear-gradient(${gr.angulo + 90}deg, ${gr.de}, ${gr.para})` }}
             />
           ))}
@@ -116,7 +116,7 @@ export function PainelFundos({
               disabled={somenteLeitura}
               onClick={() => onTextura(lamina.textura?.tipo === t.tipo ? null : { tipo: t.tipo as Textura, opacidade: lamina.textura?.opacidade ?? 0.35 }, todas)}
               aria-pressed={lamina.textura?.tipo === t.tipo}
-              className={cn('rounded-md px-2 py-1.5 text-[11px]', lamina.textura?.tipo === t.tipo ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#6B6B6B] hover:bg-[#EAEAEA]')}
+              className={cn('rounded-md px-2 py-1.5 text-[11px] disabled:opacity-50', lamina.textura?.tipo === t.tipo ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#6B6B6B] hover:bg-[#EAEAEA]')}
             >
               {t.nome}
             </button>
@@ -158,7 +158,7 @@ export function PainelFundos({
                 type="button"
                 disabled={somenteLeitura}
                 onClick={() => onImagem({ fotoId: f.id, opacidade: lamina.fundoImagem?.opacidade ?? 0.35 }, todas)}
-                className={cn('block aspect-square w-full overflow-hidden rounded bg-[#F5F5F5]', lamina.fundoImagem?.fotoId === f.id && 'ring-2 ring-[#171717]')}
+                className={cn('block aspect-square w-full overflow-hidden rounded bg-[#F5F5F5]', lamina.fundoImagem?.fotoId === f.id && 'ring-2 ring-[#171717] ring-offset-1 ring-offset-white')}
                 aria-label={`Usar ${f.nome} como fundo`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- link assinado do Storage. */}
@@ -327,17 +327,17 @@ export function PainelPaginas({
             </button>
             {!somenteLeitura ? (
               <div className="mt-1 flex gap-1">
-                <button type="button" onClick={() => onDuplicar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#6B6B6B] hover:bg-[#F5F5F5]">
+                <button type="button" onClick={() => onDuplicar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#6B6B6B] hover:bg-[#EAEAEA] hover:text-[#171717]">
                   <Copy className="h-3 w-3" aria-hidden /> Duplicar
                 </button>
-                <button type="button" onClick={() => onLimpar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#6B6B6B] hover:bg-[#F5F5F5]">
+                <button type="button" onClick={() => onLimpar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#6B6B6B] hover:bg-[#EAEAEA] hover:text-[#171717]">
                   <Eraser className="h-3 w-3" aria-hidden /> Limpar
                 </button>
                 <button
                   type="button"
                   onClick={() => onExcluir(i)}
                   disabled={laminas.length === 1}
-                  className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-red-700 hover:bg-red-50 disabled:opacity-30"
+                  className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-red-700 hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent"
                 >
                   <Trash2 className="h-3 w-3" aria-hidden /> Excluir
                 </button>
@@ -438,7 +438,7 @@ export function PainelConfiguracoes({
         </div>
       </section>
       {!somenteLeitura ? (
-        <button type="button" onClick={salvar} disabled={salvando} className="w-full rounded-md bg-[#171717] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+        <button type="button" onClick={salvar} disabled={salvando} className="w-full rounded-md bg-[#171717] px-3 py-2 text-sm font-semibold text-white hover:bg-[#171717]/90 disabled:opacity-60">
           {salvando ? 'Salvando…' : 'Salvar configurações'}
         </button>
       ) : null}

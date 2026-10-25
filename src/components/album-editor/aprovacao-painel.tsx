@@ -383,7 +383,7 @@ export function AprovacaoPainel({
                                         const r = await resolverComentarioAlbum(c.id, e.target.checked)
                                         if (r.ok) void carregar()
                                       }}
-                                      className="mt-0.5"
+                                      className="mt-0.5 accent-[#171717]"
                                     />
                                   ) : (
                                     <span className="w-3.5" />
@@ -413,6 +413,7 @@ export function AprovacaoPainel({
                                   value={resposta[`${a.id}:${lamina}`] ?? ''}
                                   onChange={(e) => setResposta((x) => ({ ...x, [`${a.id}:${lamina}`]: e.target.value }))}
                                   placeholder="Responder ao cliente…"
+                                  aria-label="Responder ao cliente"
                                   className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
                                 />
                                 <Button size="sm" variant="outline" type="submit">

@@ -61,7 +61,7 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
   }, [projetoId, tratar])
 
   const cm = laminaEmCm({ formato, orientacao })
-  const chip = (ativo: boolean) => cn('min-h-[40px] rounded-full border px-4 text-sm', ativo ? 'border-[#171717] bg-[#171717] text-white' : 'border-[#DDDDDD] text-[#171717] hover:bg-[#F5F5F5]')
+  const chip = (ativo: boolean) => cn('min-h-[40px] rounded-full border px-4 text-sm', ativo ? 'border-[#171717] bg-[#171717] text-white' : 'border-[#DDDDDD] bg-white text-[#171717] hover:border-[#9A9A9A]')
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#F5F5F5] p-6 text-center text-[#171717]">
@@ -75,7 +75,7 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
             <p className="text-xs uppercase tracking-wide text-[#9A9A9A]">Formato (cm)</p>
             <div className="flex flex-wrap gap-2">
               {FORMATOS.map((f) => (
-                <button key={f} type="button" onClick={() => setFormato(f)} className={chip(formato === f)}>
+                <button key={f} type="button" onClick={() => setFormato(f)} aria-pressed={formato === f} className={chip(formato === f)}>
                   {f.replace('x', ' × ')}
                 </button>
               ))}
@@ -92,7 +92,7 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
             <p className="text-xs uppercase tracking-wide text-[#9A9A9A]">Orientação</p>
             <div className="flex flex-wrap gap-2">
               {ORIENTACOES.map((o) => (
-                <button key={o.valor} type="button" onClick={() => setOrientacao(o.valor)} className={chip(orientacao === o.valor)}>
+                <button key={o.valor} type="button" onClick={() => setOrientacao(o.valor)} aria-pressed={orientacao === o.valor} className={chip(orientacao === o.valor)}>
                   {o.rotulo}
                 </button>
               ))}
