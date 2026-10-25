@@ -85,9 +85,12 @@ export async function esperarEditor(page: Page) {
   await expect(page.locator('canvas').first()).toBeVisible({ timeout: 120_000 })
 }
 
-/** Envia fotos pelo painel "Fotos" do editor (input de arquivo), pelo fluxo real de upload. */
+/**
+ * Envia fotos pela bandeja do editor (o input de arquivo atrás de "Importar
+ * fotos"), pelo fluxo real de upload. A bandeja fica sempre aberta embaixo.
+ */
 export async function enviarFotos(page: Page, fotos: { nome: string; jpeg: Buffer }[]) {
-  await page.getByRole('navigation', { name: 'Ferramentas' }).getByRole('button', { name: 'Fotos' }).click()
+  await expect(page.getByRole('button', { name: /^Importar fotos/ })).toBeVisible()
   await page.locator('input[type="file"]').setInputFiles(fotos.map((f) => ({ name: f.nome, mimeType: 'image/jpeg', buffer: f.jpeg })))
   for (const f of fotos) await expect(page.getByRole('button', { name: new RegExp(`^${f.nome.replace('.', '\\.')}`) })).toBeVisible({ timeout: 120_000 })
 }
@@ -99,14 +102,36 @@ export async function documentoSalvo(albumId: string) {
   return data as { documento: { laminas: { quadros: QuadroSalvo[]; textos: { id: string; texto: string; fonte: string }[] }[] }; revisao: number; fotos: { id: string; nome: string }[] }
 }
 
-/** Espera o autosave terminar ("Salvo agora" no topo do editor). */
+/**
+ * Espera o autosave terminar: a pílula de status do topo volta a "Salvo na
+ * nuvem". A pílula já diz isso antes de qualquer edição, então quem precisa do
+ * documento novo no banco confere o próprio banco com `expect.poll`.
+ */
 export async function esperarSalvo(page: Page) {
-  await expect(page.getByRole('status').filter({ hasText: 'Salvo agora' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'Salvo na nuvem' })).toBeVisible({ timeout: 30_000 })
+}
+
+/** Abre um item do menu "⋯" (Mais opções) da barra superior: Textos, Verificar o álbum, Visualizar como livro… */
+export async function abrirNoMenu(page: Page, item: string) {
+  await page.getByRole('button', { name: 'Mais opções' }).click()
+  await page.getByRole('menuitem', { name: item, exact: true }).click()
+}
+
+/**
+ * Marca as fotos na bandeja (na ordem) e arrasta a seleção até a lâmina atual
+ * — o fluxo do editor: a lâmina ganha o melhor layout para essas fotos.
+ */
+export async function porNaLamina(page: Page, nomes: string[]) {
+  const foto = (nome: string) => page.getByRole('list', { name: 'Fotos do álbum' }).getByRole('button', { name: new RegExp(`^${nome.replace('.', '\\.')}`) })
+  for (const n of nomes) await foto(n).click()
+  await foto(nomes[0]).dragTo(page.locator('.konvajs-content').first())
 }
 
 /**
  * Centro de um quadro (mm do documento) em pixels da página, com a mesma conta
- * do canvas-lamina: a lâmina com sangria cabe no palco com 28 px de folga.
+ * do canvas-lamina (PADDING_PX): a lâmina com sangria cabe no palco com 28 px
+ * de folga. Vale com zoom 100% ("Ajustar à tela") e sem arrastar o palco; as
+ * vizinhas que espiam nas laterais ficam fora do palco, então não entram.
  */
 export async function centroDoQuadro(page: Page, albumId: string, q: QuadroSalvo) {
   const { data: album, error } = await servico.from('album_layouts').select('formato, orientacao, sangria_mm').eq('id', albumId).single()

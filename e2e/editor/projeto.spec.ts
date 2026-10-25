@@ -1,6 +1,6 @@
 import { Cenario } from '../support/seed'
 import { URL_R2_FALSO } from './ambiente'
-import { enviarFotos, esperarEditor, esperarSalvo, expect, gerarJpeg, test } from './apoio'
+import { enviarFotos, esperarEditor, esperarSalvo, expect, gerarJpeg, porNaLamina, test } from './apoio'
 
 /**
  * Álbum de projeto: o editor abre pelo projeto, as fotos sobem pelo fluxo do
@@ -43,13 +43,14 @@ test.describe('editor de álbum de projeto', () => {
       { nome: 'proj-1.jpg', jpeg: await gerarJpeg(page, 3600, 2400, '#b33', 'P1') },
       { nome: 'proj-2.jpg', jpeg: await gerarJpeg(page, 3600, 2400, '#33b', 'P2') },
     ])
-    await page.getByRole('button', { name: /^proj-1\.jpg/ }).click()
-    await page.getByRole('button', { name: /^proj-2\.jpg/ }).click()
-    await page.getByRole('button', { name: 'Criar página' }).click()
+    // O álbum do projeto nasce com uma lâmina vazia: as duas fotos soltas nela ganham um layout.
+    await porNaLamina(page, ['proj-1.jpg', 'proj-2.jpg'])
     await esperarSalvo(page)
 
-    const { data: album } = await cenario.db.from('album_layouts').select('documento').eq('projeto_id', projetoId).single()
-    const nLaminas = (album!.documento as { laminas: unknown[] }).laminas.length
+    type Doc = { laminas: { quadros: { fotoId: string | null }[] }[] }
+    const documento = async () => (await cenario.db.from('album_layouts').select('documento').eq('projeto_id', projetoId).single()).data!.documento as Doc
+    await expect.poll(async () => (await documento()).laminas.some((l) => l.quadros.filter((q) => q.fotoId).length === 2)).toBe(true)
+    const nLaminas = (await documento()).laminas.length
 
     await page.getByRole('button', { name: 'Publicar' }).click()
     const modal = page.getByRole('dialog', { name: 'Publicar e exportar' })
@@ -68,7 +69,8 @@ test.describe('editor de álbum de projeto', () => {
     await modal.getByRole('link', { name: 'Ver na prova' }).click()
     await page.waitForURL(new RegExp(`/admin/projetos/${projetoId}/prova`))
     // Galeria da versão: todas as lâminas, com a imagem que o editor gerou (lida do R2 falso).
-    await expect(page.getByText(`${nLaminas} lâminas`)).toBeVisible()
+    // "1 lâmina" no singular, "N lâminas" no plural.
+    await expect(page.getByText(new RegExp(`${nLaminas} lâminas?$`))).toBeVisible()
     const comFotos = laminas!.length > 1 ? 'Abrir lâmina 2' : 'Abrir lâmina 1'
     const imagem = page.getByRole('button', { name: comFotos, exact: true }).locator('img').first()
     await expect(imagem).toBeVisible()
