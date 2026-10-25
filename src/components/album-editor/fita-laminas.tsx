@@ -82,7 +82,7 @@ export function FitaLaminas({
             }}
             className={cn(
               'group relative flex shrink-0 flex-col gap-1 rounded-lg p-1.5 transition-colors',
-              i === ativa ? 'bg-white/15 ring-2 ring-white' : 'hover:bg-white/10',
+              i === ativa ? 'bg-white shadow-sm ring-2 ring-[#171717]' : 'hover:bg-white',
               sobre === i && arrastando !== i && 'ring-2 ring-pink-400',
               arrastando === i && 'opacity-40',
             )}
@@ -90,40 +90,40 @@ export function FitaLaminas({
             <button type="button" onClick={() => onIr(i)} aria-label={`Ir para ${rotulo(i)}`} aria-current={i === ativa ? 'true' : undefined}>
               <MiniaturaLamina lamina={lamina} geometria={geometria} fotos={fotos} largura={LARGURA_MINI} />
             </button>
-            <div className="flex items-center justify-between gap-1 text-[10px] text-white/70">
+            <div className="flex items-center justify-between gap-1 text-[10px] text-[#6B6B6B]">
               <span className="tabular-nums">
-                <span className="font-medium">{rotulo(i)}</span>
-                {paginas(i) ? <span className="ml-1 text-white/40">{paginas(i)}</span> : null}
+                <span className="font-medium text-[#171717]">{rotulo(i)}</span>
+                {paginas(i) ? <span className="ml-1 text-[#9A9A9A]">{paginas(i)}</span> : null}
               </span>
               {comentariosPorLamina?.get(i) ? (
-                <span className="flex items-center gap-0.5 rounded-full bg-sky-400 px-1.5 text-[10px] font-bold text-[#0A0A0A]" aria-label={`${comentariosPorLamina.get(i)} comentários do cliente`}>
+                <span className="flex items-center gap-0.5 rounded-full bg-sky-50 px-1.5 text-[10px] font-bold text-sky-700" aria-label={`${comentariosPorLamina.get(i)} comentários do cliente`}>
                   <MessageSquare className="h-2.5 w-2.5" aria-hidden />
                   {comentariosPorLamina.get(i)}
                 </span>
               ) : null}
               {problemas > 0 ? (
-                <span className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold text-[#171717]" aria-label={`${problemas} pontos de atenção`}>
+                <span className="rounded-full bg-amber-50 px-1.5 text-[10px] font-bold text-amber-800" aria-label={`${problemas} pontos de atenção`}>
                   {problemas}
                 </span>
               ) : null}
             </div>
             {i === ativa && !somenteLeitura ? (
               // Ações por cima da miniatura, só no hover/foco: a fita não cresce.
-              <div className="absolute inset-x-1.5 top-1.5 hidden items-center justify-between rounded bg-black/75 group-focus-within:flex group-hover:flex">
-                <button type="button" onClick={() => onMover(i, i - 1)} disabled={i === 0} className="rounded p-1 text-white/70 hover:bg-white/10 disabled:opacity-30" aria-label="Mover para a esquerda">
+              <div className="absolute inset-x-1.5 top-1.5 hidden items-center justify-between rounded border border-[#EAEAEA] bg-white/90 shadow-sm group-focus-within:flex group-hover:flex">
+                <button type="button" onClick={() => onMover(i, i - 1)} disabled={i === 0} className="rounded p-1 text-[#171717] hover:bg-[#F5F5F5] disabled:opacity-30" aria-label="Mover para a esquerda">
                   <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => onDuplicar(i)} className="rounded p-1 text-white/70 hover:bg-white/10" aria-label="Duplicar lâmina">
+                <button type="button" onClick={() => onDuplicar(i)} className="rounded p-1 text-[#171717] hover:bg-[#F5F5F5]" aria-label="Duplicar lâmina">
                   <Copy className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => onLimpar(i)} className="rounded p-1 text-white/70 hover:bg-white/10" aria-label="Limpar lâmina">
+                <button type="button" onClick={() => onLimpar(i)} className="rounded p-1 text-[#171717] hover:bg-[#F5F5F5]" aria-label="Limpar lâmina">
                   <Eraser className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
                   onClick={() => onExcluir(i)}
                   disabled={laminas.length === 1}
-                  className="rounded p-1 text-white/70 hover:bg-white/10 hover:text-red-300 disabled:opacity-30"
+                  className="rounded p-1 text-[#171717] hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
                   aria-label="Excluir lâmina"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -132,7 +132,7 @@ export function FitaLaminas({
                   type="button"
                   onClick={() => onMover(i, i + 1)}
                   disabled={i === laminas.length - 1}
-                  className="rounded p-1 text-white/70 hover:bg-white/10 disabled:opacity-30"
+                  className="rounded p-1 text-[#171717] hover:bg-[#F5F5F5] disabled:opacity-30"
                   aria-label="Mover para a direita"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -146,7 +146,7 @@ export function FitaLaminas({
         type="button"
         disabled={somenteLeitura}
         onClick={() => onAdicionar(ativa)}
-        className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/30 px-4 text-xs text-white/70 hover:bg-white/10"
+        className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[#DDDDDD] bg-white px-4 text-xs text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-50"
         style={{ minWidth: LARGURA_MINI / 1.4 }}
       >
         <Plus className="h-5 w-5" aria-hidden />

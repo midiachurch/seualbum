@@ -77,7 +77,7 @@ export function MiniaturaLamina({
 
   return (
     <div
-      className="relative overflow-hidden rounded-sm shadow-sm ring-1 ring-black/10"
+      className="relative overflow-hidden rounded-sm shadow-sm ring-1 ring-[#EAEAEA]"
       style={{ width: largura, height: g.laminaH * k, background: lamina.fundo }}
       aria-hidden
     >
@@ -164,7 +164,7 @@ export function MiniaturaLamina({
           {t.texto}
         </div>
       ))}
-      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-black/15" />
+      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-[#171717]/15" />
     </div>
   )
 }

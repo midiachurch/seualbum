@@ -79,14 +79,14 @@ export function Visualizacao({
   }, [onFechar])
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-[#0A0A0A]" role="dialog" aria-modal="true" aria-label="Visualizar álbum">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#F5F5F5]" role="dialog" aria-modal="true" aria-label="Visualizar álbum">
       <button
         type="button"
         onClick={() => onFechar(indice)}
-        className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+        className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-[#171717] shadow-sm hover:bg-[#F5F5F5]"
         aria-label="Fechar visualização"
       >
-        <X className="h-5 w-5" />
+        <X className="h-5 w-5" aria-hidden />
       </button>
       <Flipbook paginas={paginas} proporcao={geometria.laminaW / geometria.laminaH} indice={indice} onIndice={setIndice} />
     </div>

@@ -12,8 +12,8 @@ import { urlParaMiniatura } from '@/components/album-editor/tipos'
 import type { FotoDoEditor } from '@/lib/supabase/queries'
 import { cn } from '@/lib/utils'
 
-const TITULO = 'text-xs font-semibold uppercase tracking-wide text-white/50'
-const CAMPO = 'mt-1 block w-full rounded-md border border-white/20 bg-white/5 px-2 py-1.5 text-sm text-white'
+const TITULO = 'text-xs font-semibold uppercase tracking-wide text-[#9A9A9A]'
+const CAMPO = 'mt-1 block w-full rounded-md border border-[#DDDDDD] bg-white px-2 py-1.5 text-sm text-[#171717]'
 
 /* --------------------------------- Fundos --------------------------------- */
 
@@ -48,8 +48,8 @@ export function PainelFundos({
   const [todas, setTodas] = useState(false)
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
-      <label className="flex items-center gap-2 text-xs text-white/80">
-        <input type="checkbox" checked={todas} onChange={(e) => setTodas(e.target.checked)} className="accent-white" />
+      <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+        <input type="checkbox" checked={todas} onChange={(e) => setTodas(e.target.checked)} className="accent-[#171717]" />
         Aplicar em todas as lâminas
       </label>
       <section className="space-y-2">
@@ -62,14 +62,14 @@ export function PainelFundos({
               disabled={somenteLeitura}
               onClick={() => onCor(c, todas)}
               aria-label={`Fundo ${c}`}
-              className={cn('h-7 rounded-md ring-1 ring-white/20', lamina.fundo === c && 'ring-2 ring-sky-400')}
+              className={cn('h-7 rounded-md ring-1 ring-[#EAEAEA]', lamina.fundo === c && 'ring-2 ring-[#171717]')}
               style={{ background: c }}
             />
           ))}
         </div>
-        <label className="flex items-center justify-between text-xs text-white/80">
+        <label className="flex items-center justify-between text-xs text-[#6B6B6B]">
           Outra cor
-          <input type="color" value={lamina.fundo} disabled={somenteLeitura} onChange={(e) => onCor(e.target.value, todas)} className="h-8 w-12 cursor-pointer rounded border border-white/20 bg-transparent" />
+          <input type="color" value={lamina.fundo} disabled={somenteLeitura} onChange={(e) => onCor(e.target.value, todas)} className="h-8 w-12 cursor-pointer rounded border border-[#DDDDDD] bg-white" />
         </label>
       </section>
       <section className="space-y-2">
@@ -82,25 +82,25 @@ export function PainelFundos({
               disabled={somenteLeitura}
               onClick={() => onGradiente(gr, todas)}
               aria-label={`Degradê ${gr.de} a ${gr.para}`}
-              className="h-7 rounded-md ring-1 ring-white/20"
+              className="h-7 rounded-md ring-1 ring-[#EAEAEA]"
               style={{ background: `linear-gradient(${gr.angulo + 90}deg, ${gr.de}, ${gr.para})` }}
             />
           ))}
         </div>
         {lamina.fundoGradiente ? (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-white/80">
+            <div className="flex items-center justify-between text-xs text-[#6B6B6B]">
               Cores
               <span className="flex gap-1">
-                <input type="color" value={lamina.fundoGradiente.de} disabled={somenteLeitura} onChange={(e) => onGradiente({ ...lamina.fundoGradiente!, de: e.target.value }, todas)} className="h-7 w-9 rounded border border-white/20 bg-transparent" aria-label="Cor inicial" />
-                <input type="color" value={lamina.fundoGradiente.para} disabled={somenteLeitura} onChange={(e) => onGradiente({ ...lamina.fundoGradiente!, para: e.target.value }, todas)} className="h-7 w-9 rounded border border-white/20 bg-transparent" aria-label="Cor final" />
+                <input type="color" value={lamina.fundoGradiente.de} disabled={somenteLeitura} onChange={(e) => onGradiente({ ...lamina.fundoGradiente!, de: e.target.value }, todas)} className="h-7 w-9 rounded border border-[#DDDDDD] bg-white" aria-label="Cor inicial" />
+                <input type="color" value={lamina.fundoGradiente.para} disabled={somenteLeitura} onChange={(e) => onGradiente({ ...lamina.fundoGradiente!, para: e.target.value }, todas)} className="h-7 w-9 rounded border border-[#DDDDDD] bg-white" aria-label="Cor final" />
               </span>
             </div>
-            <label className="block text-xs text-white/70">
+            <label className="block text-xs text-[#6B6B6B]">
               Ângulo ({lamina.fundoGradiente.angulo}°)
-              <input type="range" min={0} max={360} value={lamina.fundoGradiente.angulo} disabled={somenteLeitura} onChange={(e) => onGradiente({ ...lamina.fundoGradiente!, angulo: Number(e.target.value) }, todas)} className="mt-1 block w-full accent-white" />
+              <input type="range" min={0} max={360} value={lamina.fundoGradiente.angulo} disabled={somenteLeitura} onChange={(e) => onGradiente({ ...lamina.fundoGradiente!, angulo: Number(e.target.value) }, todas)} className="mt-1 block w-full accent-[#171717]" />
             </label>
-            <button type="button" disabled={somenteLeitura} onClick={() => onGradiente(null, todas)} className="text-xs text-red-300 underline">
+            <button type="button" disabled={somenteLeitura} onClick={() => onGradiente(null, todas)} className="text-xs text-red-700 underline">
               Tirar degradê
             </button>
           </div>
@@ -116,24 +116,24 @@ export function PainelFundos({
               disabled={somenteLeitura}
               onClick={() => onTextura(lamina.textura?.tipo === t.tipo ? null : { tipo: t.tipo as Textura, opacidade: lamina.textura?.opacidade ?? 0.35 }, todas)}
               aria-pressed={lamina.textura?.tipo === t.tipo}
-              className={cn('rounded-md px-2 py-1.5 text-[11px]', lamina.textura?.tipo === t.tipo ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/80 hover:bg-white/20')}
+              className={cn('rounded-md px-2 py-1.5 text-[11px]', lamina.textura?.tipo === t.tipo ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#6B6B6B] hover:bg-[#EAEAEA]')}
             >
               {t.nome}
             </button>
           ))}
         </div>
         {lamina.textura ? (
-          <label className="block text-xs text-white/70">
+          <label className="block text-xs text-[#6B6B6B]">
             Intensidade ({Math.round(lamina.textura.opacidade * 100)}%)
-            <input type="range" min={0.05} max={1} step={0.05} value={lamina.textura.opacidade} disabled={somenteLeitura} onChange={(e) => onTextura({ ...lamina.textura!, opacidade: Number(e.target.value) }, todas)} className="mt-1 block w-full accent-white" />
+            <input type="range" min={0.05} max={1} step={0.05} value={lamina.textura.opacidade} disabled={somenteLeitura} onChange={(e) => onTextura({ ...lamina.textura!, opacidade: Number(e.target.value) }, todas)} className="mt-1 block w-full accent-[#171717]" />
           </label>
         ) : null}
       </section>
       <section className="space-y-2">
-        <p className={TITULO}>Foto de fundo (sangrando a lâmina)</p>
+        <p className={TITULO}>Foto de fundo</p>
         {lamina.fundoImagem ? (
           <>
-            <label className="block text-xs text-white/70">
+            <label className="block text-xs text-[#6B6B6B]">
               Opacidade ({Math.round(lamina.fundoImagem.opacidade * 100)}%)
               <input
                 type="range"
@@ -143,10 +143,10 @@ export function PainelFundos({
                 value={lamina.fundoImagem.opacidade}
                 disabled={somenteLeitura}
                 onChange={(e) => onImagem({ ...lamina.fundoImagem!, opacidade: Number(e.target.value) }, todas)}
-                className="mt-1 block w-full accent-white"
+                className="mt-1 block w-full accent-[#171717]"
               />
             </label>
-            <button type="button" disabled={somenteLeitura} onClick={() => onImagem(null, todas)} className="text-xs text-red-300 underline">
+            <button type="button" disabled={somenteLeitura} onClick={() => onImagem(null, todas)} className="text-xs text-red-700 underline">
               Tirar foto de fundo
             </button>
           </>
@@ -158,7 +158,7 @@ export function PainelFundos({
                 type="button"
                 disabled={somenteLeitura}
                 onClick={() => onImagem({ fotoId: f.id, opacidade: lamina.fundoImagem?.opacidade ?? 0.35 }, todas)}
-                className={cn('block aspect-square w-full overflow-hidden rounded bg-white/5', lamina.fundoImagem?.fotoId === f.id && 'ring-2 ring-sky-400')}
+                className={cn('block aspect-square w-full overflow-hidden rounded bg-[#F5F5F5]', lamina.fundoImagem?.fotoId === f.id && 'ring-2 ring-[#171717]')}
                 aria-label={`Usar ${f.nome} como fundo`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- link assinado do Storage. */}
@@ -188,7 +188,7 @@ const TEXTOS: ModeloTexto[] = [
 export function PainelTextos({ somenteLeitura, onAdicionar }: { somenteLeitura: boolean; onAdicionar: (modelo: Partial<TextoDoc> & { texto: string }) => void }) {
   return (
     <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-      <p className="text-xs text-white/60">Clique para pôr na lâmina. Edite o texto e o estilo no painel da direita.</p>
+      <p className="text-xs text-[#6B6B6B]">Clique para pôr na lâmina.</p>
       {TEXTOS.map((t) => (
         <button
           key={t.rotulo}
@@ -199,11 +199,11 @@ export function PainelTextos({ somenteLeitura, onAdicionar }: { somenteLeitura: 
             void _rotulo
             onAdicionar({ ...estilo, texto: amostra })
           }}
-          className="block w-full rounded-lg bg-white/5 p-3 text-left hover:bg-white/10 disabled:opacity-50"
+          className="block w-full rounded-lg border border-[#EAEAEA] bg-white p-3 text-left hover:bg-[#F5F5F5] disabled:opacity-50"
         >
-          <span className="block text-[10px] uppercase tracking-wide text-white/40">{t.rotulo}</span>
+          <span className="block text-[10px] uppercase tracking-wide text-[#9A9A9A]">{t.rotulo}</span>
           <span
-            className="block truncate text-white"
+            className="block truncate text-[#171717]"
             style={{
               fontFamily: familiaDe(t.fonte ?? 'editorial'),
               fontWeight: t.peso,
@@ -233,7 +233,7 @@ export function PainelElementos({ somenteLeitura, onAdicionar }: { somenteLeitur
   ]
   return (
     <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-      <p className="text-xs text-white/60">Formas para compor a lâmina: atrás das fotos (fundos, faixas) ou na frente (molduras, linhas).</p>
+      <p className="text-xs text-[#6B6B6B]">Formas atrás ou na frente das fotos.</p>
       <div className="grid grid-cols-2 gap-2">
         {itens.map((i) => (
           <button
@@ -241,7 +241,7 @@ export function PainelElementos({ somenteLeitura, onAdicionar }: { somenteLeitur
             type="button"
             disabled={somenteLeitura}
             onClick={() => onAdicionar(i.forma, i.estilo)}
-            className="flex flex-col items-center gap-1.5 rounded-lg bg-white/5 p-3 text-xs text-white/80 hover:bg-white/10 disabled:opacity-50"
+            className="flex flex-col items-center gap-1.5 rounded-lg border border-[#EAEAEA] bg-white p-3 text-xs text-[#6B6B6B] hover:bg-[#F5F5F5] disabled:opacity-50"
           >
             <i.icone className="h-6 w-6" aria-hidden />
             {i.rotulo}
@@ -260,10 +260,10 @@ export function PainelElementos({ somenteLeitura, onAdicionar }: { somenteLeitur
             }
             title={o.nome}
             aria-label={o.nome}
-            className="flex aspect-square items-center justify-center rounded-lg bg-white/5 p-2 hover:bg-white/10 disabled:opacity-50"
+            className="flex aspect-square items-center justify-center rounded-lg border border-[#EAEAEA] bg-[#F5F5F5] p-2 hover:bg-[#EAEAEA] disabled:opacity-50"
           >
             <svg viewBox="0 0 100 100" className="h-full w-full">
-              <path d={o.d} fill={o.preenchido ? '#d9cfc1' : 'none'} stroke={o.preenchido ? 'none' : '#d9cfc1'} strokeWidth={5} />
+              <path d={o.d} fill={o.preenchido ? '#8A7B6A' : 'none'} stroke={o.preenchido ? 'none' : '#8A7B6A'} strokeWidth={5} />
             </svg>
           </button>
         ))}
@@ -305,40 +305,39 @@ export function PainelPaginas({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-3">
       {!somenteLeitura ? (
-        <section className="mb-3 space-y-1.5 rounded-lg bg-white/5 p-2">
+        <section className="mb-3 space-y-1.5 rounded-lg border border-[#EAEAEA] bg-[#F5F5F5] p-2">
           <p className={TITULO}>Adicionar lâmina (página dupla)</p>
           <div className="grid grid-cols-2 gap-1">
-            <button type="button" onClick={() => onInserir('vazia')} className="flex items-center justify-center gap-1 rounded-md bg-white/10 px-2 py-1.5 text-[11px] hover:bg-white/20">
+            <button type="button" onClick={() => onInserir('vazia')} className="flex items-center justify-center gap-1 rounded-md border border-[#DDDDDD] bg-white px-2 py-1.5 text-[11px] text-[#171717] hover:bg-[#F5F5F5]">
               <Plus className="h-3.5 w-3.5" aria-hidden /> Vazia
             </button>
-            <button type="button" onClick={() => onInserir('duplicar')} className="flex items-center justify-center gap-1 rounded-md bg-white/10 px-2 py-1.5 text-[11px] hover:bg-white/20">
+            <button type="button" onClick={() => onInserir('duplicar')} className="flex items-center justify-center gap-1 rounded-md border border-[#DDDDDD] bg-white px-2 py-1.5 text-[11px] text-[#171717] hover:bg-[#F5F5F5]">
               <Copy className="h-3.5 w-3.5" aria-hidden /> Duplicar anterior
             </button>
           </div>
-          <p className="text-[10px] text-white/40">A lâmina nasce vazia: arraste fotos da bandeja de baixo. ↑/↓ alternam o layout.</p>
         </section>
       ) : null}
-      <p className="mb-2 text-xs text-white/60">{laminas.length} lâmina(s). Para reordenar, arraste aqui na fita de baixo.</p>
+      <p className="mb-2 text-xs text-[#6B6B6B]">{laminas.length} lâmina(s) · reordene arrastando na fita de baixo.</p>
       <ul className="space-y-3">
         {laminas.map((l, i) => (
-          <li key={l.id} className={cn('rounded-lg p-1.5', i === ativa ? 'bg-white/15 ring-1 ring-white/50' : 'hover:bg-white/5')}>
+          <li key={l.id} className={cn('rounded-lg p-1.5', i === ativa ? 'bg-[#F5F5F5] ring-1 ring-[#171717]' : 'bg-[#F5F5F5] ring-1 ring-[#EAEAEA] hover:ring-[#9A9A9A]')}>
             <button type="button" onClick={() => onIr(i)} className="block w-full text-left">
               <MiniaturaLamina lamina={l} geometria={geometria} fotos={fotos} largura={236} />
-              <span className="mt-1 block text-[11px] text-white/70">{rotuloDaLamina(i, primeiraEhCapa)}</span>
+              <span className="mt-1 block text-[11px] text-[#6B6B6B]">{rotuloDaLamina(i, primeiraEhCapa)}</span>
             </button>
             {!somenteLeitura ? (
               <div className="mt-1 flex gap-1">
-                <button type="button" onClick={() => onDuplicar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-white/70 hover:bg-white/10">
+                <button type="button" onClick={() => onDuplicar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#6B6B6B] hover:bg-[#F5F5F5]">
                   <Copy className="h-3 w-3" aria-hidden /> Duplicar
                 </button>
-                <button type="button" onClick={() => onLimpar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-white/70 hover:bg-white/10">
+                <button type="button" onClick={() => onLimpar(i)} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[#6B6B6B] hover:bg-[#F5F5F5]">
                   <Eraser className="h-3 w-3" aria-hidden /> Limpar
                 </button>
                 <button
                   type="button"
                   onClick={() => onExcluir(i)}
                   disabled={laminas.length === 1}
-                  className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-red-300 hover:bg-white/10 disabled:opacity-30"
+                  className="ml-auto flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-red-700 hover:bg-red-50 disabled:opacity-30"
                 >
                   <Trash2 className="h-3 w-3" aria-hidden /> Excluir
                 </button>
@@ -407,50 +406,50 @@ export function PainelConfiguracoes({
         <p className={TITULO}>Álbum</p>
         {avulso ? (
           <>
-            <label className="block text-xs text-white/80">
+            <label className="block text-xs text-[#6B6B6B]">
               Nome
               <input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} className={CAMPO} />
             </label>
-            <label className="block text-xs text-white/80">
+            <label className="block text-xs text-[#6B6B6B]">
               Cliente
               <input value={form.cliente} onChange={(e) => setForm((f) => ({ ...f, cliente: e.target.value }))} className={CAMPO} />
             </label>
           </>
         ) : null}
-        <label className="block text-xs text-white/80">
+        <label className="block text-xs text-[#6B6B6B]">
           Tipo de álbum
           <input value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))} className={CAMPO} placeholder="Casamento, 15 anos…" />
         </label>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-[#9A9A9A]">
           Formato {formato} · {orientacao}
         </p>
       </section>
       <section className="space-y-2">
         <p className={TITULO}>Impressão</p>
         <div className="grid grid-cols-2 gap-2">
-          <label className="block text-xs text-white/80">
+          <label className="block text-xs text-[#6B6B6B]">
             Sangria (mm)
             <input inputMode="decimal" value={form.sangria} onChange={(e) => setForm((f) => ({ ...f, sangria: e.target.value }))} className={CAMPO} />
           </label>
-          <label className="block text-xs text-white/80">
+          <label className="block text-xs text-[#6B6B6B]">
             Área segura (mm)
             <input inputMode="decimal" value={form.margem} onChange={(e) => setForm((f) => ({ ...f, margem: e.target.value }))} className={CAMPO} />
           </label>
         </div>
       </section>
       {!somenteLeitura ? (
-        <button type="button" onClick={salvar} disabled={salvando} className="w-full rounded-md bg-white px-3 py-2 text-sm font-semibold text-[#171717] disabled:opacity-60">
+        <button type="button" onClick={salvar} disabled={salvando} className="w-full rounded-md bg-[#171717] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
           {salvando ? 'Salvando…' : 'Salvar configurações'}
         </button>
       ) : null}
-      {msg ? <p className="text-xs text-white/70">{msg}</p> : null}
-      <section className="space-y-2 border-t border-white/10 pt-3">
-        <label className="flex items-center gap-2 text-xs text-white/80">
-          <input type="checkbox" checked={primeiraEhCapa} disabled={somenteLeitura} onChange={(e) => onCapa(e.target.checked)} className="accent-white" />
+      {msg ? <p className="text-xs text-[#6B6B6B]">{msg}</p> : null}
+      <section className="space-y-2 border-t border-[#EAEAEA] pt-3">
+        <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+          <input type="checkbox" checked={primeiraEhCapa} disabled={somenteLeitura} onChange={(e) => onCapa(e.target.checked)} className="accent-[#171717]" />
           A 1ª lâmina é a capa
         </label>
-        <label className="flex items-center gap-2 text-xs text-white/80">
-          <input type="checkbox" checked={mostrarGuias} onChange={(e) => onGuias(e.target.checked)} className="accent-white" />
+        <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+          <input type="checkbox" checked={mostrarGuias} onChange={(e) => onGuias(e.target.checked)} className="accent-[#171717]" />
           Mostrar guias (sangria, corte, área segura e dobra)
         </label>
       </section>

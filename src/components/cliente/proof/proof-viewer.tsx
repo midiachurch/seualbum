@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   Columns2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -176,6 +177,7 @@ export function ProofViewer({
   const [proporcoes, setProporcoes] = useState<Record<string, number>>({})
   const [alternando, setAlternando] = useState<string | null>(null)
   const [comparando, setComparando] = useState(false)
+  const [menuVersoes, setMenuVersoes] = useState(false)
   const [vista, setVista] = useState<'galeria' | 'lamina'>(laminaInicial !== undefined && laminaInicial >= 0 ? 'lamina' : 'galeria')
   const [soAlteradas, setSoAlteradas] = useState(false)
   const [areaRascunho, setAreaRascunho] = useState<PinRascunho | null>(null)
@@ -573,7 +575,7 @@ export function ProofViewer({
             <CheckCircle2 className="h-8 w-8 text-amber-700" aria-hidden />
           </span>
           <h1 className="text-xl font-bold tracking-tight text-[#171717]">Álbum aprovado!</h1>
-          <p className="max-w-sm break-words text-sm text-[#595959]">
+          <p className="max-w-sm break-words text-sm text-[#6B6B6B]">
             Falta o fechamento no seu painel para o arquivo seguir para a gráfica
             {decision === 'aprovado' && (temExcedente || enviados.length > 0) ? (
               <>
@@ -610,7 +612,7 @@ export function ProofViewer({
           <CheckCircle2 className="h-8 w-8 text-[#171717]" aria-hidden />
         </span>
         <h1 className="text-xl font-bold tracking-tight text-[#171717]">Álbum aprovado!</h1>
-        <p className="max-w-xs text-sm text-[#595959]">
+        <p className="max-w-xs text-sm text-[#6B6B6B]">
           {perfil === 'cliente' && decision === 'aprovado' && enviados.length > 0
             ? // White label: o casal não vê cobrança — o estúdio confirma os adicionais com ele.
               `Seu álbum foi aprovado! Enviamos ao seu fotógrafo o pedido de ${resumoEnviados(' e ')} — ele confirma os detalhes com você.`
@@ -630,7 +632,7 @@ export function ProofViewer({
           <CheckCircle2 className="h-8 w-8 text-[#171717]" aria-hidden />
         </span>
         <h1 className="text-xl font-bold tracking-tight text-[#171717]">Ajustes enviados!</h1>
-        <p className="max-w-xs text-sm text-[#595959]">
+        <p className="max-w-xs text-sm text-[#6B6B6B]">
           Nossa equipe vai revisar seus comentários e preparar uma nova versão da prova.
         </p>
         <Button variant="brand" className="min-h-[44px]" onClick={() => router.push(voltarHref)}>
@@ -645,7 +647,7 @@ export function ProofViewer({
   const CommentsList = (
     <div className="space-y-3">
       {commentsForPage.length === 0 ? (
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-[#6B6B6B]">
           {interativo
             ? 'Nenhuma orientação nesta lâmina ainda. Toque na imagem para marcar um ponto — ou arraste com o mouse para marcar uma área.'
             : 'Nenhuma orientação nesta lâmina.'}
@@ -658,17 +660,17 @@ export function ProofViewer({
             <div
               key={comment.id}
               className={cn(
-                'rounded-xl transition-colors',
-                destacado === comment.id ? 'bg-white/20 ring-1 ring-white/50' : 'bg-white/10',
-                resolvido && destacado !== comment.id && 'bg-emerald-400/10',
+                'rounded-xl border transition-colors',
+                destacado === comment.id ? 'border-[#171717] bg-white ring-1 ring-[#171717]' : 'border-[#EAEAEA] bg-white',
+                resolvido && destacado !== comment.id && 'border-emerald-100 bg-emerald-50',
               )}
             >
               <button
                 type="button"
                 onClick={() => setDestacado(n ? comment.id : null)}
-                className="block w-full rounded-xl p-3 text-left hover:bg-white/5"
+                className="block w-full rounded-xl p-3 text-left hover:bg-[#F5F5F5]/60"
               >
-                <p className="flex items-start gap-2 text-sm text-white">
+                <p className="flex items-start gap-2 text-sm text-[#171717]">
                   {n ? (
                     <span
                       className={cn(
@@ -679,22 +681,22 @@ export function ProofViewer({
                       {n}
                     </span>
                   ) : null}
-                  <span className={cn('min-w-0 whitespace-pre-line [overflow-wrap:anywhere]', resolvido && 'text-white/50 line-through decoration-white/30')}>
+                  <span className={cn('min-w-0 whitespace-pre-line [overflow-wrap:anywhere]', resolvido && 'text-[#9A9A9A] line-through decoration-[#9A9A9A]/60')}>
                     {comment.texto}
                   </span>
                 </p>
-                <p className="mt-1 text-xs text-white/50">
+                <p className="mt-1 text-xs text-[#9A9A9A]">
                   {comment.autor} · {formatDate(comment.data)}
                 </p>
                 {resolvido && !leituraEquipe ? (
-                  <p className="mt-1 flex items-center gap-1 text-xs font-medium text-emerald-300">
+                  <p className="mt-1 flex items-center gap-1 text-xs font-medium text-emerald-700">
                     <Check className="h-3.5 w-3.5" aria-hidden />
                     Resolvido pela equipe
                   </p>
                 ) : null}
               </button>
               {leituraEquipe ? (
-                <div className="border-t border-white/10 px-3 py-1">
+                <div className="border-t border-[#EAEAEA] px-3 py-1">
                   <button
                     type="button"
                     onClick={() => alternarResolvido(comment)}
@@ -702,7 +704,7 @@ export function ProofViewer({
                     aria-pressed={resolvido}
                     className={cn(
                       'flex min-h-[44px] w-full items-center gap-2 text-sm font-semibold disabled:opacity-60',
-                      resolvido ? 'text-emerald-300' : 'text-white',
+                      resolvido ? 'text-emerald-700' : 'text-[#171717]',
                     )}
                   >
                     {resolvido ? (
@@ -711,14 +713,14 @@ export function ProofViewer({
                         <span className="flex-1 text-left">
                           Resolvido{comment.resolvidoEm ? ` · ${formatDate(comment.resolvidoEm)}` : ''}
                         </span>
-                        <span className="flex items-center gap-1 text-xs font-medium text-white/60">
+                        <span className="flex items-center gap-1 text-xs font-medium text-[#6B6B6B]">
                           <RotateCcw className="h-3.5 w-3.5" aria-hidden />
                           Reabrir
                         </span>
                       </>
                     ) : (
                       <>
-                        <span className="h-4 w-4 rounded-full border-2 border-white/60" aria-hidden />
+                        <span className="h-4 w-4 rounded-full border-2 border-[#9A9A9A]" aria-hidden />
                         Marcar como resolvido
                       </>
                     )}
@@ -732,7 +734,7 @@ export function ProofViewer({
       {interativo && laminaAtual ? (
         <div className="space-y-2">
           {pinDaLaminaAtual ? (
-            <p className="flex items-center justify-between gap-2 rounded-lg bg-amber-400/15 px-3 py-2 text-xs text-amber-200">
+            <p className="flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" aria-hidden />
                 {pinDaLaminaAtual.largura ? 'Comentário na área marcada' : 'Comentário no ponto marcado'}
@@ -749,21 +751,21 @@ export function ProofViewer({
               onChange={(e) => setDraft(e.target.value)}
               placeholder={pinDaLaminaAtual ? (pinDaLaminaAtual.largura ? 'O que ajustar nesta área?' : 'O que ajustar neste ponto?') : 'Descreva a alteração. Ex.: trocar esta foto'}
               rows={2}
-              className="min-h-[44px] flex-1 resize-none rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-base text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/40"
+              className="min-h-[44px] flex-1 resize-none rounded-xl border border-[#DDDDDD] bg-white px-3 py-2 text-base text-[#171717] placeholder:text-[#9A9A9A] focus:outline-none focus:ring-2 focus:ring-[#171717] lg:text-sm"
             />
             <button
               type="button"
               onClick={addComment}
               disabled={!draft.trim()}
               aria-label="Enviar comentário"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-[#171717] disabled:opacity-40"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#171717] text-white hover:bg-[#2E2E2E] disabled:opacity-40"
             >
               <Send className="h-4 w-4" aria-hidden />
             </button>
           </div>
         </div>
       ) : versaoAntiga ? (
-        <p className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-white/50">
+        <p className="rounded-xl border border-[#EAEAEA] bg-[#F5F5F5] p-3 text-xs text-[#6B6B6B]">
           Esta é uma versão anterior, somente leitura — comentários novos só podem ser feitos na versão atual.
         </p>
       ) : null}
@@ -774,7 +776,7 @@ export function ProofViewer({
   const ListaDaVersao = (
     <div className="space-y-2">
       {comentariosDaVersao.length === 0 ? (
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-[#6B6B6B]">
           {interativo
             ? 'Nenhuma orientação ainda. Abra uma lâmina e toque no ponto (ou arraste sobre a área) que precisa mudar.'
             : 'Nenhuma orientação nesta versão.'}
@@ -793,13 +795,16 @@ export function ProofViewer({
                   setMobileCommentsOpen(false)
                   abrirLamina(indice, n ? c.id : undefined)
                 }}
-                className={cn('block w-full rounded-xl bg-white/10 p-3 text-left hover:bg-white/15', c.resolvido && 'bg-emerald-400/10')}
+                className={cn(
+                  'block w-full rounded-xl border p-3 text-left transition-colors',
+                  c.resolvido ? 'border-emerald-100 bg-emerald-50' : 'border-[#EAEAEA] bg-white hover:bg-[#F5F5F5]',
+                )}
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9A9A9A]">
                   {laminas[indice]?.ehCapa && indice === 0 ? 'Capa' : `Lâmina ${indice + 1}`}
                   {c.areaLargura ? ' · área' : n ? ' · ponto' : ''}
                 </p>
-                <p className="mt-1 flex items-start gap-2 text-sm text-white">
+                <p className="mt-1 flex items-start gap-2 text-sm text-[#171717]">
                   {n ? (
                     <span
                       className={cn(
@@ -810,11 +815,11 @@ export function ProofViewer({
                       {n}
                     </span>
                   ) : null}
-                  <span className={cn('min-w-0 whitespace-pre-line [overflow-wrap:anywhere]', c.resolvido && 'text-white/50 line-through decoration-white/30')}>
+                  <span className={cn('min-w-0 whitespace-pre-line [overflow-wrap:anywhere]', c.resolvido && 'text-[#9A9A9A] line-through decoration-[#9A9A9A]/60')}>
                     {c.texto}
                   </span>
                 </p>
-                <p className="mt-1 text-xs text-white/50">
+                <p className="mt-1 text-xs text-[#9A9A9A]">
                   {c.autor} · {formatDate(c.data)}
                   {c.resolvido ? ' · resolvido' : ''}
                 </p>
@@ -830,27 +835,125 @@ export function ProofViewer({
     .map((l, i) => ({ l, i }))
     .filter(({ l }) => !soAlteradas || l.alterada !== false)
 
+  // Chip de status no cabeçalho: em que pé está a prova para quem está vendo.
+  const statusDaProva: { rotulo: string; classe: string } | null = leituraEquipe
+    ? pendentesDaVersao > 0
+      ? { rotulo: `${pendentesDaVersao} ${pendentesDaVersao === 1 ? 'pendente' : 'pendentes'}`, classe: 'bg-amber-50 text-amber-800' }
+      : { rotulo: 'Visão da equipe', classe: 'bg-sky-50 text-sky-700' }
+    : versaoAntiga
+      ? { rotulo: 'Somente leitura', classe: 'bg-[#F5F5F5] text-[#6B6B6B]' }
+      : !podeDecidir
+        ? { rotulo: 'Em ajustes', classe: 'bg-sky-50 text-sky-700' }
+        : { rotulo: 'Aguardando aprovação', classe: 'bg-amber-50 text-amber-800' }
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#0A0A0A] text-white">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#F5F5F5] text-[#171717]">
+      {/* Cabeçalho único e enxuto: nome, versão (com troca) e o status da prova. */}
+      <header className="flex items-center gap-1 border-b border-[#EAEAEA] bg-white px-2 py-1.5 sm:gap-2 sm:px-3">
         <button
           type="button"
           onClick={() => router.push(voltarHref)}
           aria-label="Voltar"
-          className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]"
         >
           <X className="h-5 w-5" aria-hidden />
         </button>
-        <div className="min-w-0 text-center">
-          <p className="truncate text-sm font-medium">{projectName}</p>
-          <p className="text-xs text-white/50">
-            {naGaleria
-              ? `${laminas.length} ${laminas.length === 1 ? 'lâmina' : 'lâminas'}${versaoParcial ? ` · ${nAlteradas} ${nAlteradas === 1 ? 'alterada' : 'alteradas'} nesta versão` : ''}`
-              : totalLaminas > 0
-                ? `Lâmina ${pageIndex + 1} de ${totalLaminas}${versaoParcial && laminaAtual && laminaAtual.alterada !== false && !emComparacao ? ' · alterada nesta versão' : ''}`
-                : `Versão ${versaoSelecionada}`}
-          </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold leading-tight">{projectName}</p>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[#6B6B6B]">
+            {versoesOrdenadas.length > 1 ? (
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMenuVersoes((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={menuVersoes}
+                  className="flex min-h-[28px] items-center gap-1 rounded-full border border-[#DDDDDD] bg-white pl-2.5 pr-1.5 font-medium text-[#171717] hover:bg-[#F5F5F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#171717]"
+                >
+                  Versão {versaoSelecionada}
+                  <ChevronDown className={cn('h-3.5 w-3.5 text-[#6B6B6B] transition-transform', menuVersoes && 'rotate-180')} aria-hidden />
+                </button>
+                {menuVersoes ? (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setMenuVersoes(false)} aria-hidden />
+                    <div
+                      role="menu"
+                      aria-label="Versões da prova"
+                      className="absolute left-0 top-full z-40 mt-1.5 w-56 overflow-hidden rounded-xl border border-[#EAEAEA] bg-white py-1 shadow-lg"
+                    >
+                      {[...versoesOrdenadas].reverse().map((v) => {
+                        const ativa = v.numero === versaoSelecionada
+                        const antiga = v.numero !== versaoMaisRecente
+                        const pendentes = leituraEquipe ? comments.filter((c) => c.versao === v.numero && !c.resolvido).length : 0
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={ativa}
+                            onClick={() => {
+                              setVersaoSelecionada(v.numero)
+                              setMenuVersoes(false)
+                            }}
+                            className="flex min-h-[44px] w-full items-center gap-2 px-3 text-left text-sm text-[#171717] hover:bg-[#F5F5F5]"
+                          >
+                            <Check className={cn('h-4 w-4 shrink-0', ativa ? 'opacity-100' : 'opacity-0')} aria-hidden />
+                            <span className="flex-1">Versão {v.numero}</span>
+                            {leituraEquipe ? (
+                              // Equipe: quanto falta resolver em cada versão, em vez do cadeado.
+                              pendentes > 0 ? (
+                                <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800" aria-label={`${pendentes} pendentes`}>
+                                  {pendentes}
+                                </span>
+                              ) : null
+                            ) : antiga ? (
+                              <span className="flex items-center gap-1 text-[11px] text-[#9A9A9A]">
+                                <Lock className="h-3 w-3" aria-hidden />
+                                Somente leitura
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-[#9A9A9A]">Atual</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : (
+              <span className="shrink-0">Versão {versaoSelecionada}</span>
+            )}
+            {statusDaProva ? (
+              <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', statusDaProva.classe)}>
+                {statusDaProva.rotulo}
+              </span>
+            ) : null}
+            <span className="hidden min-w-0 truncate text-[#9A9A9A] sm:inline">
+              ·{' '}
+              {naGaleria
+                ? `${laminas.length} ${laminas.length === 1 ? 'lâmina' : 'lâminas'}${versaoParcial ? ` · ${nAlteradas} ${nAlteradas === 1 ? 'alterada' : 'alteradas'} nesta versão` : ''}`
+                : totalLaminas > 0
+                  ? `Lâmina ${pageIndex + 1} de ${totalLaminas}${versaoParcial && laminaAtual && laminaAtual.alterada !== false && !emComparacao ? ' · alterada nesta versão' : ''}`
+                  : 'sem lâminas'}
+            </span>
+          </div>
         </div>
+        {leituraEquipe && versaoAnterior ? (
+          <button
+            type="button"
+            onClick={() => setComparando((v) => !v)}
+            aria-pressed={emComparacao}
+            aria-label={emComparacao ? 'Sair da comparação' : `Comparar com a versão ${versaoAnterior.numero}`}
+            title={emComparacao ? 'Sair da comparação' : `Comparar com v${versaoAnterior.numero}`}
+            className={cn(
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors',
+              emComparacao ? 'bg-[#171717] text-white hover:bg-[#2E2E2E]' : 'text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]',
+            )}
+          >
+            <Columns2 className="h-5 w-5" aria-hidden />
+          </button>
+        ) : null}
         {/* Arquivo real enviado pela equipe nesta versão (PDF, link…), quando houver. */}
         {arquivoDaVersao ? (
           <a
@@ -858,66 +961,13 @@ export function ProofViewer({
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Abrir o arquivo da versão ${versaoSelecionada}`}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10"
+            title="Abrir o arquivo da versão"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]"
           >
             <ExternalLink className="h-5 w-5" aria-hidden />
           </a>
-        ) : (
-          <div className="w-11" />
-        )}
-      </div>
-
-      {versoesOrdenadas.length > 1 ? (
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-white/10 px-4 py-2">
-          {versoesOrdenadas.map((v) => {
-            const ativa = v.numero === versaoSelecionada
-            const antiga = v.numero !== versaoMaisRecente
-            return (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => setVersaoSelecionada(v.numero)}
-                className={cn(
-                  'flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors',
-                  ativa ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/70 hover:bg-white/20',
-                )}
-              >
-                Versão {v.numero}
-                {leituraEquipe ? (
-                  // Equipe: quanto falta resolver em cada versão, em vez do cadeado.
-                  (() => {
-                    const pendentes = comments.filter((c) => c.versao === v.numero && !c.resolvido).length
-                    return pendentes > 0 ? (
-                      <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-[#171717]" aria-label={`${pendentes} pendentes`}>
-                        {pendentes}
-                      </span>
-                    ) : null
-                  })()
-                ) : antiga ? (
-                  <span className="flex items-center gap-1 rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
-                    <Lock className="h-2.5 w-2.5" aria-hidden />
-                    Somente leitura
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-          {leituraEquipe && versaoAnterior ? (
-            <button
-              type="button"
-              onClick={() => setComparando((v) => !v)}
-              aria-pressed={emComparacao}
-              className={cn(
-                'ml-auto flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
-                emComparacao ? 'border-white bg-white text-[#171717]' : 'border-white/30 text-white hover:bg-white/10',
-              )}
-            >
-              <Columns2 className="h-3.5 w-3.5" aria-hidden />
-              {emComparacao ? 'Sair da comparação' : `Comparar com v${versaoAnterior.numero}`}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+      </header>
 
       <div className="flex flex-1 overflow-hidden">
         <div className="relative flex min-w-0 flex-1">
@@ -946,8 +996,8 @@ export function ProofViewer({
             />
           ) : laminas.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-              <ImageOff className="h-8 w-8 text-white/40" aria-hidden />
-              <p className="max-w-xs text-sm text-white/60">
+              <ImageOff className="h-8 w-8 text-[#9A9A9A]" aria-hidden />
+              <p className="max-w-xs text-sm text-[#6B6B6B]">
                 Esta versão não tem lâminas para visualizar aqui.
                 {arquivoDaVersao ? ' Abra o arquivo enviado pela equipe no botão acima.' : ''}
               </p>
@@ -955,7 +1005,7 @@ export function ProofViewer({
           ) : naGaleria ? (
             <div className="flex min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain">
               {versaoParcial ? (
-                <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
+                <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-2 px-4 pt-4 sm:px-6">
                   {(
                     [
                       [false, `Todas (${laminas.length})`],
@@ -969,7 +1019,9 @@ export function ProofViewer({
                       onClick={() => setSoAlteradas(valor)}
                       className={cn(
                         'min-h-[36px] rounded-full px-3 text-xs font-medium transition-colors',
-                        soAlteradas === valor ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/70 hover:bg-white/20',
+                        soAlteradas === valor
+                          ? 'bg-[#171717] text-white'
+                          : 'border border-[#DDDDDD] bg-white text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]',
                       )}
                     >
                       {rotulo}
@@ -977,7 +1029,7 @@ export function ProofViewer({
                   ))}
                 </div>
               ) : null}
-              <ul className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3" aria-label={`Lâminas da versão ${versaoSelecionada}`}>
+              <ul className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-5 p-4 sm:grid-cols-2 sm:gap-6 sm:p-6 xl:grid-cols-3" aria-label={`Lâminas da versão ${versaoSelecionada}`}>
                 {laminasDaGaleria.map(({ l, i }) => {
                   const daLamina = comentariosDaLamina(l, i)
                   const pendentes = daLamina.filter((c) => !c.resolvido).length
@@ -991,7 +1043,7 @@ export function ProofViewer({
                         aria-label={`Abrir lâmina ${i + 1}${daLamina.length ? `, ${daLamina.length} orientações` : ''}`}
                       >
                         <span
-                          className="relative block overflow-hidden rounded-lg bg-white/5 ring-white/60 transition group-hover:ring-2 group-focus-visible:ring-2"
+                          className="relative block overflow-hidden rounded-sm bg-white shadow-[0_4px_20px_rgba(0,0,0,0.08)] ring-[#171717] transition group-hover:shadow-[0_8px_28px_rgba(0,0,0,0.14)] group-focus-visible:ring-2"
                           style={{ aspectRatio: String(proporcao) }}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element -- lâmina via link assinado (URL expira; next/image não se aplica). */}
@@ -1032,21 +1084,21 @@ export function ProofViewer({
                               ),
                             )}
                           {versaoParcial && l.alterada !== false ? (
-                            <span className="absolute right-2 top-2 rounded-full bg-sky-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]">
+                            <span className="absolute right-2 top-2 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 shadow-sm ring-1 ring-sky-100">
                               Alterada
                             </span>
                           ) : null}
                           {checklistAtivo && !versaoAntiga && revisoes[l.id] === 'aprovada' ? (
-                            <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0A0A0A]">
+                            <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 shadow-sm ring-1 ring-emerald-100">
                               <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
                               Ok
                             </span>
                           ) : null}
                         </span>
-                        <span className="mt-1.5 flex items-center justify-between gap-2 text-xs">
-                          <span className="font-medium text-white/80">{l.ehCapa && i === 0 ? 'Capa' : `Lâmina ${i + 1}`}</span>
+                        <span className="mt-2 flex items-center justify-between gap-2 text-xs">
+                          <span className="font-medium text-[#6B6B6B] group-hover:text-[#171717]">{l.ehCapa && i === 0 ? 'Capa' : `Lâmina ${i + 1}`}</span>
                           {daLamina.length > 0 ? (
-                            <span className={cn('flex items-center gap-1', pendentes > 0 ? 'text-amber-300' : 'text-emerald-300')}>
+                            <span className={cn('flex items-center gap-1', pendentes > 0 ? 'text-amber-700' : 'text-emerald-700')}>
                               <MessageCircle className="h-3.5 w-3.5" aria-hidden />
                               {pendentes > 0 ? pendentes : daLamina.length}
                             </span>
@@ -1074,7 +1126,7 @@ export function ProofViewer({
                 return (
                   <div
                     key={lamina.id}
-                    className="h-full w-full shrink-0 snap-center p-4"
+                    className="h-full w-full shrink-0 snap-center p-4 sm:p-8"
                     aria-roledescription="lâmina"
                     aria-label={`Lâmina ${i + 1} de ${laminas.length}`}
                   >
@@ -1106,7 +1158,7 @@ export function ProofViewer({
                               setProporcoes((p) => ({ ...p, [lamina.id]: img.naturalWidth / img.naturalHeight }))
                             }
                           }}
-                          className="h-full w-full select-none rounded-lg object-contain shadow-2xl"
+                          className="h-full w-full select-none rounded-sm bg-white object-contain shadow-[0_10px_40px_rgba(0,0,0,0.12)] ring-1 ring-[#EAEAEA]"
                         />
                         {pins
                           .filter((c) => c.areaLargura && c.areaAltura)
@@ -1117,7 +1169,7 @@ export function ProofViewer({
                               className={cn(
                                 'pointer-events-none absolute rounded-sm border-2 transition-colors',
                                 destacado === c.id
-                                  ? 'border-white bg-white/15'
+                                  ? 'border-[#171717] bg-[#171717]/10 shadow-[0_0_0_1px_white]'
                                   : c.resolvido
                                     ? 'border-emerald-400/50 bg-emerald-400/5'
                                     : 'border-amber-400 bg-amber-400/10',
@@ -1152,7 +1204,7 @@ export function ProofViewer({
                             <span
                               className={cn(
                                 'relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-[#171717] shadow-lg transition-transform',
-                                destacado === c.id ? 'scale-125 bg-white' : c.resolvido ? 'bg-emerald-400/60 opacity-70' : 'bg-amber-400',
+                                destacado === c.id ? 'scale-125 bg-[#171717] text-white' : c.resolvido ? 'bg-emerald-400/60 opacity-70' : 'bg-amber-400',
                               )}
                             >
                               {numeroDoPin.get(c.id)}
@@ -1188,7 +1240,7 @@ export function ProofViewer({
                 setPinRascunho(null)
                 setVista('galeria')
               }}
-              className="absolute left-3 top-3 z-10 flex min-h-[40px] items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-semibold text-white hover:bg-black/80"
+              className="absolute left-3 top-3 z-10 flex min-h-[40px] items-center gap-1.5 rounded-full border border-[#DDDDDD] bg-white px-3 text-xs font-semibold text-[#171717] shadow-sm hover:bg-[#F5F5F5]"
             >
               <LayoutGrid className="h-4 w-4" aria-hidden />
               Galeria
@@ -1202,8 +1254,8 @@ export function ProofViewer({
               className={cn(
                 'absolute right-3 top-3 z-10 flex min-h-[40px] items-center gap-1.5 rounded-full px-3 text-xs font-semibold',
                 revisoes[laminaAtual.id] === 'aprovada'
-                  ? 'bg-emerald-400 text-[#0A0A0A] hover:bg-emerald-300'
-                  : 'bg-black/60 text-white hover:bg-black/80',
+                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                  : 'border border-[#DDDDDD] bg-white text-[#171717] shadow-sm hover:bg-[#F5F5F5]',
               )}
             >
               <CheckCircle2 className="h-4 w-4" aria-hidden />
@@ -1215,7 +1267,7 @@ export function ProofViewer({
               type="button"
               onClick={() => irPara(pageIndex - 1)}
               aria-label="Lâmina anterior"
-              className="absolute left-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 sm:flex"
+              className="absolute left-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-[#171717] shadow-sm hover:bg-[#F5F5F5] sm:flex"
             >
               <ChevronLeft className="h-6 w-6" aria-hidden />
             </button>
@@ -1225,15 +1277,15 @@ export function ProofViewer({
               type="button"
               onClick={() => irPara(pageIndex + 1)}
               aria-label="Próxima lâmina"
-              className="absolute right-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 sm:flex"
+              className="absolute right-2 top-1/2 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-[#171717] shadow-sm hover:bg-[#F5F5F5] sm:flex"
             >
               <ChevronRight className="h-6 w-6" aria-hidden />
             </button>
           ) : null}
         </div>
 
-        <div className="hidden w-80 shrink-0 flex-col border-l border-white/10 p-4 lg:flex">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">
+        <div className="hidden w-80 shrink-0 flex-col border-l border-[#EAEAEA] bg-white p-4 lg:flex">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[#9A9A9A]">
             {emComparacao
               ? `Ajustes pedidos na versão ${versaoAnterior.numero}`
               : naGaleria
@@ -1246,8 +1298,8 @@ export function ProofViewer({
 
       {/* Comentários ficam nesta barra (e não flutuando sobre a lâmina) para
           nunca cobrir parte da página em telas pequenas ou lâminas verticais. */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center border-t border-white/10 px-2">
-        <p className="truncate pl-2 text-xs text-white/40">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-2 py-1">
+        <p className="truncate pl-2 text-xs text-[#9A9A9A]">
           {interativo && laminas.length > 0 ? (
             <span className="inline-flex items-center gap-1">
               {naGaleria ? <LayoutGrid className="h-3 w-3" aria-hidden /> : <MapPin className="h-3 w-3" aria-hidden />}
@@ -1271,12 +1323,12 @@ export function ProofViewer({
                 aria-current={i === pageIndex ? 'true' : undefined}
                 className="flex h-11 min-w-[28px] items-center justify-center sm:min-w-[44px]"
               >
-                <span className={cn('h-1.5 rounded-full transition-all', i === pageIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/30')} />
+                <span className={cn('h-1.5 rounded-full transition-all', i === pageIndex ? 'w-6 bg-[#171717]' : 'w-1.5 bg-[#D4D4D4]')} />
               </button>
             ))
           ) : (
             // Muitas lâminas: contador no lugar das bolinhas (não cabem na barra).
-            <span className="flex h-11 items-center px-2 text-xs tabular-nums text-white/70">
+            <span className="flex h-11 items-center px-2 text-xs tabular-nums text-[#6B6B6B]">
               {pageIndex + 1} / {totalLaminas}
             </span>
           )}
@@ -1285,121 +1337,129 @@ export function ProofViewer({
           <button
             type="button"
             onClick={() => setMobileCommentsOpen(true)}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold text-white hover:bg-white/10 lg:hidden"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-[#171717] hover:bg-white lg:hidden"
           >
             <MessageCircle className="h-4 w-4" aria-hidden />
             <span className="sr-only sm:not-sr-only">Orientações</span>
             {(naGaleria ? comentariosDaVersao : commentsForPage).length > 0 ? (
-              <span>({(naGaleria ? comentariosDaVersao : commentsForPage).length})</span>
+              <span className="rounded-full bg-[#171717] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                {(naGaleria ? comentariosDaVersao : commentsForPage).length}
+              </span>
             ) : null}
           </button>
         </div>
       </div>
 
       {erroAcao ? (
-        <p role="alert" className="flex items-center justify-center gap-2 px-4 pt-3 text-sm text-red-300">
+        <p role="alert" className="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           {erroAcao}
         </p>
       ) : null}
 
-      {leituraEquipe ? (
-        <div className="flex flex-col items-center justify-center gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-sm sm:flex-row sm:gap-4">
-          <div aria-live="polite" className="flex items-center justify-center gap-2">
-            {comentariosDaVersao.length === 0 ? (
-              <span className="flex items-center gap-2 text-white/50">
-                <Eye className="h-4 w-4 shrink-0" aria-hidden />
-                Nenhum apontamento nesta versão.
-              </span>
-            ) : pendentesDaVersao === 0 ? (
-              <span className="flex items-center gap-2 font-semibold text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
-                {comentariosDaVersao.length === 1
-                  ? `O apontamento da Versão ${versaoSelecionada} foi resolvido`
-                  : `Todos os ${comentariosDaVersao.length} apontamentos da Versão ${versaoSelecionada} resolvidos`}{' '}
-                — pronta para a próxima versão.
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 text-white/80">
-                <MapPin className="h-4 w-4 shrink-0 text-amber-400" aria-hidden />
-                <span>
-                  <strong className="text-white">{pendentesDaVersao}</strong> de {comentariosDaVersao.length}{' '}
-                  {comentariosDaVersao.length === 1 ? 'apontamento pendente' : 'apontamentos pendentes'} na Versão {versaoSelecionada}
+      <footer className="border-t border-[#EAEAEA] bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {leituraEquipe ? (
+          <div className="flex flex-col items-center justify-center gap-3 text-center text-sm sm:flex-row sm:gap-4">
+            <div aria-live="polite" className="flex items-center justify-center gap-2">
+              {comentariosDaVersao.length === 0 ? (
+                <span className="flex items-center gap-2 text-[#6B6B6B]">
+                  <Eye className="h-4 w-4 shrink-0" aria-hidden />
+                  Nenhum apontamento nesta versão.
                 </span>
-              </span>
-            )}
-          </div>
-          {finalizarHref && !versaoAntiga ? (
-            <Link
-              href={finalizarHref}
-              className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#171717] hover:bg-white/90"
-              title={
-                pendentesDaVersao > 0
-                  ? `Os ${pendentesDaVersao} apontamentos pendentes contam como aplicados ao subir a nova versão.`
-                  : undefined
-              }
-            >
-              <CheckCircle2 className="h-4 w-4" aria-hidden />
-              Finalizar atualizações · subir versão {versaoMaisRecente + 1}
-            </Link>
-          ) : null}
-        </div>
-      ) : versaoAntiga ? (
-        <div className="flex items-center justify-center gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-white/50">
-          <Lock className="h-4 w-4" aria-hidden />
-          Versão antiga — vá para a Versão {versaoMaisRecente} para aprovar ou pedir ajustes.
-        </div>
-      ) : !podeDecidir ? (
-        <div className="flex items-center justify-center gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-sm text-white/50">
-          <Lock className="h-4 w-4 shrink-0" aria-hidden />
-          A equipe está preparando a próxima versão. Você será avisado quando ela estiver disponível.
-        </div>
-      ) : (
-        <div className="space-y-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          {/* Transparência antes do clique: lâminas da versão × franquia do plano. */}
-          {perfil === 'fotografo' && excedente && excedente.inclusas !== null ? (
-            <p
-              className={cn(
-                'flex items-start justify-center gap-2 text-center text-xs',
-                temExcedente ? 'text-amber-300' : 'text-white/60',
+              ) : pendentesDaVersao === 0 ? (
+                <span className="flex items-center gap-2 font-semibold text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                  {comentariosDaVersao.length === 1
+                    ? `O apontamento da Versão ${versaoSelecionada} foi resolvido`
+                    : `Todos os ${comentariosDaVersao.length} apontamentos da Versão ${versaoSelecionada} resolvidos`}{' '}
+                  — pronta para a próxima versão.
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 text-[#6B6B6B]">
+                  <MapPin className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+                  <span>
+                    <strong className="text-[#171717]">{pendentesDaVersao}</strong> de {comentariosDaVersao.length}{' '}
+                    {comentariosDaVersao.length === 1 ? 'apontamento pendente' : 'apontamentos pendentes'} na Versão {versaoSelecionada}
+                  </span>
+                </span>
               )}
-            >
-              <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span>
-                {excedente.laminas} {excedente.laminas === 1 ? 'lâmina' : 'lâminas'}
-                {excedente.temCapa ? ' + capa' : ''} · plano cobre {excedente.inclusas}
-                {temExcedente
-                  ? ` · ${excedente.excedente} extra${excedente.excedente === 1 ? '' : 's'} = ${formatBRL(excedente.valor)} ao aprovar`
-                  : ' · sem custo extra'}
-              </span>
-            </p>
-          ) : null}
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              type="button"
-              size="lg"
-              variant="outline"
-              className="min-h-[52px] whitespace-normal border-white/30 bg-transparent text-white hover:bg-white/10"
-              onClick={() => setAdjustModalOpen(true)}
-            >
-              Solicitar ajustes
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              className="min-h-[52px] whitespace-normal bg-white text-[#171717] hover:bg-white/90"
-              onClick={() => setApproveModalOpen(true)}
-            >
-              Aprovar álbum
-            </Button>
+            </div>
+            {finalizarHref && !versaoAntiga ? (
+              <Link
+                href={finalizarHref}
+                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#171717] px-4 text-sm font-semibold text-white hover:bg-[#2E2E2E]"
+                title={
+                  pendentesDaVersao > 0
+                    ? `Os ${pendentesDaVersao} apontamentos pendentes contam como aplicados ao subir a nova versão.`
+                    : undefined
+                }
+              >
+                <CheckCircle2 className="h-4 w-4" aria-hidden />
+                Finalizar atualizações · subir versão {versaoMaisRecente + 1}
+              </Link>
+            ) : null}
           </div>
-        </div>
-      )}
+        ) : versaoAntiga ? (
+          <div className="flex items-center justify-center gap-2 py-1 text-center text-sm text-[#6B6B6B]">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden />
+            Versão antiga — vá para a Versão {versaoMaisRecente} para aprovar ou pedir ajustes.
+          </div>
+        ) : !podeDecidir ? (
+          <div className="flex items-center justify-center gap-2 py-1 text-center text-sm text-[#6B6B6B]">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden />
+            A equipe está preparando a próxima versão. Você será avisado quando ela estiver disponível.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Transparência antes do clique: lâminas da versão × franquia do plano. */}
+            {perfil === 'fotografo' && excedente && excedente.inclusas !== null ? (
+              <p
+                className={cn(
+                  'flex items-start justify-center gap-2 text-center text-xs sm:justify-start sm:text-left',
+                  temExcedente ? 'text-amber-800' : 'text-[#6B6B6B]',
+                )}
+              >
+                <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                <span>
+                  {excedente.laminas} {excedente.laminas === 1 ? 'lâmina' : 'lâminas'}
+                  {excedente.temCapa ? ' + capa' : ''} · plano cobre {excedente.inclusas}
+                  {temExcedente
+                    ? ` · ${excedente.excedente} extra${excedente.excedente === 1 ? '' : 's'} = ${formatBRL(excedente.valor)} ao aprovar`
+                    : ' · sem custo extra'}
+                </span>
+              </p>
+            ) : (
+              <p className="hidden text-sm text-[#6B6B6B] sm:block">Revisou tudo? Aprove o álbum ou peça ajustes à equipe.</p>
+            )}
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:shrink-0">
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                className="min-h-[48px] whitespace-normal rounded-xl border-[#DDDDDD] bg-white px-5 text-[#171717] hover:bg-[#F5F5F5] sm:min-w-[170px]"
+                onClick={() => setAdjustModalOpen(true)}
+              >
+                Solicitar ajustes
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                variant="brand"
+                className="min-h-[48px] whitespace-normal rounded-xl px-5 sm:min-w-[170px]"
+                onClick={() => setApproveModalOpen(true)}
+              >
+                <Check className="h-4 w-4" aria-hidden />
+                Aprovar álbum
+              </Button>
+            </div>
+          </div>
+        )}
+      </footer>
 
       {/* Bottom sheet de comentários no mobile — no desktop os comentários já ficam sempre visíveis na lateral. */}
       {mobileCommentsOpen ? (
         <div className="fixed inset-0 z-[60] flex items-end lg:hidden" onClick={() => setMobileCommentsOpen(false)}>
-          <div className="absolute inset-0 bg-black/60" />
+          <div className="absolute inset-0 bg-[#171717]/40" />
           <div
             role="dialog"
             aria-modal="true"
@@ -1410,15 +1470,16 @@ export function ProofViewer({
               const alvo = e.target
               if (alvo instanceof HTMLTextAreaElement) window.setTimeout(() => alvo.scrollIntoView({ block: 'center', behavior: rolagemSuave() }), 300)
             }}
-            className="relative max-h-[75dvh] w-full overflow-y-auto overflow-x-hidden overscroll-contain break-words rounded-t-2xl bg-[#171717] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            className="relative max-h-[75dvh] w-full overflow-y-auto overflow-x-hidden overscroll-contain break-words rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
           >
+            <span className="mx-auto mb-2 block h-1 w-10 rounded-full bg-[#DDDDDD]" aria-hidden />
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-white">{naGaleria ? 'Orientações de alteração' : 'Orientações desta lâmina'}</p>
+              <p className="text-sm font-semibold text-[#171717]">{naGaleria ? 'Orientações de alteração' : 'Orientações desta lâmina'}</p>
               <button
                 type="button"
                 onClick={() => setMobileCommentsOpen(false)}
                 aria-label="Fechar"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-white/70 hover:bg-white/10"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-[#6B6B6B] hover:bg-[#F5F5F5]"
               >
                 <X className="h-5 w-5" aria-hidden />
               </button>
@@ -1443,15 +1504,15 @@ export function ProofViewer({
               <p className="font-semibold">Lâminas extras nesta versão</p>
               <dl className="mt-2 space-y-1">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[#595959]">Lâminas da versão {excedente.versao}{excedente.temCapa ? ' (capa não conta)' : ''}</dt>
+                  <dt className="text-[#6B6B6B]">Lâminas da versão {excedente.versao}{excedente.temCapa ? ' (capa não conta)' : ''}</dt>
                   <dd className="shrink-0 tabular-nums">{excedente.laminas}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[#595959]">Incluídas no seu plano</dt>
+                  <dt className="text-[#6B6B6B]">Incluídas no seu plano</dt>
                   <dd className="shrink-0 tabular-nums">{excedente.inclusas}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-[#595959]">
+                  <dt className="text-[#6B6B6B]">
                     {excedente.excedente} {excedente.excedente === 1 ? 'extra' : 'extras'} × {formatBRL(excedente.preco)}
                   </dt>
                   <dd className="shrink-0 tabular-nums">{formatBRL(excedente.valor)}</dd>
@@ -1484,7 +1545,7 @@ export function ProofViewer({
         className="sm:max-w-lg"
       >
         <div className="space-y-4">
-          <p className="text-sm text-[#595959]">
+          <p className="text-sm text-[#6B6B6B]">
             {perfil === 'fotografo'
               ? 'Os adicionais seguem para a gráfica junto com o álbum. Valores de custo para o seu estúdio.'
               : 'Leve estas memórias para mais perto da família. Seu fotógrafo confirma os detalhes com você.'}
@@ -1511,11 +1572,11 @@ export function ProofViewer({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="break-words font-semibold leading-snug">{o.nome}</p>
-                    {o.descricao ? <p className="mt-0.5 text-xs text-[#595959]">{o.descricao}</p> : null}
+                    {o.descricao ? <p className="mt-0.5 text-xs text-[#6B6B6B]">{o.descricao}</p> : null}
                     <p className="mt-1 text-sm font-semibold tabular-nums">
                       {formatBRL(o.preco)}
                       {perfil === 'fotografo' ? (
-                        <span className="ml-1 text-xs font-normal text-[#595959]">
+                        <span className="ml-1 text-xs font-normal text-[#6B6B6B]">
                           · sugerido ao cliente {formatBRL(o.precoRevenda)}
                         </span>
                       ) : null}

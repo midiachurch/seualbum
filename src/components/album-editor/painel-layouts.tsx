@@ -23,13 +23,13 @@ export type PedidoPreenchimento = {
   respeitarOrdem: boolean
 }
 
-const TITULO = 'text-xs font-semibold uppercase tracking-wide text-white/50'
+const TITULO = 'text-xs font-semibold uppercase tracking-wide text-[#9A9A9A]'
 const SEM_FOTOS = new Map<string, FotoNoCanvas>()
 
 const NIVEL_COMPAT = {
-  exata: { rotulo: 'Encaixe exato', cor: 'bg-emerald-500/80' },
-  proporcao: { rotulo: 'Mesmas orientações', cor: 'bg-sky-500/70' },
-  quantidade: { rotulo: 'Corta mais', cor: 'bg-amber-500/70' },
+  exata: { rotulo: 'Encaixe exato', cor: 'bg-emerald-50 text-emerald-700' },
+  proporcao: { rotulo: 'Mesmas orientações', cor: 'bg-sky-50 text-sky-700' },
+  quantidade: { rotulo: 'Corta mais', cor: 'bg-amber-50 text-amber-800' },
   incompativel: { rotulo: '', cor: '' },
 } as const
 
@@ -117,7 +117,7 @@ export function PainelLayouts({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid grid-cols-3 border-b border-white/10 text-[11px]" role="tablist">
+      <div className="grid grid-cols-3 border-b border-[#EAEAEA] text-[11px]" role="tablist">
         {(
           [
             ['sugestoes', 'Sugestões'],
@@ -131,7 +131,7 @@ export function PainelLayouts({
             role="tab"
             aria-selected={aba === v}
             onClick={() => setAba(v)}
-            className={cn('py-2 font-medium', aba === v ? 'border-b-2 border-white text-white' : 'text-white/60 hover:text-white')}
+            className={cn('py-2 font-medium', aba === v ? 'border-b-2 border-[#171717] text-[#171717]' : 'text-[#6B6B6B] hover:text-[#171717]')}
           >
             {r}
           </button>
@@ -141,26 +141,26 @@ export function PainelLayouts({
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {aba === 'sugestoes' ? (
           <>
-            <p className="text-xs text-white/60">
+            <p className="text-xs text-[#6B6B6B]">
               {origem === 'selecao'
                 ? `${variantes.length} composições para as ${selecionadas} foto(s) selecionadas.`
                 : origem === 'lamina'
-                  ? 'Rearranjos das fotos que já estão nesta lâmina. Selecione fotos na aba Fotos para outras combinações.'
+                  ? 'Rearranjos das fotos desta lâmina.'
                   : `Selecione de 1 a ${MAX_FOTOS_POR_LAMINA} fotos na aba Fotos (ou ponha fotos na lâmina).`}
             </p>
             {assinatura ? (
-              <div className="space-y-2 rounded-lg bg-white/5 p-2">
+              <div className="space-y-2 rounded-lg border border-[#EAEAEA] bg-[#F5F5F5] p-2">
                 <p className="flex items-center justify-between text-xs">
-                  <span className="text-white/60">Assinatura</span>
-                  <code className="rounded bg-white/10 px-1.5 py-0.5 font-semibold tracking-wider">{assinatura}</code>
+                  <span className="text-[#6B6B6B]">Assinatura</span>
+                  <code className="rounded bg-[#F5F5F5] text-[#6B6B6B] px-1.5 py-0.5 font-semibold tracking-wider">{assinatura}</code>
                 </p>
-                <label className="flex items-start gap-2 text-xs text-white/80">
-                  <input type="checkbox" checked={respeitarOrdem} onChange={(e) => onRespeitarOrdem(e.target.checked)} className="mt-0.5 accent-white" />
-                  Respeitar a ordem das fotos (1ª foto no 1º quadro — a sequência da história manda)
+                <label className="flex items-start gap-2 text-xs text-[#6B6B6B]">
+                  <input type="checkbox" checked={respeitarOrdem} onChange={(e) => onRespeitarOrdem(e.target.checked)} className="mt-0.5 accent-[#171717]" />
+                  Respeitar a ordem das fotos
                 </label>
                 {origem === 'selecao' && reorganizacoes.length > 1 ? (
                   <div className="space-y-1">
-                    <p className="flex items-center gap-1 text-[11px] text-white/60">
+                    <p className="flex items-center gap-1 text-[11px] text-[#6B6B6B]">
                       <ArrowLeftRight className="h-3 w-3" aria-hidden /> Reorganizar a ordem
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -169,7 +169,7 @@ export function PainelLayouts({
                           key={r.assinatura}
                           type="button"
                           onClick={() => onReordenar(r.ordem)}
-                          className={cn('rounded px-1.5 py-0.5 text-[11px]', r.assinatura === assinatura ? 'bg-white text-[#171717]' : 'bg-white/10 hover:bg-white/20')}
+                          className={cn('rounded px-1.5 py-0.5 text-[11px]', r.assinatura === assinatura ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#171717] hover:bg-[#EAEAEA]')}
                           title={`${r.exatos} template(s) com encaixe exato`}
                         >
                           {r.assinatura} <span className="opacity-60">· {r.exatos}</span>
@@ -187,13 +187,13 @@ export function PainelLayouts({
                   type="button"
                   disabled={somenteLeitura}
                   onClick={() => onAplicar(v)}
-                  className="rounded-lg p-1.5 text-left ring-1 ring-white/10 hover:bg-white/10 hover:ring-white/40 disabled:opacity-50"
+                  className="rounded-lg p-1.5 text-left bg-[#F5F5F5] ring-1 ring-[#EAEAEA] hover:ring-[#171717] disabled:opacity-50"
                   aria-label={`Aplicar a composição ${i + 1} na lâmina atual`}
                 >
                   <MiniaturaLamina lamina={{ ...novaLamina(), id: v.id, quadros: v.quadros }} geometria={geometria} fotos={fotosMapa} largura={236} />
-                  <span className="mt-1 flex justify-between text-[11px] text-white/60">
+                  <span className="mt-1 flex justify-between text-[11px] text-[#6B6B6B]">
                     <span>Composição {String(i + 1).padStart(2, '0')}</span>
-                    <span className="rounded bg-white/10 px-1.5">{tipoDaComposicao(v)}</span>
+                    <span className="rounded bg-[#F5F5F5] text-[#6B6B6B] px-1.5">{tipoDaComposicao(v)}</span>
                   </span>
                 </button>
               ))}
@@ -214,7 +214,7 @@ export function PainelLayouts({
                   key={v}
                   type="button"
                   onClick={() => setFiltro((f) => ({ ...f, aba: v }))}
-                  className={cn('rounded-full px-2.5 py-1 text-[11px]', filtro.aba === v ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/80 hover:bg-white/20')}
+                  className={cn('rounded-full px-2.5 py-1 text-[11px]', filtro.aba === v ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#6B6B6B] hover:bg-[#EAEAEA]')}
                 >
                   {r}
                 </button>
@@ -224,7 +224,7 @@ export function PainelLayouts({
               <select
                 value={nFiltro ?? ''}
                 onChange={(e) => setFiltro((f) => ({ ...f, nFotos: e.target.value ? Number(e.target.value) : null }))}
-                className="rounded-md border border-white/20 bg-[#1c1c1c] px-1 py-1 text-[11px]"
+                className="rounded-md border border-[#DDDDDD] bg-white text-[#171717] px-1 py-1 text-[11px]"
                 aria-label="Quantidade de fotos"
               >
                 <option value="">Qualquer quantidade</option>
@@ -237,7 +237,7 @@ export function PainelLayouts({
               <select
                 value={filtro.orientacao ?? ''}
                 onChange={(e) => setFiltro((f) => ({ ...f, orientacao: (e.target.value || null) as FiltroTemplates['orientacao'] }))}
-                className="rounded-md border border-white/20 bg-[#1c1c1c] px-1 py-1 text-[11px]"
+                className="rounded-md border border-[#DDDDDD] bg-white text-[#171717] px-1 py-1 text-[11px]"
                 aria-label="Orientação"
               >
                 <option value="">Qualquer orientação</option>
@@ -248,32 +248,32 @@ export function PainelLayouts({
               </select>
             </div>
             {podeSalvarTemplate && !somenteLeitura ? (
-              <Button size="sm" variant="outline" className="w-full border-white/20 bg-transparent text-white hover:bg-white/10" onClick={onSalvarTemplate}>
+              <Button size="sm" variant="outline" className="w-full border-[#DDDDDD] bg-white text-[#171717] hover:bg-[#F5F5F5]" onClick={onSalvarTemplate}>
                 <Star className="h-4 w-4" aria-hidden /> Salvar lâmina atual como template
               </Button>
             ) : null}
             {lista.length === 0 ? (
-              <p className="p-3 text-center text-xs text-white/50">
+              <p className="p-3 text-center text-xs text-[#9A9A9A]">
                 {filtro.aba === 'personalizados' ? 'Nenhum template salvo ainda — monte uma lâmina e use “Salvar como template”.' : 'Nenhum template neste filtro.'}
               </p>
             ) : (
               <ul className="space-y-2">
                 {lista.slice(0, 60).map(({ t, c }) => (
-                  <li key={t.id} className="rounded-lg p-1.5 ring-1 ring-white/10 hover:ring-white/30">
+                  <li key={t.id} className="rounded-lg bg-[#F5F5F5] p-1.5 ring-1 ring-[#EAEAEA] hover:ring-[#171717]">
                     <button type="button" disabled={somenteLeitura} onClick={() => onAplicarTemplate(t)} className="block w-full text-left disabled:opacity-50" aria-label={`Aplicar ${t.nome}`}>
                       <MiniaturaLamina lamina={{ ...novaLamina(), id: t.id, quadros: quadrosDoTemplate(t, geometria) }} geometria={geometria} fotos={SEM_FOTOS} largura={236} />
                     </button>
                     <div className="mt-1 flex items-center gap-1 text-[11px]">
-                      <span className="min-w-0 flex-1 truncate text-white/80" title={t.nome}>
+                      <span className="min-w-0 flex-1 truncate text-[#6B6B6B]" title={t.nome}>
                         {t.nome}
                       </span>
-                      <code className="rounded bg-white/10 px-1 text-[10px]">{t.assinatura}</code>
-                      {c && c.nivel !== 'incompativel' ? <span className={cn('rounded px-1 text-[10px] text-white', NIVEL_COMPAT[c.nivel].cor)}>{NIVEL_COMPAT[c.nivel].rotulo}</span> : null}
-                      <button type="button" onClick={() => onFavoritarTemplate(t)} className={cn('rounded p-0.5', t.favorito ? 'text-amber-300' : 'text-white/40 hover:text-white')} aria-label={t.favorito ? 'Tirar dos favoritos' : 'Favoritar'} aria-pressed={Boolean(t.favorito)}>
+                      <code className="rounded bg-[#F5F5F5] text-[#6B6B6B] px-1 text-[10px]">{t.assinatura}</code>
+                      {c && c.nivel !== 'incompativel' ? <span className={cn('rounded px-1 text-[10px]', NIVEL_COMPAT[c.nivel].cor)}>{NIVEL_COMPAT[c.nivel].rotulo}</span> : null}
+                      <button type="button" onClick={() => onFavoritarTemplate(t)} className={cn('rounded p-0.5', t.favorito ? 'text-amber-500' : 'text-[#9A9A9A] hover:text-[#171717]')} aria-label={t.favorito ? 'Tirar dos favoritos' : 'Favoritar'} aria-pressed={Boolean(t.favorito)}>
                         <Star className="h-3.5 w-3.5" fill={t.favorito ? 'currentColor' : 'none'} />
                       </button>
                       {t.origem === 'personalizado' && !somenteLeitura ? (
-                        <button type="button" onClick={() => onExcluirTemplate(t)} className="rounded p-0.5 text-white/40 hover:text-red-300" aria-label={`Excluir ${t.nome}`}>
+                        <button type="button" onClick={() => onExcluirTemplate(t)} className="rounded p-0.5 text-[#9A9A9A] hover:text-red-700" aria-label={`Excluir ${t.nome}`}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       ) : null}
@@ -282,22 +282,21 @@ export function PainelLayouts({
                 ))}
               </ul>
             )}
-            <p className="text-[11px] text-white/40">
-              Clique para aplicar na lâmina atual{fotosSelecionadas.length > 0 ? ' com as fotos selecionadas' : ' (quadros vazios)'}. Templates guardam só a geometria — valem em
-              qualquer formato.
+            <p className="text-[11px] text-[#9A9A9A]">
+              Clique para aplicar na lâmina atual{fotosSelecionadas.length > 0 ? ' com as fotos selecionadas' : ''}.
             </p>
           </>
         ) : (
           <section className="space-y-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-white/50">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#9A9A9A]">
               <Sparkles className="h-3.5 w-3.5" aria-hidden />
               Montar o álbum automaticamente
             </p>
-            <p className="text-xs text-white/60">Fotos → grupos → lâminas → templates. O resultado é um RASCUNHO: revise rostos, cortes, sequência e repetições.</p>
+            <p className="text-xs text-[#6B6B6B]">O resultado é um rascunho: revise antes de enviar.</p>
             {temQuadrosVazios ? (
-              <label className="flex items-start gap-2 text-xs text-white/80">
-                <input type="checkbox" checked={usarQuadros} onChange={(e) => setUsarQuadros(e.target.checked)} className="mt-0.5 accent-white" />
-                Só completar os quadros vazios do modelo (mantém as lâminas como estão)
+              <label className="flex items-start gap-2 text-xs text-[#6B6B6B]">
+                <input type="checkbox" checked={usarQuadros} onChange={(e) => setUsarQuadros(e.target.checked)} className="mt-0.5 accent-[#171717]" />
+                Só completar os quadros vazios do modelo
               </label>
             ) : null}
             {!usarQuadros || !temQuadrosVazios ? (
@@ -305,18 +304,18 @@ export function PainelLayouts({
                 <fieldset className="space-y-1">
                   <legend className={TITULO}>Estilo</legend>
                   {ESTILOS.map((e) => (
-                    <label key={e.id} className={cn('flex cursor-pointer items-start gap-2 rounded-md p-1.5 text-xs', estilo === e.id ? 'bg-white/15' : 'hover:bg-white/5')}>
-                      <input type="radio" name="estilo" checked={estilo === e.id} onChange={() => setEstilo(e.id)} className="mt-0.5 accent-white" />
+                    <label key={e.id} className={cn('flex cursor-pointer items-start gap-2 rounded-md p-1.5 text-xs', estilo === e.id ? 'bg-[#F5F5F5] ring-1 ring-[#171717]' : 'hover:bg-[#F5F5F5]')}>
+                      <input type="radio" name="estilo" checked={estilo === e.id} onChange={() => setEstilo(e.id)} className="mt-0.5 accent-[#171717]" />
                       <span>
-                        <span className="font-medium text-white">{e.nome}</span>
-                        <span className="block text-white/50">{e.descricao}</span>
+                        <span className="font-medium text-[#171717]">{e.nome}</span>
+                        <span className="block text-[#9A9A9A]">{e.descricao}</span>
                       </span>
                     </label>
                   ))}
                 </fieldset>
-                <label className="block text-xs text-white/80">
+                <label className="block text-xs text-[#6B6B6B]">
                   Agrupar por
-                  <select value={agrupar} onChange={(e) => setAgrupar(e.target.value as Agrupamento)} className="mt-1 block w-full rounded-md border border-white/20 bg-[#1c1c1c] px-2 py-1.5 text-sm">
+                  <select value={agrupar} onChange={(e) => setAgrupar(e.target.value as Agrupamento)} className="mt-1 block w-full rounded-md border border-[#DDDDDD] bg-white text-[#171717] px-2 py-1.5 text-sm">
                     <option value="captura">Momento (horário da câmera e cenas)</option>
                     <option value="pasta">Pasta da biblioteca</option>
                     <option value="cor">Cor × preto e branco</option>
@@ -324,7 +323,7 @@ export function PainelLayouts({
                   </select>
                 </label>
                 <fieldset className="space-y-1">
-                  <legend className="text-xs text-white/80">Reutilização de templates</legend>
+                  <legend className="text-xs text-[#6B6B6B]">Reutilização de templates</legend>
                   <div className="grid grid-cols-3 gap-1">
                     {(
                       [
@@ -338,7 +337,7 @@ export function PainelLayouts({
                         type="button"
                         onClick={() => setReutilizacao(v)}
                         aria-pressed={reutilizacao === v}
-                        className={cn('rounded-md px-1 py-1 text-[11px] leading-tight', reutilizacao === v ? 'bg-white text-[#171717]' : 'bg-white/10 hover:bg-white/20')}
+                        className={cn('rounded-md px-1 py-1 text-[11px] leading-tight', reutilizacao === v ? 'bg-[#171717] text-white' : 'bg-[#F5F5F5] text-[#171717] hover:bg-[#EAEAEA]')}
                       >
                         {r}
                         <span className="block opacity-60">{d}</span>
@@ -346,28 +345,28 @@ export function PainelLayouts({
                     ))}
                   </div>
                 </fieldset>
-                <label className="block text-xs text-white/80">
+                <label className="block text-xs text-[#6B6B6B]">
                   Lâminas
-                  <input type="number" min={1} max={200} value={laminas} onChange={(e) => setLaminas(e.target.value)} className="mt-1 block w-full rounded-md border border-white/20 bg-white/5 px-2 py-1.5 text-sm text-white" />
+                  <input type="number" min={1} max={200} value={laminas} onChange={(e) => setLaminas(e.target.value)} className="mt-1 block w-full rounded-md border border-[#DDDDDD] bg-white px-2 py-1.5 text-sm text-[#171717]" />
                 </label>
-                <label className="flex items-center gap-2 text-xs text-white/80">
-                  <input type="checkbox" checked={capa} onChange={(e) => setCapa(e.target.checked)} className="accent-white" />
+                <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+                  <input type="checkbox" checked={capa} onChange={(e) => setCapa(e.target.checked)} className="accent-[#171717]" />
                   Reservar a 1ª lâmina para a capa
                 </label>
               </>
             ) : null}
-            <label className="flex items-center gap-2 text-xs text-white/80">
-              <input type="checkbox" checked={soSelecionadas} onChange={(e) => setSoSelecionadas(e.target.checked)} disabled={selecionadas === 0} className="accent-white" />
+            <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+              <input type="checkbox" checked={soSelecionadas} onChange={(e) => setSoSelecionadas(e.target.checked)} disabled={selecionadas === 0} className="accent-[#171717]" />
               Usar só as {selecionadas} foto(s) selecionadas
             </label>
-            <label className="flex items-center gap-2 text-xs text-white/80">
-              <input type="checkbox" checked={respeitarOrdem} onChange={(e) => onRespeitarOrdem(e.target.checked)} className="accent-white" />
+            <label className="flex items-center gap-2 text-xs text-[#6B6B6B]">
+              <input type="checkbox" checked={respeitarOrdem} onChange={(e) => onRespeitarOrdem(e.target.checked)} className="accent-[#171717]" />
               Respeitar a ordem das fotos
             </label>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-[#9A9A9A]">
               {fotosDoPreenchimento} foto(s){!usarQuadros || !temQuadrosVazios ? ` em ${Number.isFinite(n) ? n : '—'} lâmina(s)` : ' nos quadros vazios'}.
             </p>
-            {temConteudo && (!usarQuadros || !temQuadrosVazios) ? <p className="text-xs text-amber-300">Substitui o que já está no álbum — dá para desfazer (Ctrl+Z).</p> : null}
+            {temConteudo && (!usarQuadros || !temQuadrosVazios) ? <p className="text-xs text-amber-800">Substitui o que já está no álbum — dá para desfazer (Ctrl+Z).</p> : null}
             <Button
               size="sm"
               variant="brand"

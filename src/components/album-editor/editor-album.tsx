@@ -25,13 +25,11 @@ import {
   Maximize2,
   MessageSquare,
   Minimize2,
-  Minus,
   MousePointer2,
   Move,
   PaintBucket,
   PanelRightClose,
   PanelRightOpen,
-  Plus,
   Redo2,
   Send,
   Settings,
@@ -118,7 +116,7 @@ import { cn } from '@/lib/utils'
 const CanvasLamina = dynamic(() => import('@/components/album-editor/canvas-lamina').then((m) => m.CanvasLamina), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full items-center justify-center text-sm text-white/50">
+    <div className="flex h-full items-center justify-center text-sm text-[#9A9A9A]">
       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
       Carregando o canvas…
     </div>
@@ -154,9 +152,9 @@ const FERRAMENTAS: { chave: PainelEsquerdo; rotulo: string; icone: typeof Images
 ]
 
 const NIVEL: Record<NivelProblema, { rotulo: string; cor: string; icone: typeof AlertCircle }> = {
-  erro: { rotulo: 'Erro', cor: 'text-red-400', icone: AlertCircle },
-  aviso: { rotulo: 'Atenção', cor: 'text-amber-400', icone: AlertTriangle },
-  info: { rotulo: 'Informação', cor: 'text-sky-400', icone: Info },
+  erro: { rotulo: 'Erro', cor: 'text-red-700', icone: AlertCircle },
+  aviso: { rotulo: 'Atenção', cor: 'text-amber-800', icone: AlertTriangle },
+  info: { rotulo: 'Informação', cor: 'text-sky-700', icone: Info },
 }
 
 function trocarLamina(doc: DocumentoAlbum, indice: number, fn: (l: LaminaDoc) => LaminaDoc): DocumentoAlbum {
@@ -232,7 +230,8 @@ export function EditorAlbum({
   const [filtroFotos, setFiltroFotos] = useState<{ chave: number; filtro: 'todas' | 'nao-usadas' }>({ chave: 0, filtro: 'todas' })
   const [painelDir, setPainelDir] = useState<PainelDireito>('inspetor')
   // [☰] recolhe o painel direito e a lâmina ocupa quase toda a largura.
-  const [painelDirAberto, setPainelDirAberto] = useState(true)
+  /** Painel direito fixado pelo usuário (botão ☰); sem isso ele só aparece com seleção ou painel aberto. */
+  const [painelDirFixado, setPainelDirFixado] = useState(false)
   const [montagemAberta, setMontagemAberta] = useState(false)
   const [modal, setModal] = useState<'publicar' | 'visualizar' | 'historico' | 'aprovacao' | null>(() =>
     abrirInicial === 'compartilhar' ? 'aprovacao' : abrirInicial === 'visualizar' ? 'visualizar' : abrirInicial === 'historico' ? 'historico' : null,
@@ -1262,8 +1261,8 @@ export function EditorAlbum({
 
   if (!g) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-[#0A0A0A] p-6 text-center text-white">
-        <AlertCircle className="h-8 w-8 text-amber-400" aria-hidden />
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-[#F5F5F5] p-6 text-center text-[#171717]">
+        <AlertCircle className="h-8 w-8 text-amber-800" aria-hidden />
         <p>O formato “{album.formato}” não é reconhecido. Corrija o formato do álbum para editar.</p>
         <Button asChild variant="outline">
           <Link href={voltarHref}>Voltar</Link>
@@ -1302,7 +1301,6 @@ export function EditorAlbum({
   /** Comentários, verificação e camadas abrem no painel direito (e o mostram se estava recolhido). */
   function abrirNoPainelDireito(p: PainelDireito) {
     setPainelDir(p)
-    setPainelDirAberto(true)
   }
 
   /**
@@ -1319,12 +1317,15 @@ export function EditorAlbum({
     irPara(0)
   }
 
+  const mostrarPainelDir = painelDirFixado || selecionados.length > 0 || painelDir !== 'inspetor'
+  const albumFinalizado = status === 'finalizado' || status === 'em_producao'
+
   return (
-    <div ref={raizRef} className="fixed inset-0 z-50 flex flex-col bg-[#141414] text-white">
+    <div ref={raizRef} className="fixed inset-0 z-50 flex flex-col bg-[#F5F5F5] text-[#171717]">
       {/* Barra superior: voltar · ferramentas · status · ações */}
-      <header className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-white/10 px-3 py-2">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-[#EAEAEA] bg-white px-3 py-2">
         <div className="flex min-w-0 items-center gap-1.5">
-        <Link href={voltarHref} className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-white/70 hover:bg-white/10" aria-label={album.projeto ? 'Voltar ao projeto' : 'Voltar aos álbuns'}>
+        <Link href={voltarHref} className="flex shrink-0 items-center gap-1 rounded-full px-2 py-1.5 text-xs text-[#6B6B6B] hover:bg-[#F5F5F5]" aria-label={album.projeto ? 'Voltar ao projeto' : 'Voltar aos álbuns'}>
           <ArrowLeft className="h-4 w-4" aria-hidden />
           <span className="hidden xl:inline">{album.projeto ? 'Projeto' : 'Álbuns'}</span>
         </Link>
@@ -1344,12 +1345,12 @@ export function EditorAlbum({
                 else if (limpo !== album.nome) await atualizarDadosAlbum(album.id, { nome: limpo })
               }}
               aria-label="Nome do álbum"
-              className="w-full max-w-sm truncate rounded bg-transparent px-1 text-sm font-semibold outline-none hover:bg-white/5 focus:bg-white/10"
+              className="w-full max-w-sm truncate rounded bg-transparent px-1 text-sm font-semibold outline-none hover:bg-[#F5F5F5] focus:bg-[#F5F5F5] focus:ring-1 focus:ring-[#171717]"
             />
           )}
           </div>
           {!travado ? (
-            <div className="ml-1 flex items-center rounded-full bg-white/5 p-0.5" role="radiogroup" aria-label="Ferramenta">
+            <div className="ml-1 flex items-center rounded-full bg-[#F5F5F5] p-0.5" role="radiogroup" aria-label="Ferramenta">
               {(
                 [
                   ['montagem', 'Montar: arrastar fotos e trocar layouts', MousePointer2],
@@ -1367,17 +1368,17 @@ export function EditorAlbum({
                     setModo(v)
                     if (v === 'montagem') setRecortando(false)
                   }}
-                  className={cn('rounded-full p-1.5', modo === v ? 'bg-white text-[#171717]' : 'text-white/70 hover:text-white')}
+                  className={cn('rounded-full p-1.5', modo === v ? 'bg-[#171717] text-white' : 'text-[#6B6B6B] hover:text-[#171717]')}
                 >
                   <Icone className="h-4 w-4" aria-hidden />
                 </button>
               ))}
             </div>
           ) : null}
-          <button type="button" onClick={() => desfazer()} disabled={hist.passado.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Desfazer (Ctrl+Z)" title="Desfazer (Ctrl+Z)">
+          <button type="button" onClick={() => desfazer()} disabled={hist.passado.length === 0 || travado} className="rounded-full p-2 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30" aria-label="Desfazer (Ctrl+Z)" title="Desfazer (Ctrl+Z)">
             <Undo2 className="h-4 w-4" />
           </button>
-          <button type="button" onClick={refazer} disabled={hist.futuro.length === 0 || travado} className="rounded-full p-2 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Refazer (Ctrl+Shift+Z)" title="Refazer (Ctrl+Shift+Z)">
+          <button type="button" onClick={refazer} disabled={hist.futuro.length === 0 || travado} className="rounded-full p-2 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30" aria-label="Refazer (Ctrl+Shift+Z)" title="Refazer (Ctrl+Shift+Z)">
             <Redo2 className="h-4 w-4" />
           </button>
         </div>
@@ -1403,13 +1404,13 @@ export function EditorAlbum({
         <div className="flex items-center justify-end gap-1">
           <button
             type="button"
-            onClick={() => setPainelDirAberto((v) => !v)}
-            aria-pressed={painelDirAberto}
-            aria-label={painelDirAberto ? 'Recolher o painel lateral' : 'Mostrar o painel lateral'}
-            title={painelDirAberto ? 'Recolher o painel lateral' : 'Mostrar o painel lateral'}
-            className={cn('hidden rounded-full p-2 hover:bg-white/10 lg:block', painelDirAberto ? 'text-white' : 'text-white/60')}
+            onClick={() => setPainelDirFixado((v) => !v)}
+            aria-pressed={painelDirFixado}
+            aria-label={painelDirFixado ? 'Soltar o painel lateral' : 'Fixar o painel lateral'}
+            title={painelDirFixado ? 'Soltar o painel lateral (aparece só com seleção)' : 'Fixar o painel lateral'}
+            className={cn('hidden rounded-full p-2 lg:block', painelDirFixado ? 'bg-[#171717] text-white' : 'text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]')}
           >
-            {painelDirAberto ? <PanelRightClose className="h-4 w-4" aria-hidden /> : <PanelRightOpen className="h-4 w-4" aria-hidden />}
+            {painelDirFixado ? <PanelRightClose className="h-4 w-4" aria-hidden /> : <PanelRightOpen className="h-4 w-4" aria-hidden />}
           </button>
           <MenuMais
             secoes={[
@@ -1425,18 +1426,13 @@ export function EditorAlbum({
                 { rotulo: 'Histórico de versões', icone: History, onClick: () => setModal('historico') },
                 { rotulo: telaCheia ? 'Sair da tela cheia' : 'Tela cheia', icone: telaCheia ? Minimize2 : Maximize2, onClick: alternarTelaCheia },
               ],
+              ...(!album.projeto && !albumFinalizado ? [[{ rotulo: 'Finalizar o álbum', icone: CheckCircle2, onClick: () => void finalizar() }]] : []),
             ]}
           />
-          <Button size="sm" variant="outline" className="ml-1 border-white/20 bg-transparent text-white hover:bg-white/10" onClick={() => setModal('publicar')} disabled={doc.laminas.length === 0}>
+          <Button size="sm" className="ml-1 bg-[#171717] text-white hover:bg-[#171717]/90" onClick={() => setModal('publicar')} disabled={doc.laminas.length === 0}>
             {album.projeto ? <Send className="h-4 w-4" aria-hidden /> : <Download className="h-4 w-4" aria-hidden />}
             <span className="hidden sm:inline">{album.projeto ? 'Publicar' : 'Exportar'}</span>
           </Button>
-          {!album.projeto ? (
-            <Button size="sm" variant="brand" className="ml-1" onClick={finalizar} disabled={status === 'finalizado' || status === 'em_producao'}>
-              <CheckCircle2 className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">{status === 'finalizado' || status === 'em_producao' ? 'Finalizado' : 'Finalizar'}</span>
-            </Button>
-          ) : null}
         </div>
       </header>
       {/* Só o que exige uma decisão vira aviso; o resto vive na pílula de status. */}
@@ -1444,7 +1440,7 @@ export function EditorAlbum({
         <div className="pointer-events-none absolute inset-x-0 top-14 z-40 flex flex-col items-center gap-2 px-4">
           <div className="pointer-events-auto w-full max-w-2xl space-y-2 [&>div]:rounded-xl [&>div]:shadow-2xl">
             {estado === 'conflito' ? (
-              <div role="alert" className="flex items-center gap-2 bg-amber-400 px-4 py-2 text-sm text-[#171717]">
+              <div role="alert" className="flex items-center gap-2 border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
                 {mensagem}
                 <button type="button" onClick={() => window.location.reload()} className="ml-auto rounded bg-[#171717] px-3 py-1 text-xs font-semibold text-white">
@@ -1453,7 +1449,7 @@ export function EditorAlbum({
               </div>
             ) : null}
             {copiaEncontrada ? (
-              <div role="alert" className="flex flex-wrap items-center gap-2 bg-sky-500 px-4 py-2 text-sm text-[#0A0A0A]">
+              <div role="alert" className="flex flex-wrap items-center gap-2 border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-700">
                 <CloudOff className="h-4 w-4 shrink-0" aria-hidden />
                 Encontramos alterações deste álbum que não chegaram a ser salvas ({new Date(copiaEncontrada.em).toLocaleString('pt-BR')}).
                 <div className="ml-auto flex gap-2">
@@ -1464,7 +1460,7 @@ export function EditorAlbum({
                             setCopiaEncontrada(null)
                             aplicar(() => normalizarDocumento(c.documento), 'Recuperadas alterações não salvas')
                           }}
-                          className="rounded bg-[#0A0A0A] px-3 py-1 text-xs font-semibold text-white"
+                          className="rounded bg-[#171717] px-3 py-1 text-xs font-semibold text-white"
                         >
                           Recuperar
                         </button>
@@ -1474,7 +1470,7 @@ export function EditorAlbum({
                             setCopiaEncontrada(null)
                             gravarCopia(album.id, null)
                           }}
-                          className="rounded bg-white/50 px-3 py-1 text-xs font-semibold"
+                          className="rounded border border-[#DDDDDD] bg-white px-3 py-1 text-xs font-semibold text-[#171717] hover:bg-[#F5F5F5]"
                         >
                           Descartar
                         </button>
@@ -1486,12 +1482,12 @@ export function EditorAlbum({
       ) : null}
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="relative flex min-h-0 flex-1 bg-[#1C1C1C]">
+          <div className="relative flex min-h-0 flex-1 bg-[#EDEDED]">
             {painelEsq ? (
-              <aside className="absolute inset-y-0 left-0 z-30 flex w-80 max-w-[85vw] flex-col border-r border-white/10 bg-[#0F0F0F] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+              <aside className="absolute inset-y-0 left-0 z-30 flex w-80 max-w-[85vw] flex-col border-r border-[#EAEAEA] bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-[#EAEAEA] px-3 py-2">
                   <p className="text-sm font-semibold">{FERRAMENTAS.find((f) => f.chave === painelEsq)?.rotulo}</p>
-                  <button type="button" onClick={() => setPainelEsq(null)} className="rounded-full p-1.5 text-white/70 hover:bg-white/10" aria-label="Fechar painel">
+                  <button type="button" onClick={() => setPainelEsq(null)} className="rounded-full p-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5]" aria-label="Fechar painel">
                     <X className="h-4 w-4" aria-hidden />
                   </button>
                 </div>
@@ -1649,13 +1645,6 @@ export function EditorAlbum({
                 onSoltarFoto={soltarFoto}
                 onDimensoes={aoDescobrirDimensoes}
               />
-              <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-white/40">
-                {rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}
-                {modo === 'montagem' && !travado ? ' · arraste fotos da bandeja · ↑/↓ trocam o layout · foto sobre foto troca as duas' : ''}
-                {modo === 'designer' && !recortando ? ' · Designer: mova e redimensione os quadros · Esc volta à montagem' : ''}
-                {recortando ? (escolhendoFoco ? ' · clique no ponto principal da foto' : ' · arraste a foto dentro do quadro · Esc conclui') : ''}
-                {zoom > 1 ? ' · arraste o fundo ou role para mover' : ''}
-              </p>
               {boasVindas ? (
                 <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-xs text-[#171717] shadow-lg">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
@@ -1670,53 +1659,33 @@ export function EditorAlbum({
           </div>
 
           {/* Navegação da lâmina: ◀ · trocar layout · ▶ */}
-          <div className="flex items-center gap-2 border-t border-white/10 bg-[#141414] px-3 py-1.5">
-            <div className="flex flex-1 items-center gap-2 text-[11px] text-white/50">
-              <span className="font-medium text-white/80">{rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)}</span>
-              <span className="tabular-nums">
-                {laminaIdx + 1}/{doc.laminas.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => irPara(laminaIdx - 1)} disabled={laminaIdx === 0} className="rounded-full p-1.5 text-white/80 hover:bg-white/10 disabled:opacity-30" aria-label="Lâmina anterior (←)" title="Lâmina anterior (←)">
-                <ChevronLeft className="h-4 w-4" aria-hidden />
-              </button>
-              <SeletorLayout
-                variantes={variantesCiclo}
-                atual={cicloAtual}
-                geometria={g}
-                desabilitado={travado}
-                onAplicar={aplicarDoCiclo}
-                onCiclar={ciclarLayout}
-                onMais={() => setPainelEsq('layouts')}
-              />
-              <button
-                type="button"
-                onClick={avancarLamina}
-                disabled={laminaIdx >= doc.laminas.length - 1 && (travado || laminaVazia(lamina))}
-                className="rounded-full p-1.5 text-white/80 hover:bg-white/10 disabled:opacity-30"
-                aria-label={laminaIdx >= doc.laminas.length - 1 ? 'Nova lâmina vazia (→)' : 'Próxima lâmina (→)'}
-                title={laminaIdx >= doc.laminas.length - 1 ? 'Nova lâmina vazia (→)' : 'Próxima lâmina (→)'}
-              >
-                <ChevronRight className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-            <div className="flex flex-1 items-center justify-end">
-              <div className="flex items-center rounded-full bg-white/5" role="group" aria-label="Zoom">
-                <button type="button" onClick={() => setZoom((z) => [...ZOOMS].reverse().find((v) => v < z) ?? z)} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Diminuir zoom (Ctrl −)">
-                  <Minus className="h-3.5 w-3.5" />
-                </button>
-                <button type="button" onClick={() => setZoom(1)} className="min-w-[3rem] rounded-full px-1 py-1 text-center text-[11px] tabular-nums hover:bg-white/10" aria-label="Ajustar à tela (Ctrl 0)" title="Ajustar à tela">
-                  {Math.round(zoom * 100)}%
-                </button>
-                <button type="button" onClick={() => setZoom((z) => ZOOMS.find((v) => v > z) ?? z)} className="rounded-full p-1.5 hover:bg-white/10" aria-label="Aumentar zoom (Ctrl +)">
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center justify-center gap-1.5 border-t border-[#EAEAEA] bg-white px-3 py-1.5">
+            <button type="button" onClick={() => irPara(laminaIdx - 1)} disabled={laminaIdx === 0} className="rounded-full p-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30" aria-label="Lâmina anterior (←)" title="Lâmina anterior (←)">
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </button>
+            <span className="text-[11px] font-medium text-[#6B6B6B]">{rotuloDaLamina(laminaIdx, doc.primeiraEhCapa)} ·</span>
+            <SeletorLayout
+              variantes={variantesCiclo}
+              atual={cicloAtual}
+              geometria={g}
+              desabilitado={travado}
+              onAplicar={aplicarDoCiclo}
+              onCiclar={ciclarLayout}
+              onMais={() => setPainelEsq('layouts')}
+            />
+            <button
+              type="button"
+              onClick={avancarLamina}
+              disabled={laminaIdx >= doc.laminas.length - 1 && (travado || laminaVazia(lamina))}
+              className="rounded-full p-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-30"
+              aria-label={laminaIdx >= doc.laminas.length - 1 ? 'Nova lâmina vazia (→)' : 'Próxima lâmina (→)'}
+              title={laminaIdx >= doc.laminas.length - 1 ? 'Nova lâmina vazia (→)' : 'Próxima lâmina (→)'}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </button>
           </div>
 
-          <div className="border-t border-white/10 bg-[#0F0F0F]">
+          <div className="border-t border-[#EAEAEA] bg-white">
           <FitaLaminas
             laminas={doc.laminas}
             geometria={g}
@@ -1745,7 +1714,7 @@ export function EditorAlbum({
           </div>
 
           {/* Bandeja de fotos: a biblioteca inteira, embaixo, como no SmartAlbums. */}
-          <div className="h-56 shrink-0 border-t border-white/10 bg-[#0F0F0F] xl:h-64">
+          <div className="h-56 shrink-0 border-t border-[#EAEAEA] bg-white xl:h-64">
               <PainelFotos
                 key={filtroFotos.chave}
                 albumId={album.id}
@@ -1787,12 +1756,12 @@ export function EditorAlbum({
           </div>
         </div>
 
-        {painelDirAberto ? (
-          <aside className="hidden w-72 shrink-0 flex-col border-l border-white/10 bg-[#0F0F0F] lg:flex">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/60">{tituloPainelDir}</p>
+        {mostrarPainelDir ? (
+          <aside className="hidden w-72 shrink-0 flex-col border-l border-[#EAEAEA] bg-white lg:flex">
+            <div className="flex items-center justify-between border-b border-[#EAEAEA] px-4 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#6B6B6B]">{tituloPainelDir}</p>
               {painelDir !== 'inspetor' ? (
-                <button type="button" onClick={() => setPainelDir('inspetor')} className="text-[11px] text-white/60 underline-offset-2 hover:text-white hover:underline">
+                <button type="button" onClick={() => setPainelDir('inspetor')} className="text-[11px] text-[#6B6B6B] underline-offset-2 hover:text-[#171717] hover:underline">
                   Voltar
                 </button>
               ) : null}
@@ -1802,7 +1771,7 @@ export function EditorAlbum({
               {painelDir === 'verificacao' ? (
                 <div className="space-y-3 p-4">
                   {problemas.length === 0 ? (
-                    <p className="flex items-start gap-2 text-sm text-emerald-300">
+                    <p className="flex items-start gap-2 text-sm text-emerald-700">
                       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                       <span>
                         <strong className="block">Álbum pronto</strong>
@@ -1811,9 +1780,9 @@ export function EditorAlbum({
                     </p>
                   ) : (
                     <>
-                      <p className="text-sm text-white/80">
+                      <p className="text-sm text-[#171717]">
                         {problemas.length} ponto(s) encontrado(s)
-                        {erros > 0 ? <span className="block text-xs text-red-300">Erros impedem a finalização.</span> : null}
+                        {erros > 0 ? <span className="block text-xs text-red-700">Erros impedem a finalização.</span> : null}
                       </p>
                       <ul className="space-y-2">
                         {problemas.map((p, i) => {
@@ -1835,14 +1804,14 @@ export function EditorAlbum({
                                     setSelecionados([{ tipo, id: p.elementoId }])
                                   } else setSelecionados([])
                                 }}
-                                className="flex w-full items-start gap-2 rounded-lg bg-white/5 p-2.5 text-left text-xs hover:bg-white/10"
+                                className="flex w-full items-start gap-2 rounded-lg border border-[#EAEAEA] bg-white p-2.5 text-left text-xs hover:bg-[#F5F5F5]"
                               >
                                 <n.icone className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', n.cor)} aria-hidden />
                                 <span>
-                                  <span className="font-semibold text-white/80">
+                                  <span className="font-semibold text-[#171717]">
                                     {n.rotulo} · {p.laminaIndice >= 0 ? rotuloDaLamina(p.laminaIndice, doc.primeiraEhCapa, false) : 'Álbum'}
                                   </span>
-                                  <span className="block text-white/70">{p.mensagem}</span>
+                                  <span className="block text-[#6B6B6B]">{p.mensagem}</span>
                                 </span>
                               </button>
                             </li>
@@ -1855,7 +1824,7 @@ export function EditorAlbum({
               ) : painelDir === 'comentarios' ? (
                 <div className="space-y-3 p-4 text-sm">
                   {album.projeto ? (
-                    <p className="text-white/60">
+                    <p className="text-[#6B6B6B]">
                       Os comentários do cliente deste projeto ficam na{' '}
                       <Link href={`/admin/projetos/${album.projeto.id}/prova`} className="underline">
                         prova
@@ -1863,16 +1832,16 @@ export function EditorAlbum({
                       .
                     </p>
                   ) : !aprovacaoAtual ? (
-                    <p className="text-white/60">Ainda não houve envio para o cliente. Use Compartilhar → Enviar para aprovação.</p>
+                    <p className="text-[#6B6B6B]">Ainda não houve envio para o cliente. Use Compartilhar → Enviar para aprovação.</p>
                   ) : aprovacaoAtual.comentarios.length === 0 ? (
-                    <p className="text-white/60">Sem comentários no envio {aprovacaoAtual.numero}.</p>
+                    <p className="text-[#6B6B6B]">Sem comentários no envio {aprovacaoAtual.numero}.</p>
                   ) : (
                     [...new Set(aprovacaoAtual.comentarios.map((c) => c.laminaIndice))]
                       .sort((a, b) => a - b)
                       .map((li) => {
                         const cs = aprovacaoAtual.comentarios.filter((c) => c.laminaIndice === li)
                         return (
-                          <div key={li} className="rounded-lg bg-white/5 p-2">
+                          <div key={li} className="rounded-lg border border-[#EAEAEA] bg-white p-2">
                             <button type="button" onClick={() => irPara(li)} className="text-xs font-semibold underline">
                               {aprovacaoAtual.laminas[li]?.rotulo ?? `Lâmina ${li + 1}`} · {cs.length} comentário(s)
                             </button>
@@ -1888,12 +1857,12 @@ export function EditorAlbum({
                                         const r = await resolverComentarioAlbum(c.id, e.target.checked)
                                         if (r.ok) void carregarComentarios()
                                       }}
-                                      className="mt-0.5 accent-white"
+                                      className="mt-0.5 accent-[#171717]"
                                     />
                                   ) : (
                                     <span className="w-3.5" />
                                   )}
-                                  <span className={cn(c.resolvido && 'text-white/40 line-through')}>
+                                  <span className={cn(c.resolvido && 'text-[#9A9A9A] line-through')}>
                                     <strong>{c.origem === 'equipe' ? `${c.autor} (equipe)` : c.autor}:</strong> {c.texto}
                                   </span>
                                 </li>
@@ -2045,7 +2014,7 @@ export function EditorAlbum({
         problemas={problemas}
         urlsOriginais={urlsOriginais}
         urlsPreview={urlsPreview}
-        finalizado={status === 'finalizado' || status === 'em_producao'}
+        finalizado={albumFinalizado}
         antesDePublicar={salvar}
       />
       {modal === 'visualizar' ? (

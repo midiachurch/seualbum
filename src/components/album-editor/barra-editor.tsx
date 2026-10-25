@@ -73,20 +73,20 @@ export function PilulaStatus({
   onTravado?: () => void
 }) {
   const salvo: { texto: string; icone: LucideIcon; cor: string; gira?: boolean } = !online
-    ? { texto: 'Salvando localmente (offline)', icone: WifiOff, cor: 'bg-amber-400/15 text-amber-300' }
+    ? { texto: 'Salvando localmente (offline)', icone: WifiOff, cor: 'bg-amber-50 text-amber-800' }
     : estado === 'travado'
-      ? { texto: 'Somente leitura', icone: Lock, cor: 'text-emerald-300' }
+      ? { texto: 'Somente leitura', icone: Lock, cor: 'text-emerald-700' }
       : estado === 'conflito'
-        ? { texto: 'Versão desatualizada', icone: AlertTriangle, cor: 'bg-amber-400/15 text-amber-300' }
+        ? { texto: 'Versão desatualizada', icone: AlertTriangle, cor: 'bg-amber-50 text-amber-800' }
         : estado === 'erro'
-          ? { texto: mensagem ?? 'Erro ao salvar', icone: CloudOff, cor: 'bg-red-500/15 text-red-300' }
+          ? { texto: mensagem ?? 'Erro ao salvar', icone: CloudOff, cor: 'bg-red-50 text-red-700' }
           : sincronizado
-            ? { texto: 'Conexão restaurada · sincronizado', icone: Wifi, cor: 'text-emerald-300' }
+            ? { texto: 'Conexão restaurada · sincronizado', icone: Wifi, cor: 'text-emerald-700' }
             : estado === 'salvando'
-              ? { texto: 'Salvando…', icone: Loader2, cor: 'text-white/70', gira: true }
+              ? { texto: 'Salvando…', icone: Loader2, cor: 'text-[#6B6B6B]', gira: true }
               : estado === 'pendente'
-                ? { texto: 'Alterações não salvas', icone: Cloud, cor: 'text-white/70' }
-                : { texto: 'Salvo na nuvem', icone: Check, cor: 'text-white/70' }
+                ? { texto: 'Alterações não salvas', icone: Cloud, cor: 'text-[#6B6B6B]' }
+                : { texto: 'Salvo na nuvem', icone: Check, cor: 'text-[#6B6B6B]' }
   const titulo = [motivoTravado, statusAlbum ? `Status: ${statusAlbum}` : null].filter(Boolean).join(' · ') || undefined
 
   const conteudoSalvo = (
@@ -97,19 +97,19 @@ export function PilulaStatus({
   )
 
   return (
-    <div role="status" className="flex min-w-0 items-center gap-1 rounded-full bg-white/5 py-0.5 pl-1 pr-1 text-[11px]" title={titulo}>
+    <div role="status" className="flex min-w-0 items-center gap-1 rounded-full bg-[#F5F5F5] py-0.5 pl-1 pr-1 text-[11px] text-[#6B6B6B]" title={titulo}>
       {onTravado && estado === 'travado' ? (
-        <button type="button" onClick={onTravado} className={cn('flex items-center gap-1.5 rounded-full px-2 py-1 hover:bg-white/10', salvo.cor)}>
+        <button type="button" onClick={onTravado} className={cn('flex items-center gap-1.5 rounded-full px-2 py-1 hover:bg-white', salvo.cor)}>
           {conteudoSalvo}
         </button>
       ) : (
         <span className={cn('flex items-center gap-1.5 rounded-full px-2 py-1', salvo.cor)}>{conteudoSalvo}</span>
       )}
-      <span className="hidden whitespace-nowrap pr-1 tabular-nums text-white/55 md:inline">
+      <span className="hidden whitespace-nowrap pr-1 tabular-nums text-[#6B6B6B] md:inline">
         · {laminas} {laminas === 1 ? 'lâmina' : 'lâminas'} · {fotosUsadas}/{fotosTotal} fotos
       </span>
       {comentarios > 0 ? (
-        <button type="button" onClick={onComentarios} className="flex items-center gap-1 rounded-full bg-sky-400/15 px-2 py-1 text-sky-300 hover:bg-sky-400/25" aria-label={`${comentarios} comentário(s) do cliente em aberto`}>
+        <button type="button" onClick={onComentarios} className="flex items-center gap-1 rounded-full bg-sky-50 px-2 py-1 text-sky-700 hover:bg-sky-100" aria-label={`${comentarios} comentário(s) do cliente em aberto`}>
           <MessageSquare className="h-3 w-3" aria-hidden />
           {comentarios}
         </button>
@@ -118,7 +118,7 @@ export function PilulaStatus({
         <button
           type="button"
           onClick={onVerificacao}
-          className={cn('flex items-center gap-1 rounded-full px-2 py-1', erros > 0 ? 'bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'bg-amber-400/15 text-amber-300 hover:bg-amber-400/25')}
+          className={cn('flex items-center gap-1 rounded-full px-2 py-1', erros > 0 ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-amber-50 text-amber-800 hover:bg-amber-100')}
           aria-label={`${erros + avisos} alerta(s) na verificação`}
         >
           <AlertTriangle className="h-3 w-3" aria-hidden />
@@ -149,7 +149,7 @@ export function MenuMais({ secoes }: { secoes: ItemMenu[][] }) {
         aria-expanded={aberto}
         aria-label="Mais opções"
         title="Mais opções"
-        className={cn('rounded-full p-2 hover:bg-white/10', aberto ? 'bg-white/10 text-white' : 'text-white/80')}
+        className={cn('rounded-full p-2 hover:bg-[#F5F5F5]', aberto ? 'bg-[#F5F5F5] text-[#171717]' : 'text-[#6B6B6B]')}
       >
         <Ellipsis className="h-4 w-4" aria-hidden />
       </button>
@@ -159,10 +159,10 @@ export function MenuMais({ secoes }: { secoes: ItemMenu[][] }) {
           <div
             role="menu"
             onKeyDown={(e) => e.key === 'Escape' && setAberto(false)}
-            className="absolute right-0 top-full z-50 mt-1 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#1C1C1C] py-1 shadow-2xl"
+            className="absolute right-0 top-full z-50 mt-1 w-60 overflow-hidden rounded-xl border border-[#EAEAEA] bg-white py-1 shadow-2xl"
           >
             {secoes.map((itens, s) => (
-              <div key={s} className={cn(s > 0 && 'mt-1 border-t border-white/10 pt-1')}>
+              <div key={s} className={cn(s > 0 && 'mt-1 border-t border-[#EAEAEA] pt-1')}>
                 {itens.map((item, i) => (
                   <button
                     key={item.rotulo}
@@ -173,9 +173,9 @@ export function MenuMais({ secoes }: { secoes: ItemMenu[][] }) {
                       setAberto(false)
                       item.onClick()
                     }}
-                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs text-white/85 hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs text-[#171717] hover:bg-[#F5F5F5] focus:bg-[#F5F5F5] focus:outline-none"
                   >
-                    <item.icone className="h-4 w-4 text-white/60" aria-hidden />
+                    <item.icone className="h-4 w-4 text-[#6B6B6B]" aria-hidden />
                     {item.rotulo}
                   </button>
                 ))}
@@ -214,17 +214,17 @@ export function SeletorLayout({
     : `Layout ${atual !== null ? atual + 1 : '–'} de ${variantes.length} · ↑/↓`
 
   return (
-    <div className="flex items-center rounded-full bg-white/5">
-      <button type="button" onClick={() => onCiclar(-1)} disabled={!podeCiclar} className="rounded-full p-1.5 hover:bg-white/10 disabled:opacity-30" aria-label="Layout anterior (↑)" title="Layout anterior (↑)">
+    <div className="flex items-center rounded-full border border-[#EAEAEA] bg-white text-[#171717]">
+      <button type="button" onClick={() => onCiclar(-1)} disabled={!podeCiclar} className="rounded-full p-1.5 hover:bg-[#F5F5F5] disabled:opacity-30" aria-label="Layout anterior (↑)" title="Layout anterior (↑)">
         <ChevronUp className="h-3.5 w-3.5" aria-hidden />
       </button>
       <span
         aria-live="polite"
-        className={cn('px-2.5 py-1 text-[11px] font-medium tabular-nums', vazio || desabilitado ? 'text-white/40' : 'text-white/80')}
+        className={cn('px-2.5 py-1 text-[11px] font-medium tabular-nums', vazio || desabilitado ? 'text-[#9A9A9A]' : 'text-[#171717]')}
       >
         {rotulo}
       </span>
-      <button type="button" onClick={() => onCiclar(1)} disabled={!podeCiclar} className="rounded-full p-1.5 hover:bg-white/10 disabled:opacity-30" aria-label="Próximo layout (↓)" title="Próximo layout (↓)">
+      <button type="button" onClick={() => onCiclar(1)} disabled={!podeCiclar} className="rounded-full p-1.5 hover:bg-[#F5F5F5] disabled:opacity-30" aria-label="Próximo layout (↓)" title="Próximo layout (↓)">
         <ChevronDown className="h-3.5 w-3.5" aria-hidden />
       </button>
     </div>
@@ -252,7 +252,7 @@ export function LaminaVizinha({
         type="button"
         onClick={onIr}
         aria-label={lado === 'anterior' ? 'Ir para a lâmina anterior' : 'Ir para a próxima lâmina'}
-        className="rounded bg-white opacity-40 shadow-lg transition-opacity hover:opacity-90 focus-visible:opacity-90"
+        className="rounded bg-white opacity-50 shadow-md shadow-black/10 transition-opacity hover:opacity-90 focus-visible:opacity-90"
       >
         <MiniaturaLamina lamina={lamina} geometria={geometria} fotos={fotos} largura={112} />
       </button>
@@ -289,11 +289,11 @@ export function InfoAlbum({
     ['Fotos usadas', `${fotosUsadas} de ${fotosTotal}`],
   ]
   return (
-    <dl className="space-y-1.5 border-b border-white/10 px-4 py-3 text-xs">
+    <dl className="space-y-1.5 border-b border-[#EAEAEA] px-4 py-3 text-xs">
       {linhas.map(([rotulo, valor]) => (
         <div key={rotulo} className="flex justify-between gap-3">
-          <dt className="text-white/50">{rotulo}</dt>
-          <dd className="text-right font-medium text-white/85">{valor}</dd>
+          <dt className="text-[#6B6B6B]">{rotulo}</dt>
+          <dd className="text-right font-medium text-[#171717]">{valor}</dd>
         </div>
       ))}
     </dl>
@@ -327,25 +327,25 @@ export function DialogoMontagem({
   const valido = Number.isFinite(n) && n >= 1 && n <= 200
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onCancelar}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={onCancelar}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="montagem-titulo"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.key === 'Escape' && onCancelar()}
-        className="w-full max-w-md rounded-2xl border border-white/10 bg-[#1C1C1C] p-5 text-white shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#EAEAEA] bg-white p-5 text-[#171717] shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="montagem-titulo" className="flex items-center gap-2 text-base font-semibold">
             <WandSparkles className="h-4 w-4" aria-hidden />
             Montar automático
           </h2>
-          <button type="button" onClick={onCancelar} className="rounded-full p-1 text-white/60 hover:bg-white/10" aria-label="Fechar">
+          <button type="button" onClick={onCancelar} className="rounded-full p-1 text-[#6B6B6B] hover:bg-[#F5F5F5]" aria-label="Fechar">
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <ul className="mt-3 space-y-1 text-xs text-white/70">
+        <ul className="mt-3 space-y-1 text-xs text-[#6B6B6B]">
           <li>• {totalFotos} fotos na ordem em que foram tiradas (preparação → cerimônia → festa).</li>
           <li>• Fotos do mesmo momento ficam na mesma lâmina; layouts escolhidos pela orientação das fotos.</li>
           <li>
@@ -353,7 +353,7 @@ export function DialogoMontagem({
           </li>
         </ul>
         <div className="mt-4 flex items-end gap-4">
-          <label className="text-xs text-white/70">
+          <label className="text-xs text-[#6B6B6B]">
             Lâminas
             <input
               type="number"
@@ -362,28 +362,28 @@ export function DialogoMontagem({
               value={laminas}
               autoFocus
               onChange={(e) => setLaminas(e.target.value)}
-              className="mt-1 block w-24 rounded-md border border-white/20 bg-[#141414] px-2 py-1.5 text-sm text-white"
+              className="mt-1 block w-24 rounded-md border border-[#DDDDDD] bg-white px-2 py-1.5 text-sm text-[#171717]"
             />
           </label>
-          <label className="flex items-center gap-2 pb-1.5 text-xs text-white/80">
-            <input type="checkbox" checked={capa} onChange={(e) => setCapa(e.target.checked)} className="accent-white" />
+          <label className="flex items-center gap-2 pb-1.5 text-xs text-[#171717]">
+            <input type="checkbox" checked={capa} onChange={(e) => setCapa(e.target.checked)} className="accent-[#171717]" />
             Primeira lâmina é a capa
           </label>
         </div>
         {temConteudo ? (
-          <p className="mt-3 rounded-md bg-amber-400/10 p-2 text-xs text-amber-200">
+          <p className="mt-3 rounded-md bg-amber-50 p-2 text-xs text-amber-800">
             Substitui a diagramação atual. Dá para voltar com Ctrl+Z.
           </p>
         ) : null}
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onCancelar} className="rounded-full px-4 py-2 text-xs text-white/80 hover:bg-white/10">
+          <button type="button" onClick={onCancelar} className="rounded-full px-4 py-2 text-xs text-[#6B6B6B] hover:bg-[#F5F5F5]">
             Cancelar
           </button>
           <button
             type="button"
             disabled={!valido || totalFotos === 0}
             onClick={() => onMontar(n, capa)}
-            className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#171717] hover:bg-white/90 disabled:opacity-40"
+            className="rounded-full bg-[#171717] px-4 py-2 text-xs font-semibold text-white hover:bg-[#171717]/90 disabled:opacity-40"
           >
             Montar álbum
           </button>

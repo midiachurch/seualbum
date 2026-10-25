@@ -721,7 +721,7 @@ export function CanvasLamina({
         >
           <Layer>
             <Group x={origemX} y={origemY} scaleX={escala} scaleY={escala}>
-              <Rect name="fundo" x={-s} y={-s} width={totalW} height={totalH} fill={lamina.fundo} shadowColor="#000" shadowBlur={8} shadowOpacity={0.18} />
+              <Rect name="fundo" x={-s} y={-s} width={totalW} height={totalH} fill={lamina.fundo} shadowColor="#000" shadowBlur={16} shadowOpacity={0.12} shadowOffsetY={2} />
               {gr ? (
                 <Rect
                   x={-s}
@@ -876,15 +876,15 @@ export function CanvasLamina({
       {tamanho.w > 0 && (soltando || laminaVazia) ? (
         <div
           className={`pointer-events-none absolute flex items-center justify-center rounded-sm transition-colors ${
-            soltando ? 'border-2 border-dashed border-sky-400 bg-sky-500/10 ring-2 ring-white/60' : ''
+            soltando ? 'border-2 border-dashed border-sky-500 bg-sky-500/10 ring-2 ring-sky-200' : ''
           }`}
           style={caixaLamina}
         >
           {laminaVazia ? (
-            <div className={`flex flex-col items-center gap-2 rounded-lg px-5 py-4 text-center ${soltando ? 'bg-sky-600/90 text-white' : 'bg-black/55 text-white/90'}`}>
+            <div className={`flex flex-col items-center gap-2 rounded-lg px-5 py-4 text-center ${soltando ? 'bg-sky-50 text-sky-700 shadow-sm' : 'border border-dashed border-[#DDDDDD] bg-white/90 text-[#6B6B6B]'}`}>
               <ImagePlus className="h-8 w-8" aria-hidden />
-              <p className="text-sm font-medium">Arraste fotos da bandeja para cá</p>
-              <p className="text-xs opacity-75">↑/↓ trocam o layout depois</p>
+              <p className="text-sm font-medium text-[#171717]">Arraste fotos da bandeja para cá</p>
+              <p className="text-xs text-[#9A9A9A]">↑/↓ trocam o layout depois</p>
             </div>
           ) : null}
         </div>

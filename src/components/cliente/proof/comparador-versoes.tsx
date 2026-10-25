@@ -33,7 +33,7 @@ export function ComparadorVersoes({
   onPin: (id: string) => void
 }) {
   return (
-    <div className="grid flex-1 grid-rows-2 gap-2 overflow-hidden p-2 sm:p-4 lg:grid-cols-2 lg:grid-rows-1 lg:gap-4">
+    <div className="grid flex-1 grid-rows-2 gap-2 overflow-hidden bg-[#F5F5F5] p-2 sm:p-4 lg:grid-cols-2 lg:grid-rows-1 lg:gap-4">
       <Quadro key={laminaAntes?.id ?? 'sem-antes'} titulo={`Versão ${antes}`} subtitulo="com os ajustes pedidos" lamina={laminaAntes} indice={indice}>
         {pins.map((p) => (
           <button
@@ -47,7 +47,7 @@ export function ComparadorVersoes({
             <span
               className={cn(
                 'relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-xs font-bold text-[#171717] shadow-lg transition-transform',
-                destacado === p.id ? 'scale-125 bg-white' : p.resolvido ? 'bg-emerald-400/60 opacity-70' : 'bg-amber-400',
+                destacado === p.id ? 'scale-125 bg-[#171717] text-white' : p.resolvido ? 'bg-emerald-400/60 opacity-70' : 'bg-amber-400',
               )}
             >
               {p.numero}
@@ -82,9 +82,9 @@ function Quadro({
   const proporcao = lamina?.largura && lamina.altura ? lamina.largura / lamina.altura : (proporcaoCarregada ?? 3 / 2)
 
   return (
-    <section className="flex min-h-0 flex-col rounded-xl bg-white/5 p-2" aria-label={`${titulo}, lâmina ${indice + 1}`}>
-      <p className="mb-2 px-1 text-xs font-semibold text-white">
-        {titulo} <span className="font-normal text-white/50">· {subtitulo}</span>
+    <section className="flex min-h-0 flex-col rounded-xl border border-[#EAEAEA] bg-white p-2 sm:p-3" aria-label={`${titulo}, lâmina ${indice + 1}`}>
+      <p className="mb-2 px-1 text-xs font-semibold text-[#171717]">
+        {titulo} <span className="font-normal text-[#9A9A9A]">· {subtitulo}</span>
       </p>
       {lamina ? (
         <div className="flex min-h-0 flex-1 items-center justify-center" style={{ containerType: 'size' }}>
@@ -99,15 +99,15 @@ function Quadro({
                 const img = e.currentTarget
                 if (!lamina.largura && img.naturalWidth && img.naturalHeight) setProporcaoCarregada(img.naturalWidth / img.naturalHeight)
               }}
-              className="h-full w-full select-none rounded-lg object-contain shadow-2xl"
+              className="h-full w-full select-none rounded-sm bg-white object-contain shadow-[0_6px_24px_rgba(0,0,0,0.10)] ring-1 ring-[#EAEAEA]"
             />
             {children}
           </div>
         </div>
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-          <ImageOff className="h-6 w-6 text-white/40" aria-hidden />
-          <p className="text-xs text-white/50">Sem lâmina {indice + 1} nesta versão.</p>
+          <ImageOff className="h-6 w-6 text-[#9A9A9A]" aria-hidden />
+          <p className="text-xs text-[#6B6B6B]">Sem lâmina {indice + 1} nesta versão.</p>
         </div>
       )}
     </section>

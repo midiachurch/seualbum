@@ -317,9 +317,9 @@ export function AprovacaoPainel({
                     <span
                       className={cn(
                         'rounded-full px-2 py-0.5 text-xs font-semibold',
-                        a.status === 'aprovado' && 'bg-emerald-100 text-emerald-800',
-                        a.status === 'alteracoes' && 'bg-amber-100 text-amber-900',
-                        a.status === 'aguardando' && 'bg-sky-100 text-sky-900',
+                        a.status === 'aprovado' && 'bg-emerald-50 text-emerald-700',
+                        a.status === 'alteracoes' && 'bg-amber-50 text-amber-800',
+                        a.status === 'aguardando' && 'bg-sky-50 text-sky-700',
                         a.status === 'cancelado' && 'bg-secondary',
                       )}
                     >

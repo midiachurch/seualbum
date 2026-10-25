@@ -79,39 +79,39 @@ export function PainelCamadas({
   const ids = new Set(selecionados.map((s) => s.id))
   return (
     <div className="space-y-2 p-4 text-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Camadas</p>
-      {itens.length === 0 ? <p className="text-xs text-white/50">Lâmina vazia.</p> : null}
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#9A9A9A]">Camadas</p>
+      {itens.length === 0 ? <p className="text-xs text-[#9A9A9A]">Lâmina vazia.</p> : null}
       <ul className="space-y-1">
         {itens.map((it) => (
-          <li key={it.sel.id} className={cn('flex items-center gap-1 rounded-md px-1.5 py-1', ids.has(it.sel.id) ? 'bg-white/15' : 'hover:bg-white/5')}>
+          <li key={it.sel.id} className={cn('flex items-center gap-1 rounded-md px-1.5 py-1', ids.has(it.sel.id) ? 'bg-[#171717] text-white' : 'text-[#171717] hover:bg-[#F5F5F5]')}>
             <button type="button" onClick={(e) => onSelecionar(it.sel, e.shiftKey)} className={cn('flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs', it.oculto && 'opacity-40')}>
-              <it.icone className="h-3.5 w-3.5 shrink-0 text-white/60" aria-hidden />
+              <it.icone className={cn('h-3.5 w-3.5 shrink-0', ids.has(it.sel.id) ? 'text-white/70' : 'text-[#6B6B6B]')} aria-hidden />
               <span className="truncate">{it.nome}</span>
             </button>
             {!somenteLeitura ? (
               <>
-                <button type="button" onClick={() => onMover(it.sel, 'avancar')} className="rounded p-0.5 text-white/50 hover:text-white" aria-label="Avançar">
+                <button type="button" onClick={() => onMover(it.sel, 'avancar')} className="rounded p-0.5 opacity-60 hover:opacity-100" aria-label="Avançar">
                   <ArrowUp className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => onMover(it.sel, 'recuar')} className="rounded p-0.5 text-white/50 hover:text-white" aria-label="Recuar">
+                <button type="button" onClick={() => onMover(it.sel, 'recuar')} className="rounded p-0.5 opacity-60 hover:opacity-100" aria-label="Recuar">
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
-                <button type="button" onClick={() => onAlternar(it.sel, 'oculto')} className="rounded p-0.5 text-white/50 hover:text-white" aria-label={it.oculto ? 'Mostrar' : 'Ocultar'} aria-pressed={it.oculto}>
+                <button type="button" onClick={() => onAlternar(it.sel, 'oculto')} className="rounded p-0.5 opacity-60 hover:opacity-100" aria-label={it.oculto ? 'Mostrar' : 'Ocultar'} aria-pressed={it.oculto}>
                   {it.oculto ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 </button>
-                <button type="button" onClick={() => onAlternar(it.sel, 'bloqueado')} className="rounded p-0.5 text-white/50 hover:text-white" aria-label={it.bloqueado ? 'Desbloquear' : 'Bloquear'} aria-pressed={it.bloqueado}>
-                  {it.bloqueado ? <Lock className="h-3.5 w-3.5 text-amber-300" /> : <Unlock className="h-3.5 w-3.5" />}
+                <button type="button" onClick={() => onAlternar(it.sel, 'bloqueado')} className="rounded p-0.5 opacity-60 hover:opacity-100" aria-label={it.bloqueado ? 'Desbloquear' : 'Bloquear'} aria-pressed={it.bloqueado}>
+                  {it.bloqueado ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}
                 </button>
               </>
             ) : null}
           </li>
         ))}
-        <li className="flex items-center gap-1.5 px-1.5 py-1 text-xs text-white/40">
-          <span className="h-3.5 w-3.5 rounded-sm border border-white/30" style={{ background: lamina.fundo }} />
+        <li className="flex items-center gap-1.5 px-1.5 py-1 text-xs text-[#9A9A9A]">
+          <span className="h-3.5 w-3.5 rounded-sm border border-[#DDDDDD]" style={{ background: lamina.fundo }} />
           Fundo
         </li>
       </ul>
-      <p className="text-[11px] text-white/40">Bloqueados não se movem pelo canvas; ocultos não aparecem nem na impressão.</p>
+      <p className="text-[11px] text-[#9A9A9A]">Bloqueados não se movem pelo canvas; ocultos não aparecem nem na impressão.</p>
     </div>
   )
 }
@@ -129,8 +129,8 @@ export function BarraAlinhamento({ quantos, onAlinhar }: { quantos: number; onAl
     { a: 'distribuir-v', icone: AlignVerticalDistributeCenter, rotulo: 'Distribuir verticalmente', min: 3 },
   ]
   return (
-    <div className="flex flex-wrap items-center gap-0.5 border-b border-white/10 px-3 py-2" role="toolbar" aria-label="Alinhamento">
-      <span className="mr-1 text-[10px] uppercase tracking-wide text-white/40">{quantos > 1 ? `${quantos} itens` : 'Na página'}</span>
+    <div className="flex flex-wrap items-center gap-0.5 border-b border-[#EAEAEA] bg-white px-3 py-2" role="toolbar" aria-label="Alinhamento">
+      <span className="mr-1 text-[10px] uppercase tracking-wide text-[#9A9A9A]">{quantos > 1 ? `${quantos} itens` : 'Na página'}</span>
       {botoes.map((b) => (
         <button
           key={b.a}
@@ -139,7 +139,7 @@ export function BarraAlinhamento({ quantos, onAlinhar }: { quantos: number; onAl
           disabled={quantos < (b.min ?? 1)}
           title={b.rotulo}
           aria-label={b.rotulo}
-          className="rounded p-1.5 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-25"
+          className="rounded p-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717] disabled:opacity-25"
         >
           <b.icone className="h-4 w-4" />
         </button>
@@ -178,41 +178,41 @@ export function InspetorLamina({
   onLayoutVazio?: (n: number) => void
 }) {
   return (
-    <div className="space-y-4 p-4 text-sm">
+    <div className="space-y-4 p-4 text-sm text-[#171717]">
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-300">Página selecionada</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">Página selecionada</p>
         <p className="mt-1 font-medium">{rotuloDaLamina(indice, primeiraEhCapa)}</p>
-        <p className="text-xs text-white/60">
+        <p className="text-xs text-[#6B6B6B]">
           {lamina.quadros.length} foto(s) · {lamina.textos.length} texto(s) · {lamina.formas.length} elemento(s)
           {comentarios > 0 ? ` · ${comentarios} comentário(s) do cliente` : ''}
         </p>
       </div>
       {!somenteLeitura ? (
         <>
-          <label className="flex items-center justify-between gap-2 text-xs text-white/80">
+          <label className="flex items-center justify-between gap-2 text-xs text-[#171717]">
             Cor de fundo
-            <input type="color" value={lamina.fundo} onChange={(e) => onFundo(e.target.value)} className="h-8 w-12 cursor-pointer rounded border border-white/20 bg-transparent" />
+            <input type="color" value={lamina.fundo} onChange={(e) => onFundo(e.target.value)} className="h-8 w-12 cursor-pointer rounded border border-[#DDDDDD] bg-white" />
           </label>
-          <button type="button" onClick={onIrFundos} className="text-xs text-white/70 underline">
+          <button type="button" onClick={onIrFundos} className="text-xs text-[#6B6B6B] underline hover:text-[#171717]">
             Degradês, texturas e foto de fundo
           </button>
           {vao !== null ? (
-            <label className="block text-xs text-white/70">
+            <label className="block text-xs text-[#6B6B6B]">
               <span className="flex justify-between">
                 Espaçamento entre as fotos
-                <span className="tabular-nums text-white/90">{vao.toFixed(1)} mm</span>
+                <span className="tabular-nums text-[#171717]">{vao.toFixed(1)} mm</span>
               </span>
-              <input type="range" min={0} max={15} step={0.5} value={vao} onChange={(e) => onVao(Number(e.target.value))} className="mt-1 block w-full accent-white" />
+              <input type="range" min={0} max={15} step={0.5} value={vao} onChange={(e) => onVao(Number(e.target.value))} className="mt-1 block w-full accent-[#171717]" />
             </label>
           ) : null}
           {lamina.quadros.length > 0 ? (
-            <button type="button" onClick={onSalvarTemplate} className="w-full rounded-md border border-white/20 px-2.5 py-1.5 text-left text-xs hover:bg-white/10">
+            <button type="button" onClick={onSalvarTemplate} className="w-full rounded-md border border-[#DDDDDD] bg-white px-2.5 py-1.5 text-left text-xs text-[#171717] hover:bg-[#F5F5F5]">
               ★ Salvar esta lâmina como template
             </button>
           ) : null}
         </>
       ) : null}
-      <p className="text-xs text-white/40">Arraste fotos da bandeja para a lâmina · ↑/↓ trocam o layout · ←/→ trocam de lâmina</p>
+      <p className="text-xs text-[#9A9A9A]">Arraste fotos da bandeja para a lâmina · ↑/↓ trocam o layout · ←/→ trocam de lâmina</p>
     </div>
   )
 }

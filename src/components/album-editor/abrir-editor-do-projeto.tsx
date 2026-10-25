@@ -61,18 +61,18 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
   }, [projetoId, tratar])
 
   const cm = laminaEmCm({ formato, orientacao })
-  const chip = (ativo: boolean) => cn('min-h-[40px] rounded-full border px-4 text-sm', ativo ? 'border-white bg-white text-[#171717]' : 'border-white/30 hover:bg-white/10')
+  const chip = (ativo: boolean) => cn('min-h-[40px] rounded-full border px-4 text-sm', ativo ? 'border-[#171717] bg-[#171717] text-white' : 'border-[#DDDDDD] text-[#171717] hover:bg-[#F5F5F5]')
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#141414] p-6 text-center text-white">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#F5F5F5] p-6 text-center text-[#171717]">
       {pedirFormato ? (
         <div className="w-full max-w-md space-y-4 text-left">
           <div>
             <h1 className="text-lg font-semibold">Qual é o formato deste álbum?</h1>
-            <p className="text-sm text-white/60">O projeto ainda não tem formato definido. Ele vale para o editor e para a gráfica.</p>
+            <p className="text-sm text-[#6B6B6B]">O projeto ainda não tem formato definido. Ele vale para o editor e para a gráfica.</p>
           </div>
           <div className="space-y-1.5">
-            <p className="text-xs uppercase tracking-wide text-white/50">Formato (cm)</p>
+            <p className="text-xs uppercase tracking-wide text-[#9A9A9A]">Formato (cm)</p>
             <div className="flex flex-wrap gap-2">
               {FORMATOS.map((f) => (
                 <button key={f} type="button" onClick={() => setFormato(f)} className={chip(formato === f)}>
@@ -84,12 +84,12 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
                 value={FORMATOS.includes(formato) ? '' : formato}
                 onChange={(e) => setFormato(e.target.value.toLowerCase().replace('×', 'x').replace(/\s|cm/g, ''))}
                 placeholder="Outro: 24x30"
-                className="w-32 rounded-full border border-white/30 bg-transparent px-3 text-sm"
+                className="w-32 rounded-full border border-[#DDDDDD] bg-white text-[#171717] px-3 text-sm"
               />
             </div>
           </div>
           <div className="space-y-1.5">
-            <p className="text-xs uppercase tracking-wide text-white/50">Orientação</p>
+            <p className="text-xs uppercase tracking-wide text-[#9A9A9A]">Orientação</p>
             <div className="flex flex-wrap gap-2">
               {ORIENTACOES.map((o) => (
                 <button key={o.valor} type="button" onClick={() => setOrientacao(o.valor)} className={chip(orientacao === o.valor)}>
@@ -98,9 +98,9 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
               ))}
             </div>
           </div>
-          <p className="text-xs text-white/50">{cm ? `Lâmina aberta: ${cm.largura} × ${cm.altura} cm.` : 'Use largura x altura em cm (ex.: 24x30).'}</p>
+          <p className="text-xs text-[#9A9A9A]">{cm ? `Lâmina aberta: ${cm.largura} × ${cm.altura} cm.` : 'Use largura x altura em cm (ex.: 24x30).'}</p>
           {erro ? (
-            <p role="alert" className="flex items-start gap-2 text-sm text-amber-300">
+            <p role="alert" className="flex items-start gap-2 text-sm text-amber-800">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               {erro}
             </p>
@@ -110,21 +110,21 @@ export function AbrirEditorDoProjeto({ projetoId }: { projetoId: string }) {
               {enviando ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
               Abrir o editor
             </Button>
-            <Button asChild variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10">
+            <Button asChild variant="outline" className="border-[#DDDDDD] bg-white text-[#171717] hover:bg-[#F5F5F5]">
               <Link href={`/admin/projetos/${projetoId}`}>Voltar ao projeto</Link>
             </Button>
           </div>
         </div>
       ) : erro ? (
         <>
-          <AlertCircle className="h-8 w-8 text-amber-400" aria-hidden />
+          <AlertCircle className="h-8 w-8 text-amber-600" aria-hidden />
           <p className="max-w-md text-sm">{erro}</p>
-          <Button asChild variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10">
+          <Button asChild variant="outline" className="border-[#DDDDDD] bg-white text-[#171717] hover:bg-[#F5F5F5]">
             <Link href={`/admin/projetos/${projetoId}`}>Voltar ao projeto</Link>
           </Button>
         </>
       ) : (
-        <p className="flex items-center gap-2 text-sm text-white/70">
+        <p className="flex items-center gap-2 text-sm text-[#6B6B6B]">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Preparando o editor deste projeto…
         </p>

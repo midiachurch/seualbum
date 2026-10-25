@@ -96,11 +96,16 @@ export function Flipbook({
   const de = virando ? paginas[virando.de] : null
   const para = virando ? paginas[virando.para] : null
 
+  const botaoIcone =
+    'flex h-10 w-10 items-center justify-center rounded-full text-[#6B6B6B] transition-colors hover:bg-[#F5F5F5] hover:text-[#171717] disabled:pointer-events-none disabled:opacity-30'
+  const seta =
+    'absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-[#EAEAEA] bg-white text-[#171717] shadow-sm transition-colors hover:bg-[#F5F5F5] sm:h-12 sm:w-12'
+
   return (
-    <div ref={caixaRef} className={cn('flex h-full w-full flex-col bg-[#0A0A0A] text-white', className)}>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 sm:p-8">
+    <div ref={caixaRef} className={cn('flex h-full w-full flex-col bg-[#F5F5F5] text-[#171717]', className)}>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 sm:p-10">
         <div
-          className="relative shrink-0 shadow-2xl"
+          className="relative shrink-0 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.12),0_2px_6px_rgba(0,0,0,0.06)]"
           style={{
             aspectRatio: String(proporcao),
             width: `min(${100 * zoom}%, calc((100vh - 9rem) * ${proporcao} * ${zoom}))`,
@@ -129,7 +134,8 @@ export function Flipbook({
               >
                 <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
                   <Metade url={de.url} lado={virando.frente ? 'direita' : 'esquerda'} />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/0 to-black/20" />
+                  {/* Sombreado da folha em movimento. */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#171717]/20" />
                 </div>
                 <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
                   <Metade url={para.url} lado={virando.frente ? 'esquerda' : 'direita'} />
@@ -142,66 +148,71 @@ export function Flipbook({
                 // eslint-disable-next-line @next/next/no-img-element -- lâmina gerada (blob/link assinado).
                 <img src={atual.url} alt={atual.rotulo} draggable={false} className="absolute inset-0 h-full w-full select-none bg-white object-cover" />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/5 text-sm text-white/50">Gerando lâmina…</div>
+                <div className="absolute inset-0 flex items-center justify-center bg-white text-sm text-[#9A9A9A]">Gerando lâmina…</div>
               )}
               {sobreposicao?.(indice)}
             </>
           ) : null}
           {/* Sombra da dobra. */}
-          <div className="pointer-events-none absolute inset-y-0 left-1/2 w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-black/15 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 left-1/2 w-10 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#171717]/10 to-transparent" />
         </div>
 
         {indice > 0 ? (
-          <button
-            type="button"
-            onClick={() => ir(indice - 1)}
-            aria-label="Página anterior"
-            className="absolute left-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 hover:bg-black/80"
-          >
+          <button type="button" onClick={() => ir(indice - 1)} aria-label="Página anterior" className={cn(seta, 'left-2 sm:left-4')}>
             <ChevronLeft className="h-6 w-6" aria-hidden />
           </button>
         ) : null}
         {indice < paginas.length - 1 ? (
-          <button
-            type="button"
-            onClick={() => ir(indice + 1)}
-            aria-label="Página seguinte"
-            className="absolute right-2 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 hover:bg-black/80"
-          >
+          <button type="button" onClick={() => ir(indice + 1)} aria-label="Página seguinte" className={cn(seta, 'right-2 sm:right-4')}>
             <ChevronRight className="h-6 w-6" aria-hidden />
           </button>
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-sm">
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => onIndice(0)} disabled={indice === 0} className="rounded p-1.5 hover:bg-white/10 disabled:opacity-30" aria-label="Início">
-            <ChevronsLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between gap-2 px-2 pb-2 text-sm sm:px-4">
+        <div className="flex items-center">
+          <button type="button" onClick={() => onIndice(0)} disabled={indice === 0} className={botaoIcone} aria-label="Início" title="Início">
+            <ChevronsLeft className="h-4 w-4" aria-hidden />
           </button>
-          <button type="button" onClick={() => ir(indice - 1)} disabled={indice === 0} className="flex items-center gap-1 rounded px-2 py-1 hover:bg-white/10 disabled:opacity-30">
-            <ChevronLeft className="h-4 w-4" aria-hidden /> Anterior
+          <button type="button" onClick={() => ir(indice - 1)} disabled={indice === 0} className={cn(botaoIcone, 'hidden sm:flex')} aria-label="Anterior" title="Anterior">
+            <ChevronLeft className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <span className="tabular-nums text-white/70" aria-live="polite">
-          {atual?.rotulo} · {indice + 1} de {paginas.length}
+        <span className="min-w-0 truncate text-xs tabular-nums text-[#6B6B6B] sm:text-sm" aria-live="polite">
+          <span className="font-medium text-[#171717]">{atual?.rotulo}</span> · {indice + 1} de {paginas.length}
         </span>
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={() => setZoom((z) => (z > 1 ? 1 : 2))} className="rounded p-1.5 hover:bg-white/10" aria-label={zoom > 1 ? 'Diminuir zoom' : 'Aumentar zoom'}>
-            {zoom > 1 ? <ZoomOut className="h-4 w-4" /> : <ZoomIn className="h-4 w-4" />}
+        <div className="flex items-center">
+          <button type="button" onClick={() => ir(indice + 1)} disabled={indice >= paginas.length - 1} className={cn(botaoIcone, 'hidden sm:flex')} aria-label="Seguinte" title="Seguinte">
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => onIndice(paginas.length - 1)}
+            disabled={indice >= paginas.length - 1}
+            className={botaoIcone}
+            aria-label="Final"
+            title="Final"
+          >
+            <ChevronsRight className="h-4 w-4" aria-hidden />
+          </button>
+          <span className="mx-1 hidden h-5 w-px bg-[#EAEAEA] sm:block" aria-hidden />
+          <button
+            type="button"
+            onClick={() => setZoom((z) => (z > 1 ? 1 : 2))}
+            className={botaoIcone}
+            aria-label={zoom > 1 ? 'Diminuir zoom' : 'Aumentar zoom'}
+            title={zoom > 1 ? 'Diminuir zoom' : 'Aumentar zoom'}
+          >
+            {zoom > 1 ? <ZoomOut className="h-4 w-4" aria-hidden /> : <ZoomIn className="h-4 w-4" aria-hidden />}
           </button>
           <button
             type="button"
             onClick={() => (document.fullscreenElement ? void document.exitFullscreen() : void caixaRef.current?.requestFullscreen?.())}
-            className="rounded p-1.5 hover:bg-white/10"
+            className={botaoIcone}
             aria-label={telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}
+            title={telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}
           >
-            {telaCheia ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
-          <button type="button" onClick={() => ir(indice + 1)} disabled={indice >= paginas.length - 1} className="flex items-center gap-1 rounded px-2 py-1 hover:bg-white/10 disabled:opacity-30">
-            Seguinte <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
-          <button type="button" onClick={() => onIndice(paginas.length - 1)} disabled={indice >= paginas.length - 1} className="rounded p-1.5 hover:bg-white/10 disabled:opacity-30" aria-label="Final">
-            <ChevronsRight className="h-4 w-4" />
+            {telaCheia ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </button>
         </div>
       </div>

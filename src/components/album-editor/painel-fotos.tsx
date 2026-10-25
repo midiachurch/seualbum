@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Ellipsis, ImagePlus, ListChecks, Plus, Search, Star, Trash2, WandSparkles, X } from 'lucide-react'
+import { Ellipsis, ImagePlus, Plus, Search, SlidersHorizontal, Star, Trash2, WandSparkles, X } from 'lucide-react'
 import { MIME_FOTO, urlParaMiniatura } from '@/components/album-editor/tipos'
 import { listarFotosDoEditor, registrarFotosAlbum } from '@/lib/actions/album-editor'
 import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
@@ -106,7 +106,7 @@ function pedirNovaPasta(onCriarPasta: (nome: string) => string | null): string |
   return nome ? onCriarPasta(nome) : null
 }
 
-const CLASSE_SELECT = 'h-7 rounded-md border border-white/20 bg-[#1c1c1c] px-1.5 text-[11px] text-white'
+const CLASSE_SELECT = 'h-7 rounded-md border border-[#DDDDDD] bg-white px-1.5 text-[11px] text-[#171717]'
 const CLASSE_BOTAO = 'flex h-7 items-center gap-1 rounded-md px-2 text-[11px] disabled:opacity-50'
 
 /**
@@ -127,7 +127,6 @@ export function PainelFotos({
   filtroInicial,
   somenteLeitura,
   onAlternarSelecao,
-  onSelecionarVarias,
   onLimparSelecao,
   onFotosNovas,
   onRemoverFoto,
@@ -170,6 +169,9 @@ export function PainelFotos({
   const [arrastandoArquivo, setArrastandoArquivo] = useState(false)
   // Menu "⋯" de uma foto: posição fixa na tela (a bandeja rola e cortaria um menu absoluto).
   const [menu, setMenu] = useState<{ id: string; x: number; y: number; paraCima: boolean } | null>(null)
+  // Popover "Filtros" (orientação, pastas, ordem): também em posição fixa.
+  const [filtros, setFiltros] = useState<{ x: number; y: number; paraCima: boolean } | null>(null)
+  const filtrosAlterados = orientacao !== 'todas' || pasta !== '' || ordem !== 'envio'
   const tamanho = useSyncExternalStore(assinarTamanho, lerTamanho, () => TAMANHO_PADRAO)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -300,7 +302,7 @@ export function PainelFotos({
 
   return (
     <div
-      className={cn('relative flex h-full min-h-0 flex-col', arrastandoArquivo && 'bg-sky-500/10')}
+      className={cn('relative flex h-full min-h-0 flex-col', arrastandoArquivo && 'bg-sky-50')}
       onDragOver={(e) => {
         if (somenteLeitura || !e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
@@ -317,7 +319,7 @@ export function PainelFotos({
       }}
     >
       {/* Barra de ferramentas: uma linha (quebra em telas estreitas). */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-white/10 px-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-[#EAEAEA] bg-white px-2 py-1.5">
         {!somenteLeitura ? (
           <>
             <input
@@ -334,10 +336,10 @@ export function PainelFotos({
               }}
             />
             {progresso ? (
-              <div className="flex h-7 items-center gap-2 rounded-md bg-white/5 px-2 text-[11px] text-white/80" role="status" title="Enviando fotos… pode continuar editando">
+              <div className="flex h-7 items-center gap-2 rounded-md bg-[#F5F5F5] px-2 text-[11px] text-[#6B6B6B]" role="status" title="Enviando fotos… pode continuar editando">
                 <span className="whitespace-nowrap">Enviando…</span>
-                <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full bg-sky-400 transition-all" style={{ width: `${pct}%` }} />
+                <div className="h-1.5 w-20 overflow-hidden rounded-full bg-[#EAEAEA]">
+                  <div className="h-full bg-[#171717] transition-all" style={{ width: `${pct}%` }} />
                 </div>
                 <span className="whitespace-nowrap tabular-nums">
                   {progresso.feitas}/{progresso.total}
@@ -347,7 +349,7 @@ export function PainelFotos({
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className={cn(CLASSE_BOTAO, 'bg-white font-semibold text-[#171717] hover:bg-white/90')}
+                className={cn(CLASSE_BOTAO, 'border border-[#DDDDDD] bg-white font-semibold text-[#171717] hover:bg-[#F5F5F5]')}
                 aria-label="Importar fotos (ou arraste fotos e pastas para a bandeja)"
                 title="Importar fotos — ou arraste fotos e pastas para cá"
               >
@@ -361,7 +363,7 @@ export function PainelFotos({
             type="button"
             onClick={onMontarAutomatico}
             disabled={somenteLeitura || fotos.length === 0}
-            className={cn(CLASSE_BOTAO, 'bg-white font-semibold text-[#171717] hover:bg-white/90')}
+            className={cn(CLASSE_BOTAO, 'bg-[#171717] font-semibold text-white hover:bg-[#171717]/90')}
             aria-label="Montar álbum automaticamente"
           >
             <WandSparkles className="h-3.5 w-3.5" aria-hidden /> Montar automático
@@ -375,52 +377,28 @@ export function PainelFotos({
             </option>
           ))}
         </select>
-        <select value={orientacao} onChange={(e) => setOrientacao(e.target.value as Orientacao)} className={CLASSE_SELECT} aria-label="Orientação">
-          <option value="todas">Orientação</option>
-          <option value="horizontal">Horizontais</option>
-          <option value="vertical">Verticais</option>
-          <option value="quadrada">Quadradas</option>
-          <option value="panoramica">Panorâmicas</option>
-        </select>
 
-        <div className="flex items-center gap-1" role="radiogroup" aria-label="Pastas">
-          {[{ id: '', nome: 'Todas' }, ...pastas, { id: '__sem', nome: 'Sem pasta' }].map((p) => (
-            <button
-              key={p.id || '__todas'}
-              type="button"
-              role="radio"
-              aria-checked={pasta === p.id}
-              onClick={() => setPasta(p.id)}
-              className={cn('h-6 max-w-32 truncate rounded-full px-2 text-[11px]', pasta === p.id ? 'bg-white text-[#171717]' : 'bg-white/10 text-white/80 hover:bg-white/20')}
-            >
-              {p.nome}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              const nova = pedirNovaPasta(onCriarPasta)
-              if (nova) setPasta(nova)
-            }}
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-white/80 hover:bg-white/20"
-            aria-label="Nova pasta"
-            title="Nova pasta"
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
-          </button>
-        </div>
-
-        <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={CLASSE_SELECT} aria-label="Ordenar">
-          <option value="envio">Envio</option>
-          <option value="nome">Nome</option>
-          <option value="captura">Captura</option>
-          <option value="orientacao">Orientação</option>
-        </select>
+        <button
+          type="button"
+          onClick={(e) => {
+            if (filtros) return setFiltros(null)
+            const r = e.currentTarget.getBoundingClientRect()
+            const paraCima = r.bottom + 240 > window.innerHeight
+            setFiltros({ x: Math.min(r.left, window.innerWidth - 272), y: paraCima ? window.innerHeight - r.top + 4 : r.bottom + 4, paraCima })
+          }}
+          className={cn(CLASSE_BOTAO, 'relative border border-[#DDDDDD] bg-white text-[#171717] hover:bg-[#F5F5F5]', filtros && 'bg-[#F5F5F5]')}
+          aria-haspopup="dialog"
+          aria-expanded={Boolean(filtros)}
+          aria-label={filtrosAlterados ? 'Filtros (com filtros ativos)' : 'Filtros'}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden /> Filtros
+          {filtrosAlterados ? <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#171717] ring-2 ring-white" aria-hidden /> : null}
+        </button>
 
         {buscaAberta || busca ? (
           <label className="relative block">
             <span className="sr-only">Pesquisar fotos</span>
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" aria-hidden />
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9A9A9A]" aria-hidden />
             <input
               // Abre por clique na lupa: o foco vai para onde o usuário pediu.
               autoFocus
@@ -434,41 +412,29 @@ export function PainelFotos({
                 }
               }}
               placeholder="Pesquisar arquivo"
-              className="h-7 w-40 rounded-md border border-white/20 bg-white/5 pl-7 pr-2 text-xs text-white"
+              className="h-7 w-40 rounded-md border border-[#DDDDDD] bg-white pl-7 pr-2 text-xs text-[#171717] placeholder:text-[#9A9A9A]"
             />
           </label>
         ) : (
-          <button type="button" onClick={() => setBuscaAberta(true)} className={cn(CLASSE_BOTAO, 'px-1.5 text-white/80 hover:bg-white/10')} aria-label="Pesquisar fotos" title="Pesquisar">
+          <button type="button" onClick={() => setBuscaAberta(true)} className={cn(CLASSE_BOTAO, 'px-1.5 text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]')} aria-label="Pesquisar fotos" title="Pesquisar">
             <Search className="h-3.5 w-3.5" aria-hidden />
           </button>
         )}
 
-        {visiveis.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => onSelecionarVarias(visiveis.map((f) => f.id))}
-            className={cn(CLASSE_BOTAO, 'px-1.5 text-white/80 hover:bg-white/10')}
-            aria-label={`Selecionar as ${Math.min(visiveis.length, 12)} primeiras visíveis`}
-            title={`Selecionar as ${Math.min(visiveis.length, 12)} primeiras visíveis`}
-          >
-            <ListChecks className="h-3.5 w-3.5" aria-hidden />
-          </button>
-        ) : null}
-
         {erro ? (
-          <p role="alert" className="max-w-60 truncate text-[11px] text-red-300" title={erro}>
+          <p role="alert" className="max-w-60 truncate rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700" title={erro}>
             {erro}
           </p>
         ) : null}
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {selecionadas.length > 0 ? (
-            <div className="flex items-center gap-1 rounded-md bg-sky-500/15 px-1 py-0.5 text-[11px]">
+            <div className="flex items-center gap-0.5 rounded-md border border-[#EAEAEA] bg-[#F5F5F5] p-0.5 text-[11px] text-[#171717]">
               <button
                 type="button"
                 disabled={somenteLeitura}
                 onClick={onCriarPagina}
-                className={cn(CLASSE_BOTAO, 'h-6 bg-white font-semibold text-[#171717]')}
+                className={cn(CLASSE_BOTAO, 'h-6 bg-[#171717] font-semibold text-white hover:bg-[#171717]/90')}
                 aria-label={`Criar lâmina com ${selecionadas.length} foto(s)`}
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden /> Criar lâmina com {selecionadas.length}
@@ -476,7 +442,7 @@ export function PainelFotos({
               <button
                 type="button"
                 onClick={() => onMeta(selecionadas, { favorita: !selecionadas.every((id) => meta(id).favorita) })}
-                className="flex h-6 w-6 items-center justify-center rounded-md bg-white/10 hover:bg-white/20"
+                className="flex h-6 w-6 items-center justify-center rounded-md text-[#6B6B6B] hover:bg-white hover:text-[#171717]"
                 aria-label="Favoritar selecionadas"
                 title="Favoritar selecionadas"
               >
@@ -485,7 +451,7 @@ export function PainelFotos({
               <select
                 value=""
                 onChange={(e) => onMeta(selecionadas, { prioridade: (e.target.value || null) as Prioridade | null })}
-                className="h-6 w-24 rounded-md border-0 bg-white/10 px-1 text-white"
+                className="h-6 w-[5.5rem] rounded-md border border-[#DDDDDD] bg-white px-1 text-[11px] text-[#171717]"
                 aria-label="Prioridade das selecionadas"
               >
                 <option value="">Prioridade…</option>
@@ -501,7 +467,7 @@ export function PainelFotos({
                     if (nova) onMeta(selecionadas, { pasta: nova })
                   } else if (e.target.value) onMeta(selecionadas, { pasta: e.target.value === '__sem' ? null : e.target.value })
                 }}
-                className="h-6 w-20 rounded-md border-0 bg-white/10 px-1 text-white"
+                className="h-6 w-[4.5rem] rounded-md border border-[#DDDDDD] bg-white px-1 text-[11px] text-[#171717]"
                 aria-label="Mover selecionadas para pasta"
               >
                 <option value="">Pasta…</option>
@@ -513,12 +479,17 @@ export function PainelFotos({
                 <option value="__sem">Sem pasta</option>
                 <option value="__nova">+ Nova pasta</option>
               </select>
-              <button type="button" onClick={onLimparSelecao} className="flex h-6 items-center gap-0.5 rounded-md px-1.5 text-white/70 hover:bg-white/10" aria-label="Limpar seleção">
+              <button
+                type="button"
+                onClick={onLimparSelecao}
+                className="flex h-6 items-center gap-0.5 rounded-md px-1.5 text-[#6B6B6B] hover:bg-white hover:text-[#171717]"
+                aria-label="Limpar seleção"
+              >
                 <X className="h-3 w-3" aria-hidden /> Limpar
               </button>
             </div>
           ) : null}
-          <label className="flex items-center gap-1.5 text-[11px] text-white/60">
+          <label className="flex items-center gap-1.5 text-[11px] text-[#9A9A9A]">
             <span className="sr-only">Tamanho das miniaturas</span>
             <span aria-hidden className="text-[9px]">▪</span>
             <input
@@ -528,7 +499,7 @@ export function PainelFotos({
               step={4}
               value={tamanho}
               onChange={(e) => gravarTamanho(Number(e.target.value))}
-              className="w-24 accent-sky-400"
+              className="w-24 accent-[#171717]"
               aria-valuetext={`${tamanho} pixels`}
             />
             <span aria-hidden className="text-sm">■</span>
@@ -538,7 +509,7 @@ export function PainelFotos({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {visiveis.length === 0 ? (
-          <p className="p-4 text-center text-xs text-white/50">
+          <p className="p-4 text-center text-xs text-[#9A9A9A]">
             {fotos.length === 0 ? (somenteLeitura ? 'Nenhuma foto no álbum.' : 'Importe ou arraste as fotos do álbum para começar.') : 'Nenhuma foto neste filtro.'}
           </p>
         ) : (
@@ -564,26 +535,26 @@ export function PainelFotos({
                     aria-pressed={marcada}
                     aria-label={`${f.nome}${n ? `, usada ${n} vez(es)` : ', não utilizada'}`}
                     title={detalhes}
-                    className={cn('relative block aspect-[5/4] w-full overflow-hidden rounded-md bg-white/5', marcada && 'ring-2 ring-sky-400')}
+                    className={cn('relative block aspect-[5/4] w-full overflow-hidden rounded-md bg-[#F5F5F5]', marcada && 'ring-2 ring-[#171717] ring-offset-1 ring-offset-white')}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- versão leve da foto (Storage). */}
                     <img src={urlParaMiniatura(f)} alt="" loading="lazy" draggable={false} className={cn('h-full w-full object-cover', n > 0 && !marcada && 'opacity-50')} />
                     {n > 0 ? (
-                      <span className="absolute bottom-1 left-1 rounded bg-emerald-500 px-1 text-[10px] font-semibold tabular-nums text-white">✓ {n}x</span>
+                      <span className="absolute bottom-1 left-1 rounded bg-white/90 px-1 text-[10px] font-semibold tabular-nums text-emerald-700 shadow">✓ {n}x</span>
                     ) : null}
                     {m.prioridade ? (
-                      <span className="absolute bottom-1 right-1 rounded bg-violet-500 px-1 text-[9px] font-semibold text-white">{ROTULO_PRIORIDADE[m.prioridade]}</span>
+                      <span className="absolute bottom-1 right-1 rounded bg-white/90 px-1 text-[9px] font-semibold text-violet-700 shadow">{ROTULO_PRIORIDADE[m.prioridade]}</span>
                     ) : null}
                     {marcada ? (
-                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-sky-400 text-[10px] font-bold text-[#0A0A0A]">{ordemSelecao + 1}</span>
+                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#171717] text-[10px] font-bold text-white shadow">{ordemSelecao + 1}</span>
                     ) : null}
                   </button>
                   <button
                     type="button"
                     onClick={() => onMeta([f.id], { favorita: !m.favorita })}
                     className={cn(
-                      'absolute left-1 top-1 rounded bg-black/60 p-0.5',
-                      m.favorita ? 'text-amber-300' : 'text-white/80 opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+                      'absolute left-1 top-1 rounded bg-white/90 p-0.5 shadow',
+                      m.favorita ? 'text-amber-500' : 'text-[#6B6B6B] opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
                     )}
                     aria-label={m.favorita ? `Tirar ${f.nome} dos favoritos` : `Favoritar ${f.nome}`}
                     aria-pressed={Boolean(m.favorita)}
@@ -599,7 +570,7 @@ export function PainelFotos({
                       setMenu({ id: f.id, x: Math.min(r.left, window.innerWidth - 200), y: paraCima ? window.innerHeight - r.top + 4 : r.bottom + 4, paraCima })
                     }}
                     className={cn(
-                      'absolute top-1 rounded bg-black/60 p-0.5 text-white/90 hover:bg-black/80',
+                      'absolute top-1 rounded bg-white/90 p-0.5 text-[#171717] shadow hover:bg-white',
                       marcada ? 'right-7' : 'right-1',
                       menu?.id === f.id ? 'opacity-100' : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
                     )}
@@ -609,7 +580,7 @@ export function PainelFotos({
                   >
                     <Ellipsis className="h-3.5 w-3.5" aria-hidden />
                   </button>
-                  <p className="mt-0.5 truncate text-[10px] text-white/60" title={detalhes}>
+                  <p className="mt-0.5 truncate text-[10px] text-[#6B6B6B]" title={detalhes}>
                     {f.nome}
                   </p>
                 </li>
@@ -625,16 +596,16 @@ export function PainelFotos({
           <div
             role="menu"
             aria-label={`Ações de ${fotoDoMenu.nome}`}
-            className="fixed z-50 w-48 rounded-lg border border-white/15 bg-[#1c1c1c] p-1 text-xs text-white shadow-xl"
+            className="fixed z-50 w-48 rounded-lg border border-[#EAEAEA] bg-white p-1 text-xs text-[#171717] shadow-lg"
             style={menu.paraCima ? { left: menu.x, bottom: menu.y } : { left: menu.x, top: menu.y }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') setMenu(null)
             }}
           >
-            <p className="truncate px-2 pb-1 pt-0.5 text-[10px] text-white/50" title={fotoDoMenu.nome}>
+            <p className="truncate px-2 pb-1 pt-0.5 text-[10px] text-[#9A9A9A]" title={fotoDoMenu.nome}>
               {fotoDoMenu.nome}
             </p>
-            <p className="px-2 pt-1 text-[10px] uppercase tracking-wide text-white/40">Prioridade</p>
+            <p className="px-2 pt-1 text-[10px] uppercase tracking-wide text-[#9A9A9A]">Prioridade</p>
             {([null, 'principal', 'secundaria', 'complementar'] as const).map((p) => (
               <button
                 key={p ?? 'nenhuma'}
@@ -645,12 +616,12 @@ export function PainelFotos({
                   onMeta([fotoDoMenu.id], { prioridade: p })
                   setMenu(null)
                 }}
-                className={cn('block w-full rounded px-2 py-1 text-left hover:bg-white/10', (metaDoMenu.prioridade ?? null) === p && 'text-sky-300')}
+                className={cn('block w-full rounded px-2 py-1 text-left hover:bg-[#F5F5F5]', (metaDoMenu.prioridade ?? null) === p && 'bg-[#171717] text-white hover:bg-[#171717]')}
               >
                 {p ? ROTULO_PRIORIDADE[p] : 'Nenhuma'}
               </button>
             ))}
-            <p className="border-t border-white/10 px-2 pt-1.5 text-[10px] uppercase tracking-wide text-white/40">Mover para pasta</p>
+            <p className="border-t border-[#EAEAEA] px-2 pt-1.5 text-[10px] uppercase tracking-wide text-[#9A9A9A]">Mover para pasta</p>
             {[...pastas, { id: '__sem', nome: 'Sem pasta' }].map((p) => {
               const atual = p.id === '__sem' ? !metaDoMenu.pasta : metaDoMenu.pasta === p.id
               return (
@@ -663,7 +634,7 @@ export function PainelFotos({
                     onMeta([fotoDoMenu.id], { pasta: p.id === '__sem' ? null : p.id })
                     setMenu(null)
                   }}
-                  className={cn('block w-full truncate rounded px-2 py-1 text-left hover:bg-white/10', atual && 'text-sky-300')}
+                  className={cn('block w-full truncate rounded px-2 py-1 text-left hover:bg-[#F5F5F5]', atual && 'bg-[#171717] text-white hover:bg-[#171717]')}
                 >
                   {p.nome}
                 </button>
@@ -677,7 +648,7 @@ export function PainelFotos({
                 if (nova) onMeta([fotoDoMenu.id], { pasta: nova })
                 setMenu(null)
               }}
-              className="block w-full rounded px-2 py-1 text-left text-white/80 hover:bg-white/10"
+              className="block w-full rounded px-2 py-1 text-left text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]"
             >
               + Nova pasta
             </button>
@@ -689,9 +660,94 @@ export function PainelFotos({
                   onRemoverFoto(fotoDoMenu.id)
                   setMenu(null)
                 }}
-                className="mt-0.5 flex w-full items-center gap-1.5 rounded border-t border-white/10 px-2 py-1 text-left text-red-300 hover:bg-red-500/15"
+                className="mt-0.5 flex w-full items-center gap-1.5 rounded border-t border-[#EAEAEA] px-2 py-1 text-left text-red-700 hover:bg-red-50"
               >
                 <Trash2 className="h-3 w-3" aria-hidden /> Remover do álbum
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+      {filtros ? (
+        <>
+          <button type="button" className="fixed inset-0 z-40 cursor-default" aria-label="Fechar filtros" onClick={() => setFiltros(null)} />
+          <div
+            role="dialog"
+            aria-label="Filtros da bandeja"
+            className="fixed z-50 w-64 space-y-2.5 rounded-lg border border-[#EAEAEA] bg-white p-2.5 text-xs text-[#171717] shadow-lg"
+            style={filtros.paraCima ? { left: filtros.x, bottom: filtros.y } : { left: filtros.x, top: filtros.y }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setFiltros(null)
+            }}
+          >
+            <label className="flex items-center justify-between gap-2">
+              <span className="text-[10px] uppercase tracking-wide text-[#9A9A9A]">Orientação</span>
+              <select
+                // Abre por clique no botão: o foco entra no popover (e o Esc fecha).
+                autoFocus
+                value={orientacao}
+                onChange={(e) => setOrientacao(e.target.value as Orientacao)}
+                className={cn(CLASSE_SELECT, 'w-32')}
+              >
+                <option value="todas">Todas</option>
+                <option value="horizontal">Horizontais</option>
+                <option value="vertical">Verticais</option>
+                <option value="quadrada">Quadradas</option>
+                <option value="panoramica">Panorâmicas</option>
+              </select>
+            </label>
+            <label className="flex items-center justify-between gap-2">
+              <span className="text-[10px] uppercase tracking-wide text-[#9A9A9A]">Ordenar por</span>
+              <select value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className={cn(CLASSE_SELECT, 'w-32')}>
+                <option value="envio">Envio</option>
+                <option value="nome">Nome</option>
+                <option value="captura">Captura</option>
+                <option value="orientacao">Orientação</option>
+              </select>
+            </label>
+            <div>
+              <p className="pb-1 text-[10px] uppercase tracking-wide text-[#9A9A9A]">Pasta</p>
+              <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Pastas">
+                {[{ id: '', nome: 'Todas' }, ...pastas, { id: '__sem', nome: 'Sem pasta' }].map((p) => (
+                  <button
+                    key={p.id || '__todas'}
+                    type="button"
+                    role="radio"
+                    aria-checked={pasta === p.id}
+                    onClick={() => setPasta(p.id)}
+                    className={cn(
+                      'h-6 max-w-32 truncate rounded-full border px-2 text-[11px]',
+                      pasta === p.id ? 'border-[#171717] bg-[#171717] text-white' : 'border-[#DDDDDD] bg-white text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]',
+                    )}
+                  >
+                    {p.nome}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nova = pedirNovaPasta(onCriarPasta)
+                    if (nova) setPasta(nova)
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-[#DDDDDD] text-[#6B6B6B] hover:bg-[#F5F5F5] hover:text-[#171717]"
+                  aria-label="Nova pasta"
+                  title="Nova pasta"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </div>
+            </div>
+            {filtrosAlterados ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOrientacao('todas')
+                  setPasta('')
+                  setOrdem('envio')
+                }}
+                className="w-full rounded-md border-t border-[#EAEAEA] px-2 pt-2 text-left text-[11px] text-[#6B6B6B] hover:text-[#171717]"
+              >
+                Restaurar padrão
               </button>
             ) : null}
           </div>
