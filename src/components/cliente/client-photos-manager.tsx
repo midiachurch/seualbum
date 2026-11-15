@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageUp, Star, X } from 'lucide-react'
-import { uploadProjetoFoto } from '@/lib/upload-projeto-foto'
+import { criarUploadProjetoFoto } from '@/lib/upload-projeto-foto'
 import { cn } from '@/lib/utils'
 import type { Photo } from '@/types/platform'
 
-type ManagedPhoto = Photo & { uploading?: boolean; progress?: number }
+type ManagedPhoto = Photo & {
+  idLocal?: string
+  nomeArquivo?: string
+  uploading?: boolean
+  progress?: number
+  erroEnvio?: string
+}
 
 // Inlined (não importado de '@/lib/demo-mode') porque essa checagem roda no
 // navegador: NEXT_PUBLIC_SUPABASE_URL já vem embutida no bundle no build.
@@ -24,23 +30,54 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const objectUrlsRef = useRef<string[]>([])
+  const enviosRef = useRef(new Map<string, ReturnType<typeof criarUploadProjetoFoto>>())
+  const emCursoRef = useRef(new Set<string>())
 
   useEffect(
-    () => () => {
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    () => {
+      const envios = enviosRef.current
+      const objectUrls = objectUrlsRef.current
+      return () => {
+        objectUrls.forEach((url) => URL.revokeObjectURL(url))
+        envios.clear()
+      }
     },
     [],
   )
+
+  const enviarFoto = useCallback(async (idLocal: string) => {
+    const envio = enviosRef.current.get(idLocal)
+    if (!envio || emCursoRef.current.has(idLocal)) return
+    emCursoRef.current.add(idLocal)
+    setPhotos((prev) => prev.map((p) => p.idLocal === idLocal ? { ...p, uploading: true, erroEnvio: undefined } : p))
+    try {
+      const { id, url, meta } = await envio.executar()
+      setPhotos((prev) => prev.map((p) => p.idLocal === idLocal
+        ? { ...p, id, url, capturadaEm: meta.capturadaEm, camera: meta.camera, uploading: false, progress: 100, erroEnvio: undefined }
+        : p))
+      enviosRef.current.delete(idLocal)
+    } catch (e) {
+      setPhotos((prev) => prev.map((p) => p.idLocal === idLocal
+        ? { ...p, uploading: false, erroEnvio: e instanceof Error ? e.message : 'Não foi possível enviar a foto. Tente novamente.' }
+        : p))
+    } finally {
+      emCursoRef.current.delete(idLocal)
+    }
+  }, [])
 
   const addFiles = useCallback(
     (fileList: FileList | null) => {
       if (!fileList) return
       const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'))
-      const novas: (ManagedPhoto & { _file?: File })[] = files.map((file, i) => {
+      const novas: ManagedPhoto[] = files.map((file, i) => {
         const url = URL.createObjectURL(file)
+        const idLocal = `novo-${Date.now()}-${i}-${Math.random().toString(36).slice(2)}`
         objectUrlsRef.current.push(url)
+        if (!DEMO_MODE) enviosRef.current.set(idLocal, criarUploadProjetoFoto(projetoId, file, 'Novas fotos'))
         return {
-          id: `novo-${Date.now()}-${i}`,
+          id: idLocal,
+          idLocal,
+          nomeArquivo: file.name,
           url,
           grupo: 'Novas fotos',
           favorita: false,
@@ -50,7 +87,6 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
           observacao: null,
           uploading: true,
           progress: 0,
-          _file: file,
         }
       })
 
@@ -58,14 +94,8 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
       setPhotos((prev) => [...prev, ...novas])
 
       novas.forEach((foto) => {
-        if (!DEMO_MODE && foto._file) {
-          uploadProjetoFoto(projetoId, foto._file, 'Novas fotos')
-            .then(({ url }) => {
-              setPhotos((prev) => prev.map((p) => (p.id === foto.id ? { ...p, url: url || p.url, uploading: false, progress: 100 } : p)))
-            })
-            .catch(() => {
-              setPhotos((prev) => prev.map((p) => (p.id === foto.id ? { ...p, uploading: false } : p)))
-            })
+        if (!DEMO_MODE) {
+          void enviarFoto(foto.idLocal!)
           return
         }
 
@@ -81,7 +111,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
         }, 160)
       })
     },
-    [projetoId],
+    [projetoId, enviarFoto],
   )
 
   function toggleFavorite(id: string) {
@@ -90,8 +120,9 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
 
   const lightboxPhoto = lightboxIndex !== null ? photos[lightboxIndex] : null
   // Barra fixa do envio em segundo plano: a pessoa segue navegando na aba.
-  const novas = photos.filter((p) => p.id.startsWith('novo-'))
+  const novas = photos.filter((p) => p.idLocal)
   const enviando = novas.filter((p) => p.uploading).length
+  const concluidas = novas.filter((p) => !p.uploading && !p.erroEnvio).length
 
   return (
     <div className="space-y-5">
@@ -120,7 +151,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
           <p className="font-medium text-[#171717]">Adicionar mais fotos</p>
           <p className="text-xs text-[#6B6B6B]">Toque para escolher ou arraste os arquivos aqui</p>
         </div>
-        <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={(e) => addFiles(e.target.files)} />
+        <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} />
       </div>
 
       {photos.length === 0 ? (
@@ -130,7 +161,8 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {photos.map((photo, i) => (
-            <div key={photo.id} role="button" tabIndex={0} onClick={() => setLightboxIndex(i)} onKeyDown={(e) => e.key === 'Enter' && setLightboxIndex(i)} className="group relative aspect-square overflow-hidden rounded-xl bg-secondary">
+            <div key={photo.idLocal ?? photo.id} className="min-w-0">
+            <div role="button" tabIndex={0} onClick={() => setLightboxIndex(i)} onKeyDown={(e) => e.key === 'Enter' && setLightboxIndex(i)} className="group relative aspect-square overflow-hidden rounded-xl bg-secondary">
               {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:) e fotos mockadas, next/image não serve blob e cache local corrompe no volume externo. */}
               <img src={photo.url} alt={photo.grupo} className={cn('h-full w-full object-cover', photo.uploading && 'opacity-60')} />
               {photo.uploading ? (
@@ -143,6 +175,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
               ) : null}
               <button
                 type="button"
+                disabled={photo.uploading || Boolean(photo.erroEnvio)}
                 onClick={(e) => {
                   e.stopPropagation()
                   toggleFavorite(photo.id)
@@ -153,6 +186,16 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
               >
                 <Star className={cn('h-4 w-4', photo.favorita && 'fill-yellow-400 text-yellow-400')} aria-hidden />
               </button>
+            </div>
+            {photo.erroEnvio ? (
+              <div role="alert" className="mt-2 space-y-1 text-xs text-destructive">
+                <p className="break-words font-medium">{photo.nomeArquivo}</p>
+                <p>{photo.erroEnvio}</p>
+                <button type="button" onClick={() => void enviarFoto(photo.idLocal!)} className="min-h-11 underline underline-offset-2">
+                  Tentar novamente
+                </button>
+              </div>
+            ) : null}
             </div>
           ))}
         </div>
@@ -171,6 +214,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
             </button>
             <button
               type="button"
+              disabled={lightboxPhoto.uploading || Boolean(lightboxPhoto.erroEnvio)}
               onClick={(e) => {
                 e.stopPropagation()
                 toggleFavorite(lightboxPhoto.id)
@@ -218,7 +262,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
         >
           <ImageUp className="h-4 w-4 shrink-0 animate-pulse" aria-hidden />
           <span className="flex-1">
-            Preparando suas memórias... {novas.length - enviando} de {novas.length} fotos enviadas
+            Preparando suas memórias... {concluidas} concluídas · {enviando} em envio
           </span>
         </div>
       ) : null}

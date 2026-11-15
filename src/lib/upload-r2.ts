@@ -11,6 +11,15 @@
  * Lança `Error` com mensagem pronta para a tela.
  */
 
+class ErroHttpEnvioR2 extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message)
+  }
+}
+
+/** Estado de uma única operação, mantido pelo consumidor para retomada. */
+export type EstadoEnvioR2 = { key?: string }
+
 async function postJson(rota: string, corpo: unknown): Promise<Record<string, unknown>> {
   const resposta = await fetch(rota, {
     method: 'POST',
@@ -24,15 +33,23 @@ async function postJson(rota: string, corpo: unknown): Promise<Record<string, un
       401: 'Sua sessão expirou. Entre de novo e tente outra vez.',
       503: 'Envio de arquivos indisponível no momento. Tente mais tarde.',
     }
-    throw new Error(typeof json.erro === 'string' ? json.erro : (padrao[resposta.status] ?? 'Falha no envio. Tente de novo.'))
+    throw new ErroHttpEnvioR2(typeof json.erro === 'string' ? json.erro : (padrao[resposta.status] ?? 'Falha no envio. Tente de novo.'), resposta.status)
   }
   return json
 }
 
 /** Passos 1 e 2: assina e envia. Devolve a chave do objeto no R2. */
-export async function enviarArquivoR2(rotaAssinar: string, corpo: Record<string, unknown>, arquivo: Blob): Promise<string> {
+export async function enviarArquivoR2(
+  rotaAssinar: string,
+  corpo: Record<string, unknown>,
+  arquivo: Blob,
+  estado?: EstadoEnvioR2,
+): Promise<string> {
   const assinatura = await postJson(rotaAssinar, corpo)
   if (typeof assinatura.url !== 'string' || typeof assinatura.key !== 'string') throw new Error('Não foi possível preparar o envio.')
+
+  // Guardar antes do PUT: a rede pode cair depois de o R2 receber o arquivo.
+  if (estado) estado.key = assinatura.key
 
   const envio = await fetch(assinatura.url, {
     method: 'PUT',
@@ -51,8 +68,20 @@ export async function enviarEConfirmarR2(
   corpo: Record<string, unknown>,
   arquivo: Blob,
   confirmacao: Record<string, unknown> = {},
+  estado?: EstadoEnvioR2,
 ): Promise<Record<string, unknown> & { key: string }> {
-  const key = await enviarArquivoR2(rota, corpo, arquivo)
+  if (estado?.key) {
+    const key = estado.key
+    try {
+      const r = await postJson(`${rota}/confirmar`, { ...confirmacao, key })
+      return { ...r, key }
+    } catch (e) {
+      // Só reenviar quando o servidor confirmar que o objeto não chegou.
+      // 403/409/500 ou resposta perdida não justificam sobrescrever/duplicar.
+      if (!(e instanceof ErroHttpEnvioR2) || e.status !== 404) throw e
+    }
+  }
+  const key = await enviarArquivoR2(rota, corpo, arquivo, estado)
   const r = await postJson(`${rota}/confirmar`, { ...confirmacao, key })
   return { ...r, key }
 }

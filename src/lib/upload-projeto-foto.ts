@@ -1,7 +1,8 @@
 'use client'
 
 import { lerMetadadosFoto, type MetadadosFoto } from '@/lib/exif'
-import { enviarEConfirmarR2 } from '@/lib/upload-r2'
+import { enviarEConfirmarR2, type EstadoEnvioR2 } from '@/lib/upload-r2'
+import { ehUuid } from '@/lib/r2/chaves'
 import { novoUuid } from '@/store/usePedidoWizardStore'
 
 const MIME_POR_EXTENSAO: Record<string, string> = {
@@ -33,13 +34,33 @@ export async function uploadProjetoFoto(
   file: File,
   grupo?: string,
 ): Promise<{ id: string; storagePath: string; url: string; meta: MetadadosFoto }> {
-  // EXIF lido no navegador para o agrupamento em cenas do designer (0025).
-  const meta = await lerMetadadosFoto(file)
-  const r = await enviarEConfirmarR2(
-    '/api/uploads/projeto-foto',
-    { projetoId, idArquivo: novoUuid(), nome: file.name, tipo: mimeDoArquivo(file), tamanho: file.size },
-    file,
-    { grupo: grupo ?? null, capturadaEm: meta.capturadaEm, camera: meta.camera },
-  )
-  return { id: String(r.id ?? ''), storagePath: r.key, url: String(r.url ?? ''), meta }
+  return criarUploadProjetoFoto(projetoId, file, grupo).executar()
+}
+
+/** Uma operação por arquivo. Reutilize `executar` ao tentar novamente. */
+export function criarUploadProjetoFoto(projetoId: string, file: File, grupo?: string) {
+  const corpo = { projetoId, idArquivo: novoUuid(), nome: file.name, tipo: mimeDoArquivo(file), tamanho: file.size }
+  const estado: EstadoEnvioR2 = {}
+  let metadados: Promise<MetadadosFoto> | undefined
+  let emCurso: Promise<Awaited<ReturnType<typeof uploadProjetoFoto>>> | undefined
+
+  async function enviar() {
+    // Identidade e EXIF pertencem ao arquivo, não a cada tentativa.
+    const meta = await (metadados ??= lerMetadadosFoto(file))
+    const r = await enviarEConfirmarR2(
+      '/api/uploads/projeto-foto', corpo, file,
+      { grupo: grupo ?? null, capturadaEm: meta.capturadaEm, camera: meta.camera }, estado,
+    )
+    if (!ehUuid(r.id) || typeof r.url !== 'string' || !r.url) {
+      throw new Error('O servidor não confirmou os dados da foto. Tente novamente.')
+    }
+    return { id: r.id, storagePath: r.key, url: r.url, meta }
+  }
+
+  return {
+    executar() {
+      // Clique duplo não inicia dois PUTs/INSERTs concorrentes.
+      return (emCurso ??= enviar().finally(() => { emCurso = undefined }))
+    },
+  }
 }
