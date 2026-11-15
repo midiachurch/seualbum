@@ -93,8 +93,9 @@ alter policy album_aprovacao_comentarios_equipe on public.album_aprovacao_coment
 -- Dados financeiros/comunicações com projeto: restringir alcance sem conceder
 -- novas ações nem incluir designer no financeiro.
 drop policy if exists producao_escopo on public.faturas;
-create policy producao_escopo on public.faturas as restrictive for select to authenticated
-  using (public.pode_ver_projeto(projeto_id));
+create policy producao_escopo on public.faturas as restrictive for all to authenticated
+  using (public.pode_ver_projeto(projeto_id))
+  with check (public.pode_ver_projeto(projeto_id));
 drop policy if exists producao_escopo on public.comunicacoes_log;
 create policy producao_escopo on public.comunicacoes_log as restrictive for select to authenticated
   using (public.pode_ver_projeto(projeto_id));

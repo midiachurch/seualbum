@@ -1,6 +1,6 @@
 -- Diagnóstico S1: contrato desejado ADR-002. Regressão após 0043.
 -- Somente banco sintético isolado. Nenhum teste deve apontar para produção.
-begin; create extension if not exists pgtap with schema extensions; select plan(223);
+begin; create extension if not exists pgtap with schema extensions; select plan(224);
 insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('91000000-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-1@teste.local','{"role":"fotografo"}','{}',now(),now());
 insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('91000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-2@teste.local','{"role":"fotografo"}','{}',now(),now());
 insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('91000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-3@teste.local','{"role":"cliente"}','{}',now(),now());
@@ -290,6 +290,7 @@ select throws_ok($q$select public.abrir_conversa('estudio_equipe',null,'92000000
 select lives_ok($q$select public.abrir_conversa('estudio_equipe',null,'92000000-0000-4000-8000-000000000002')$q$,'operador abre conversa atribuída');
 select throws_ok($q$insert into public.mensagens(conversa_id,corpo) values('98000000-0000-4000-8000-000000000001','Ataque')$q$,'42501',null,'operador não escreve em conversa alheia');
 select lives_ok($q$insert into public.mensagens(conversa_id,corpo) values('98000000-0000-4000-8000-000000000002','Produção legítima')$q$,'operador escreve no projeto atribuído');
+select throws_ok($q$insert into public.faturas(projeto_id,valor_total) values('92000000-0000-4000-8000-000000000001',1)$q$,'42501',null,'operador não insere fatura em projeto alheio');
 select throws_ok($q$select * from public.calcular_excedente('92000000-0000-4000-8000-000000000001')$q$,'42501',null,'financeiro nega projeto não atribuído');
 select lives_ok($q$select * from public.calcular_excedente('92000000-0000-4000-8000-000000000002')$q$,'financeiro permite operador atribuído');
 reset role; select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}',true); update public.profiles set status='inativo' where id='91000000-0000-4000-8000-000000000006'; select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}',true); set local role authenticated;
