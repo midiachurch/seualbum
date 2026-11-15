@@ -1,0 +1,33 @@
+1..27
+
+ok 1 - casal marca a lâmina da versão atual como vista
+ok 2 - projeto, versão e autor vêm da lâmina e da sessão, não do navegador
+ok 3 - uma linha por lâmina e pessoa (o app usa upsert)
+ok 4 - casal aprova a lâmina (upsert)
+ok 5 - o banco carimba aprovada_em
+ok 6 - casal desfaz o "ok"
+ok 7 - desfazer limpa aprovada_em; vista_em não muda pelo navegador
+ok 8 - casal aprova direto uma lâmina que ainda não tinha linha
+ok 9 - versão antiga (v1) não entra no checklist
+ok 10 - rascunho interno (v3 não liberada) não entra no checklist
+ok 11 - casal 1 não marca lâmina do projeto de outro casal
+ok 12 - prova fora de "aguardando aprovação" não aceita marcação
+ok 13 - não grava em nome de outra pessoa
+ok 14 - lâmina inexistente
+ok 15 - casal 1 vê só a marca do próprio estúdio
+ok 16 - a tabela fotografos continua fechada para o casal
+
+ok 17 - casal 2 não vê o checklist do casal 1
+ok 18 - casal 2 não altera o checklist do casal 1
+ok 19 - casal 2 não apaga o checklist do casal 1
+ok 20 - casal 2 vê a marca do estúdio 2
+
+ok 21 - o estúdio acompanha o checklist do casal
+ok 22 - o estúdio não marca lâmina pelo casal
+ok 23 - o estúdio não altera o checklist do casal
+
+ok 24 - a equipe vê o checklist
+
+ok 25 - depois da decisão o casal não mexe mais no checklist
+ok 26 - mas continua vendo o que marcou
+ok 27 - anon não consulta a marca

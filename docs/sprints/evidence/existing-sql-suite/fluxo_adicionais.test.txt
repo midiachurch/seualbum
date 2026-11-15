@@ -1,0 +1,73 @@
+1..54
+
+ok 1 - casal: só a cópia (a caixa foi desligada), pela revenda — sem custo
+ok 2 - casal não lê o catálogo (custo é segredo)
+
+ok 3 - estúdio dono: tudo o que está ativo, pelo custo, com a revenda
+ok 4 - prévia do estúdio: 17 lâminas (capa não conta), 2 extras = R$ 24
+
+ok 5 - outro estúdio não vê as ofertas do projeto
+
+ok 6 - aprovação com adicional → fechamento pendente
+ok 7 - casal não vê fatura (white label)
+ok 8 - casal não vê itens da fatura
+ok 9 - fatura de fechamento: 2×12 (lâminas) + 2×150 (custo da cópia) = R$ 324
+ok 10 - itens: lâminas confirmadas; cópia do casal aguardando o estúdio (a caixa desligada foi descartada)
+ok 11 - itens_json legado sincronizado
+ok 12 - estúdio recebe o aviso "Seu cliente pediu adicionais"
+ok 13 - histórico registra a aprovação com extras e adicional
+
+ok 14 - estúdio não paga com adicional aguardando decisão
+ok 15 - estúdio não pula a cobrança mudando o status na mão
+
+ok 16 - gestão não dá cortesia com adicional aguardando o estúdio
+ok 17 - webhook (service_role) também recusa com adicional aguardando
+
+ok 18 - outro estúdio não decide (nem enxerga o item)
+
+ok 19 - casal não decide
+
+ok 20 - estúdio aceita a cópia → segue pendente de pagamento
+ok 21 - não dá para decidir duas vezes
+ok 22 - item confirmado, com quem decidiu
+ok 23 - total mantido ao aceitar
+ok 24 - estúdio paga o fechamento (simulado)
+ok 25 - fatura paga, Pix, com data
+ok 26 - projeto liberado para impressão
+ok 27 - pagar de novo é recusado
+ok 28 - histórico do pagamento simulado
+ok 29 - casal recebe "Álbum aprovado — a caminho da gráfica"
+
+ok 30 - operação (gráfica) vê o adicional pago para produzir
+
+ok 31 - admin conta as unidades vendidas da cópia
+
+ok 32 - designer não vê faturas
+ok 33 - designer vê o projeto aprovado
+
+ok 34 - P2: só adicional do casal → fechamento pendente
+ok 35 - P2: fatura de R$ 150 (custo)
+
+ok 36 - P2: estúdio recusa → liberado
+ok 37 - P2: fatura cancelada, total zerado
+ok 38 - P2: projeto aprovado para impressão
+ok 39 - P2: histórico da recusa
+
+ok 40 - P3: estúdio escolhe a caixa (que ele não oferece ao casal)
+ok 41 - P3: entra confirmada, pelo custo, quantidade limitada a 10
+ok 42 - P3: aviso de fechamento pendente (sem pedido do casal)
+
+ok 43 - P3: com o modo simulado desligado, o banco recusa
+ok 44 - P3: estúdio não chama a confirmação do webhook
+ok 45 - P3: webhook (service_role) confirma o pagamento
+ok 46 - P3: reentrega do webhook é idempotente
+ok 47 - P3: pago R$ 900 e liberado
+ok 48 - P3: um único registro de pagamento
+
+ok 49 - P4: aprovado direto
+ok 50 - P4: aprovar de novo é recusado
+ok 51 - P4: nenhuma fatura
+ok 52 - anon não aprova
+ok 53 - anon não vê ofertas
+
+ok 54 - casal não paga fatura (nem a enxerga)

@@ -1,0 +1,51 @@
+1..62
+ok 1 - mensagens está na publicação do Realtime
+
+ok 2 - abrir de novo devolve o mesmo fio geral
+ok 3 - abrir de novo devolve o mesmo fio do cliente
+ok 4 - fio com o cliente exige projeto
+ok 5 - canal inválido
+ok 6 - estúdio não abre fio de projeto de outro estúdio
+
+ok 7 - estúdio não abre o fio geral de outro estúdio
+ok 8 - estúdio não abre o fio do cliente de outro estúdio
+
+ok 9 - estúdio 2 não vê fios do estúdio 1
+ok 10 - estúdio 2 não lê mensagens do estúdio 1
+ok 11 - listar_conversas filtrando outro estúdio volta vazio
+ok 12 - estúdio 2 lista só os próprios 2 fios
+ok 13 - estúdio 2 não escreve no fio do estúdio 1
+ok 14 - estúdio 2 não marca leitura em fio alheio
+
+ok 15 - cliente abre o mesmo fio do projeto dele
+ok 16 - cliente não abre o fio do estúdio com a equipe
+ok 17 - cliente não abre fio de outro projeto do mesmo estúdio
+ok 18 - cliente vê só o próprio fio
+ok 19 - cliente lê só as mensagens do próprio fio
+ok 20 - cliente tem 1 não lida (do estúdio)
+ok 21 - o fio do cliente vem com a marca do estúdio
+ok 22 - cliente não escreve no fio do estúdio com a equipe
+ok 23 - autor, lado e nome forçados pelo banco; corpo aparado
+ok 24 - mensagem vazia é recusada
+ok 25 - cliente não cita lâmina de outro projeto
+ok 26 - lâmina do próprio projeto vincula a versão
+
+ok 27 - outro cliente do mesmo estúdio não vê o fio
+ok 28 - outro cliente do mesmo estúdio não lê as mensagens
+ok 29 - outro cliente não tem não lidas
+ok 30 - outro cliente não escreve no fio
+
+ok 31 - cliente do estúdio 2 lê só o fio dele
+ok 32 - cliente do estúdio 2 lista só o fio dele
+
+not ok 33 - operação: 1 não lida (estúdio 1 no fio geral); fio do cliente não conta
+# Failed test 33: "operação: 1 não lida (estúdio 1 no fio geral); fio do cliente não conta"
+#         have: 0
+#         want: 1
+not ok 34 - operação lê o fio do cliente (suporte)
+# Failed test 34: "operação lê o fio do cliente (suporte)"
+#         have: 0
+#         want: 3
+ok 35 - operação não escreve no fio do cliente
+ok 36 - operação não abre fio de cliente
+ERROR:  new row violates row-level security policy for table "mensagens"

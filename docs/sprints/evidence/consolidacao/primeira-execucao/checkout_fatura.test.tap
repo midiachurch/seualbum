@@ -1,0 +1,27 @@
+1..18
+
+ok 1 - cenário: fechamento pendente com pedido do casal
+
+ok 2 - modo simulado ligado (padrão da 0023)
+
+ok 3 - desligado em private.app_config → checkout real
+ok 4 - anon não consulta o modo de pagamento
+ok 5 - anon não prepara checkout
+
+ok 6 - não abre checkout com adicional do casal aguardando o estúdio
+ok 7 - estúdio aceita a cópia
+ok 8 - estúdio dono: o banco devolve o valor a cobrar (2×12 + 150 = R$ 174)
+
+ok 9 - outro estúdio não abre checkout
+ok 10 - outro estúdio não grava sessão na fatura
+
+ok 11 - o casal não paga (white label)
+
+ok 12 - só aceita id de Checkout Session
+ok 13 - estúdio dono grava a sessão aberta
+ok 14 - a próxima tentativa enxerga a sessão para reaproveitar
+ok 15 - webhook (service_role) confirma a fatura paga por Pix
+ok 16 - fatura paga e álbum liberado para impressão
+
+ok 17 - fatura paga não abre outro checkout
+ok 18 - nem grava sessão nova

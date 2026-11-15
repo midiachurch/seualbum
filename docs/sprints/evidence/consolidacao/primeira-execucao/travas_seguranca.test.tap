@@ -1,0 +1,98 @@
+1..70
+
+ok 1 - ataque: conta de cliente não se cadastra como estúdio assinante
+ok 2 - conta de cliente não tem assinatura
+ok 3 - conta de cliente não cria pedido de estúdio
+
+ok 4 - linha forjada em fotografos não vale como assinatura para quem não é fotógrafo
+ok 5 - ataque: pedido já liberado (sem pagar) com assinatura forjada é barrado
+
+ok 6 - fotógrafo ainda cria a própria linha de estúdio
+ok 7 - mas plano e status nascem no padrão (só a gestão define)
+ok 8 - e não ganha assinatura com isso
+
+ok 9 - gestão atribui a assinatura ao estúdio
+ok 10 - gestão ainda cria estúdio com plano
+ok 11 - plano escolhido pela gestão é mantido
+
+ok 12 - estúdio assinante enxerga a assinatura
+ok 13 - assinante cria pedido já na fila de design
+ok 14 - conversão pedido → projeto segue funcionando (status de produção e franquia do plano)
+ok 15 - atividade da conversão segue como "sistema" (autor nulo)
+
+ok 16 - cadastro com Google promove a fotógrafo
+ok 17 - e cria a linha em fotografos
+ok 18 - cadastro normal de fotógrafo (handle_new_user) segue criando a linha em fotografos
+
+ok 19 - fotógrafo insere projeto (campos de produção são ignorados)
+ok 20 - ataque: projeto nasce "projeto_criado", sem franquia, responsável, plano nem expedição
+ok 21 - ataque: projeto não aponta para cliente de outro estúdio
+
+ok 22 - gestão cria projeto com status e franquia
+ok 23 - gestão mantém o que escolheu
+
+ok 24 - estúdio cria pedidos pendentes
+ok 25 - antes do checkout o plano do pedido pendente ainda pode mudar
+ok 26 - app grava a sessão do checkout (iniciarPagamentoAction)
+ok 27 - ataque: trocar o plano depois de abrir o checkout
+ok 28 - ataque: apagar a sessão do checkout para destravar o plano
+ok 29 - app ainda troca por uma sessão nova (a anterior expirou)
+ok 30 - ataque: ligar o pedido ao projeto de outro estúdio
+ok 31 - nem ao próprio projeto (o vínculo é da conversão)
+ok 32 - ataque: trocar a chave de idempotência (fotos de outro rascunho)
+ok 33 - franquia do projeto do estúdio B intacta
+{"role":"service_role"}
+ok 34 - webhook (service_role) confirma o pagamento
+ok 35 - pedido pago vira projeto
+ok 36 - vínculo forçado com projeto de outro estúdio (sem as travas da sessão)
+ok 37 - a franquia do pedido não é copiada para projeto de outro estúdio
+ok 38 - no projeto do próprio estúdio a franquia (plano plus-avulso) é copiada
+
+ok 39 - ataque: casal não lê a anotação interna do estúdio
+ok 40 - nem por select *
+ok 41 - portal do cliente segue lendo o próprio cadastro (colunas explícitas)
+ok 42 - casal não lista clientes pela função
+ok 43 - casal segue vendo o próprio projeto (policies que consultam clientes)
+
+ok 44 - estúdio dono lê a anotação pela função
+ok 45 - estúdio só lista os próprios clientes
+ok 46 - estúdio ainda grava a anotação
+ok 47 - cadastro de cliente com anotação (insert ... returning id)
+
+ok 48 - operação lista todos os clientes pela função
+
+ok 49 - casal registra atividade no próprio projeto
+
+ok 50 - equipe registra atividade sem autor (como o app faz)
+ok 51 - ataque: autor forjado vira quem está logado; sem autor, também
+
+ok 52 - ataque: estúdio não muda o SLA de produção
+ok 53 - ataque: estúdio não estica o prazo de aprovação
+ok 54 - ataque: estúdio não forja a expedição
+ok 55 - ataque: estúdio não muda o prazo
+ok 56 - ataque: estúdio não troca o produto
+ok 57 - estúdio segue editando nome e briefing
+
+ok 58 - equipe despacha o álbum com rastreio
+not ok 59 - ataque: nome do projeto, do cliente e rastreio entram escapados no corpo_html
+# Failed test 59: "ataque: nome do projeto, do cliente e rastreio entram escapados no corpo_html"
+#         have: NULL
+#         want: <div style="font-family:sans-serif;color:#171717;line-height:1.5"><p>Olá, Ana &lt;script&gt;x()&lt;/script&gt; &amp; Bruno!</p><p>Seu álbum <strong>&lt;img src=x onerror=alert(1)&gt;</strong> foi despachado! Código de rastreio: <strong>&lt;b&gt;BR123&lt;/b&gt;</strong>.</p><p style="color:#595959;font-size:12px">Este é um e-mail simulado — nenhuma mensagem real foi enviada (infraestrutura de e-mail ainda não conectada).</p></div>
+not ok 60 - assunto segue texto puro (igual à 0026b)
+# Failed test 60: "assunto segue texto puro (igual à 0026b)"
+#         have: NULL
+#         want: Seu álbum está a caminho! — <img src=x onerror=alert(1)>
+
+ok 61 - nome do estúdio escapado no aviso de prova pronta
+ok 62 - escapar_html cobre & < > " '
+ok 63 - escapar_html(null) é null
+
+ok 64 - ataque: foto no bucket legado apontando para a pasta de outro projeto
+ok 65 - nem no bucket antigo de pedidos
+ok 66 - upload legítimo no R2 (rota de confirmação) segue funcionando
+{"role":"anon"}
+ok 67 - orçamento em rascunho não abre pelo link
+ok 68 - orçamento enviado abre pelo link
+ok 69 - _usuario_eh_equipe segue executável por authenticated (usada na policy)
+ok 70 - escapar_html não é exposta
+# Looks like you failed 2 tests of 70

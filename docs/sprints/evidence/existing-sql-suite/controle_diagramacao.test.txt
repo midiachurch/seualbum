@@ -1,0 +1,32 @@
+1..26
+ok 1 - anon não lê a view
+ok 2 - anon não chama o resumo
+
+ok 3 - fotógrafo dono não vê linhas (só a equipe)
+ok 4 - fotógrafo não chama o resumo
+
+ok 5 - designer (equipe) vê os 6 itens em diagramação
+
+ok 6 - aguardando fotos fica fora
+ok 7 - P1 em diagramação
+ok 8 - P1 com prazo vencido = atrasado
+ok 9 - nome do responsável
+ok 10 - estúdio do projeto
+ok 11 - P2: com o cliente, v1, 2 pins abertos, cliente atrasado (não conta como atraso da equipe)
+ok 12 - P3 aprovado entra (últimos 30 dias)
+ok 13 - avulso com link: etapa, pins abertos, token e cliente
+ok 14 - avulso em rascunho = a diagramar
+
+ok 15 - designer não prioriza
+ok 16 - designer não pausa
+ok 17 - designer não se atribui um avulso
+ok 18 - designer continua mudando o status do projeto
+
+ok 19 - gestor pausa
+ok 20 - o banco carimba o "desde" (ignora o enviado)
+ok 21 - em espera não conta como atrasado
+ok 22 - gestor atribui, dá prazo e prioriza o avulso
+ok 23 - KPIs: 2 atrasados (P1 e avulso), 2 com o cliente, 1 em espera, 1 aprovado, 1 cliente atrasado
+ok 24 - Diana tem 2 álbuns atribuídos
+ok 25 - o mais urgente é um atrasado
+ok 26 - em espera fica fora dos urgentes
