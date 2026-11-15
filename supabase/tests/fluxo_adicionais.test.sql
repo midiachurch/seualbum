@@ -235,6 +235,7 @@ select ok(
 );
 
 -- 7. Quem vê o que depois de pago (gráfica / admin / designer).
+update public.projetos set responsavel_id='0b000000-0000-4000-8000-000000000001' where id='e1000000-0000-4000-8000-000000000001';
 select pg_temp.entrar('0b000000-0000-4000-8000-000000000001');
 select results_eq(
   $$ select i.descricao, i.quantidade from public.fatura_itens i join public.faturas f on f.id = i.fatura_id
@@ -254,6 +255,7 @@ select is(
 );
 reset role;
 
+update public.projetos set responsavel_id='d0000000-0000-4000-8000-000000000001' where id='e1000000-0000-4000-8000-000000000001';
 select pg_temp.entrar('d0000000-0000-4000-8000-000000000001');
 select is_empty($$ select 1 from public.faturas $$, 'designer não vê faturas');
 select is((select status::text from public.projetos where id = 'e1000000-0000-4000-8000-000000000001'), 'aprovado', 'designer vê o projeto aprovado');

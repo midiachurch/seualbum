@@ -1,3 +1,4 @@
+-- Suporte transversal nesta suíte usa gestor (0043); operador não atribuído é testado em escopo_producao.
 -- =============================================================================
 -- Mensagens (migration 0037) contra o banco LOCAL: `supabase start` +
 -- `supabase test db`.
@@ -25,7 +26,7 @@ grant select, insert on ids to authenticated;
 
 insert into auth.users (id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values
-  ('a0000000-0000-4000-8000-000000000037', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'op-37@teste.local',  '{"role":"operador"}',  '{"nome_completo":"Olga Operadora"}', now(), now()),
+  ('a0000000-0000-4000-8000-000000000037', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'op-37@teste.local',  '{"role":"gestor"}',  '{"nome_completo":"Olga Gestora"}', now(), now()),
   ('d1000000-0000-4000-8000-000000000037', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'd1-37@teste.local',  '{"role":"designer"}',  '{"nome_completo":"Davi Designer"}', now(), now()),
   ('d2000000-0000-4000-8000-000000000037', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'd2-37@teste.local',  '{"role":"designer"}',  '{"nome_completo":"Dora Designer"}', now(), now()),
   ('f1000000-0000-4000-8000-000000000037', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'f1-37@teste.local',  '{"role":"fotografo"}', '{"estudio":"Estúdio Um"}', now(), now()),
@@ -204,7 +205,7 @@ select throws_ok(
 insert into public.mensagens (conversa_id, corpo) values ((select id from ids where nome = 'geral_f1'), 'Oi! Prazo de 10 dias úteis.');
 select is(
   (select autor_papel || '/' || autor_nome from public.mensagens where corpo like 'Oi! Prazo%'),
-  'equipe/Olga Operadora', 'equipe assina com o próprio nome'
+  'equipe/Olga Gestora', 'equipe assina com o próprio nome'
 );
 select is(public.total_mensagens_nao_lidas(), 0, 'responder marca o fio como lido');
 select is(public.abrir_conversa('estudio_equipe', 'f2000000-0000-4000-8000-000000000037'), (select id from ids where nome = 'geral_f2'), 'operação abre o fio geral de qualquer estúdio');

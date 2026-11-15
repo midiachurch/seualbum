@@ -89,7 +89,7 @@ select throws_ok($$ select public.diagramacao_resumo() $$, '42501', null, 'fotó
 reset role;
 
 select pg_temp.entrar('d2000000-0000-4000-8000-000000000038');
-select is((select count(*)::int from public.diagramacao_itens where id::text like '%000000000038'), 6, 'designer (equipe) vê os 6 itens em diagramação');
+select is((select count(*)::int from public.diagramacao_itens where id::text like '%000000000038'), 3, 'designer vê seu projeto atribuído e os dois avulsos legados');
 reset role;
 
 -- -----------------------------------------------------------------------------

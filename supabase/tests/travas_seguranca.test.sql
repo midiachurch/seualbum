@@ -394,7 +394,9 @@ select lives_ok(
   'estúdio segue editando nome e briefing'
 );
 
--- Expedição pela equipe (src/lib/actions/expedicao.ts).
+-- Expedição pela equipe atribuída (0043).
+reset role;
+update public.projetos set responsavel_id='d0000000-0000-4000-8000-000000000041' where id='11000000-0000-4000-8000-000000000041';
 select pg_temp.entrar('d0000000-0000-4000-8000-000000000041');
 select lives_ok(
   $$ update public.projetos set status = 'enviado', codigo_rastreio = '<b>BR123</b>', enviado_em = now()
