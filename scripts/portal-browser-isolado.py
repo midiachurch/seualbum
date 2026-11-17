@@ -96,7 +96,7 @@ def run_portal_browser(db_name, secret, sql, output):
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
-        text = (stdout + stderr).replace(str(ROOT), '<checkout>').replace(anon, '<synthetic-anon>').replace(control, '<test-control>')
+        text = (stdout + stderr).replace(str(ROOT), '<checkout>').replace(str(Path.home()), '<userhome>').replace(anon, '<synthetic-anon>').replace(control, '<test-control>')
         (output / 'portal-browser.log').write_text(text)
         if process.returncode:
             raise RuntimeError('Navegador portal falhou; consulte portal-browser.log')
