@@ -41,3 +41,6 @@ site-piloto/
 # Caches Python locais
 __pycache__/
 *.pyc
+
+# Dependências reutilizadas por symlink em worktrees
+/node_modules

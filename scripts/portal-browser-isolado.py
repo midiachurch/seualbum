@@ -29,6 +29,7 @@ def run_portal_browser(db_name, secret, sql, output):
         raise RuntimeError('Banco do harness precisa estar sem rede externa')
     name = db_name + '-browser-proxy'
     control = uuid.uuid4().hex
+    auth_name = db_name + '-browser-auth'
     def encode(value):
         return base64.urlsafe_b64encode(json.dumps(value, separators=(',', ':')).encode()).rstrip(b'=')
     claims = {'role': 'anon', 'exp': int(time.time()) + 900}
@@ -43,44 +44,75 @@ def run_portal_browser(db_name, secret, sql, output):
             self.send_response(status)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Content-Length', str(len(content)))
+            self.send_header('Access-Control-Allow-Origin', 'http://127.0.0.1:3314')
+            self.send_header('Access-Control-Allow-Headers', 'authorization,apikey,content-type,x-client-info,x-supabase-api-version')
+            self.send_header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
             self.end_headers()
             self.wfile.write(content)
 
+        def do_OPTIONS(self):
+            self.respond(200, {})
+
+        def do_GET(self):
+            self.forward('GET')
+
+        def forward(self, method):
+            # Proxy loopback para Auth e PostgREST reais, exclusivamente no container sem rede.
+            if not (re.fullmatch(r'/auth/v1/(token|user|signup|logout)(\?.*)?', self.path)
+                    or re.fullmatch(r'/rest/v1/(rpc/(criar_galeria_digital|gerir_portal|estado_portal|abrir_portal|portal_projeto|portal_favorito|portal_entregar|portal_foto)|profiles|projetos|fotos|design_versions|aprovacoes|projeto_atividades|versoes_laminas|selecoes_entregues|selecao_entregue_fotos)(\?.*)?', self.path)):
+                self.respond(404, {'error': 'unsupported'})
+                return
+            try:
+                size = int(self.headers.get('Content-Length', '0'))
+                if size > 16384:
+                    self.respond(413, {'error': 'size'})
+                    return
+                body = self.rfile.read(size).decode() if size else None
+                headers = {k: self.headers[k] for k in ('Authorization', 'apikey', 'Content-Type', 'Accept', 'Prefer', 'x-supabase-api-version') if k in self.headers}
+                auth = self.path.startswith('/auth/v1/')
+                url = ('http://127.0.0.1:9999' + self.path.removeprefix('/auth/v1')) if auth else ('http://127.0.0.1:3000' + self.path.removeprefix('/rest/v1'))
+                request = {'url': url, 'headers': headers, 'body': body, 'method': method}
+                code = "let text='';for await(const chunk of process.stdin)text+=chunk;const p=JSON.parse(text);const r=await fetch(p.url,{method:p.method,headers:p.headers,...(p.body?{body:p.body}:{}),signal:AbortSignal.timeout(10000)});process.stdout.write(JSON.stringify({status:r.status,body:await r.text()}));"
+                result = subprocess.run(['docker', 'exec', '-i', name, 'node', '--input-type=module', '-e', code], input=json.dumps(request), text=True, capture_output=True, timeout=15, check=True)
+                response = json.loads(result.stdout)
+                self.respond(response['status'], json.loads(response['body']) if response['body'] else {})
+            except Exception:
+                self.respond(502, {'error': 'local proxy failed'})
+
         def do_POST(self):
-            if self.path in ('/__test/state', '/__test/revoke'):
+            if self.path in ('/__test/state', '/__test/revoke', '/__test/addphotos'):
                 if not hmac.compare_digest(self.headers.get('x-test-control', ''), control):
                     self.respond(403, {'error': 'denied'})
                     return
-                if self.path == '/__test/revoke':
+                if self.path == '/__test/addphotos':
+                    data = json.loads(self.rfile.read(int(self.headers.get('Content-Length','0'))))
+                    project = data.get('id','')
+                    if not re.fullmatch(r'[a-f0-9-]{36}', project):
+                        self.respond(400, {'error':'invalid id'})
+                        return
+                    sql("insert into public.fotos(projeto_id,storage_path,nome_original,bucket) select p.id,'projetos/'||p.id||'/fotos/ensaio-'||n||'.jpg','ensaio-'||n||'.jpg','r2' from public.projetos p cross join generate_series(1,6) n where p.id='"+project+"' and p.nome like 'Ensaio de teste%';")
+                    self.respond(200, {'fixture':True})
+                elif self.path == '/__test/revoke':
                     sql("select set_config('request.jwt.claims','{\"sub\":\"f1000000-0000-4000-8000-000000000001\",\"role\":\"authenticated\"}',false); set role authenticated; select public.gerir_portal('" + PROJETO + "',null,null,true); reset role;")
                     self.respond(200, {'revoked': True})
                 else:
                     state = sql("select json_build_object('snapshots',count(*),'revisao',coalesce(max(revisao),0),'notificacoes',(select count(*) from public.selecao_notificacoes n join public.selecoes_entregues s on s.id=n.selecao_id where s.projeto_id='"+PROJETO+"')) from public.selecoes_entregues where projeto_id='"+PROJETO+"';")
                     self.respond(200, json.loads(state))
                 return
-            if not re.fullmatch(r'/rest/v1/rpc/(abrir_portal|portal_projeto|portal_favorito|portal_entregar|portal_foto)', self.path):
-                self.respond(404, {'error': 'unsupported'})
-                return
-            try:
-                size = int(self.headers.get('Content-Length', '0'))
-                if size < 1 or size > 16384:
-                    self.respond(413, {'error': 'size'})
-                    return
-                body = self.rfile.read(size).decode()
-                headers = {k: self.headers[k] for k in ('Authorization', 'apikey', 'Content-Type') if k in self.headers}
-                request = {'url': 'http://127.0.0.1:3000' + self.path.removeprefix('/rest/v1'), 'headers': headers, 'body': body}
-                code = "let text='';for await(const chunk of process.stdin)text+=chunk;const p=JSON.parse(text);const r=await fetch(p.url,{method:'POST',headers:p.headers,body:p.body,signal:AbortSignal.timeout(5000)});process.stdout.write(JSON.stringify({status:r.status,body:await r.text()}));"
-                result = subprocess.run(['docker', 'exec', '-i', name, 'node', '--input-type=module', '-e', code], input=json.dumps(request), text=True, capture_output=True, timeout=10, check=True)
-                response = json.loads(result.stdout)
-                self.respond(response['status'], json.loads(response['body']))
-            except Exception:
-                self.respond(502, {'error': 'local proxy failed'})
+            self.forward('POST')
 
     server = None
     try:
         sql((ROOT / 'supabase/tests/api/portal-browser.fixture.sql').read_text())
         subprocess.run(['docker', 'run', '-d', '--pull=never', '--name', name, '--network', 'container:' + db_name,
             '--entrypoint', 'node', CLIENT_IMAGE, '-e', 'setInterval(()=>{},1000)'], check=True, capture_output=True)
+        subprocess.run(['docker', 'run', '-d', '--pull=never', '--name', auth_name, '--network', 'container:' + db_name,
+            '-e', 'GOTRUE_DB_DRIVER=postgres', '-e', 'GOTRUE_DB_DATABASE_URL=postgres://postgres:local-disposable-only@127.0.0.1:5432/postgres?search_path=auth',
+            '-e', 'GOTRUE_SITE_URL=http://127.0.0.1:3314', '-e', 'API_EXTERNAL_URL=http://127.0.0.1:3313/auth/v1',
+            '-e', 'GOTRUE_API_HOST=127.0.0.1', '-e', 'PORT=9999', '-e', 'GOTRUE_JWT_SECRET='+secret,
+            '-e', 'GOTRUE_JWT_AUD=authenticated', '-e', 'GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated',
+            '-e', 'GOTRUE_EXTERNAL_EMAIL_ENABLED=true', '-e', 'GOTRUE_MAILER_AUTOCONFIRM=true',
+            'public.ecr.aws/supabase/gotrue:v2.197.0'], check=True, capture_output=True)
         server = ThreadingHTTPServer(('127.0.0.1', 3313), Proxy)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         env = os.environ.copy()
@@ -105,4 +137,5 @@ def run_portal_browser(db_name, secret, sql, output):
         if server:
             server.shutdown()
             server.server_close()
-        subprocess.run(['docker', 'rm', '-f', name], capture_output=True)
+        for container in (name, auth_name):
+            subprocess.run(['docker', 'rm', '-f', container], capture_output=True)

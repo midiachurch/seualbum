@@ -24,7 +24,7 @@ test('visitante entrega seleção real e perde acesso após revogação',async({
   await page.goto(`/portal/${link}`)
   await expect(page.getByRole('heading',{name:'Portal browser sintético',exact:true})).toBeVisible()
   await page.getByRole('button',{name:'Marcar como favorita',exact:true}).click()
-  await expect(page.getByRole('status')).toContainText('1 fotos favoritas')
+  await expect(page.getByRole('status')).toContainText('1 foto favorita')
   await page.reload()
   await expect(page.getByRole('button',{name:'Remover dos favoritos',exact:true})).toBeVisible()
   await page.getByRole('button',{name:'Entregar seleção',exact:true}).click()

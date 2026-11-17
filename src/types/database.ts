@@ -1028,6 +1028,7 @@ export type Database = {
     }
     Functions: {
       criar_galeria_digital: { Args: { p_id: string; p_nome: string; p_cliente_nome: string; p_cliente_email: string }; Returns: string }
+      estado_portal: { Args: { p_projeto_id: string }; Returns: Json }
       gerir_portal: { Args: { p_projeto_id: string; p_link_hash: string | null; p_codigo: string | null; p_revogar?: boolean }; Returns: string | null }
       abrir_portal: { Args: { p_link_hash: string; p_codigo: string; p_sessao_hash: string }; Returns: boolean }
       portal_projeto: { Args: { p_sessao_hash: string; p_apos?: string }; Returns: Json }

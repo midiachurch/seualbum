@@ -2,20 +2,15 @@ import Link from 'next/link'
 
 const COLUNAS = [
   {
-    titulo: 'Serviço',
-    links: [
-      { href: '/#servicos', label: 'Como funciona' },
-      { href: '/#planos', label: 'Planos e preços' },
-      { href: '/#comparativo', label: 'Comparar recursos' },
-      { href: '/portfolio', label: 'Portfólio' },
-    ],
+    titulo: 'Galerias digitais',
+    links: [{ href: '/#como-funciona', label: 'Como funciona' }, { href: '/dashboard/galerias', label: 'Minhas galerias' }],
   },
   {
     titulo: 'Conta',
     links: [
       { href: '/auth/login', label: 'Entrar' },
       { href: '/auth/register', label: 'Criar conta' },
-      { href: '/dashboard', label: 'Painel do estúdio' },
+      { href: '/dashboard/galerias', label: 'Painel do estúdio' },
     ],
   },
   {
@@ -37,7 +32,7 @@ export function SiteFooter() {
             <img src="/brand/logo-dark.png" alt="Seu Álbum" className="h-10 w-auto" />
           </Link>
           <p className="mt-3 max-w-xs text-sm text-[#595959]">
-            Diagramação e design de álbuns white label para fotógrafos profissionais.
+            Suas fotografias e a seleção do cliente em um espaço privado.
           </p>
         </div>
 

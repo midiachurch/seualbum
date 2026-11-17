@@ -27,11 +27,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'SeuÁlbum — Diagramação de álbuns para fotógrafos',
+    default: 'SeuÁlbum — Galerias digitais para fotógrafos',
     template: '%s | SeuÁlbum',
   },
   description:
-    'Serviço white label de diagramação e design de álbuns para fotógrafos. Envie o link das fotos, acompanhe a produção e entregue o arquivo pronto para a gráfica.',
+    'Galerias privadas para compartilhar fotos e receber a seleção dos seus clientes, sem cadastro para quem escolhe.',
   openGraph: {
     type: 'website',
     locale: 'pt_BR',

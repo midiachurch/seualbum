@@ -1,0 +1,16 @@
+Migrations processadas: 48 (0015 sem segredo Vault)
+checkout_fatura.test.sql: 18 verificações, OK
+controle_diagramacao.test.sql: 26 verificações, OK
+escopo_producao.test.sql: 224 verificações, OK
+estado_portal.test.sql: 10 verificações, OK
+favorito_manual.test.sql: 35 verificações, OK
+fluxo_adicionais.test.sql: 54 verificações, OK
+galeria_digital.test.sql: 12 verificações, OK
+mensagens.test.sql: 62 verificações, OK
+painel_aprovacao_cliente.test.sql: 27 verificações, OK
+papel_app_metadata.test.sql: 6 verificações, OK
+portal_privado.test.sql: 40 verificações, OK
+r2_uploads_pendentes.test.sql: 25 verificações, OK
+selecao_entregue.test.sql: 35 verificações, OK
+storage_privado.test.sql: 40 verificações, OK
+travas_seguranca.test.sql: 70 verificações, OK

@@ -7,7 +7,7 @@ export default defineConfig({
   webServer: { command:'node node_modules/next/dist/bin/next dev --webpack --hostname 127.0.0.1 --port 3314', url:`${url}/portal/${'a'.repeat(64)}`, reuseExistingServer:false, timeout:180_000,
     env: { NEXT_PUBLIC_SUPABASE_URL:'http://127.0.0.1:3313', NEXT_PUBLIC_SUPABASE_ANON_KEY:process.env.SEUALBUM_PORTAL_TEST_ANON,
       NEXT_PUBLIC_SITE_URL:url, SUPABASE_SERVICE_ROLE_KEY:'', STRIPE_SECRET_KEY:'', STRIPE_WEBHOOK_SECRET:'', WEBHOOK_SECRET:'',
-      R2_ACCOUNT_ID:'', R2_ACCESS_KEY_ID:'', R2_SECRET_ACCESS_KEY:'', R2_BUCKET:'', R2_PUBLIC_BUCKET:'', R2_PUBLIC_URL:'',
+      R2_ACCOUNT_ID:'synthetic', R2_ACCESS_KEY_ID:'synthetic', R2_SECRET_ACCESS_KEY:'synthetic-local-only', R2_BUCKET:'synthetic', R2_PUBLIC_BUCKET:'', R2_PUBLIC_URL:'',
       AWS_REKOGNITION_REGION:'', AWS_REKOGNITION_ACCESS_KEY_ID:'', AWS_REKOGNITION_SECRET_ACCESS_KEY:'',
       AWS_ACCESS_KEY_ID:'',AWS_SECRET_ACCESS_KEY:'',AWS_SESSION_TOKEN:'',CRON_SECRET:'',NEXT_TELEMETRY_DISABLED:'1' }
   },

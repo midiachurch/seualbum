@@ -14,9 +14,9 @@ export default async function LoginPage() {
   return (
     <>
       {devLogin ? <DevLoginPanel configurados={devLogin} /> : null}
-      <h1 className="text-display-l text-[#444444]">Área do cliente</h1>
+      <h1 className="text-display-l text-[#444444]">Entre no seu espaço</h1>
       <p className="text-body mt-2 text-[#595959]">
-        Acompanhe seus álbuns e envie novos pedidos.
+        Organize suas galerias e acompanhe a seleção dos seus clientes.
       </p>
 
       <div className="mt-8">

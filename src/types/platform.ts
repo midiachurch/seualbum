@@ -112,6 +112,7 @@ export function areaDoPapel(role: PlatformRole | null | undefined): '/admin' | '
  * o designer: a casa dele é a própria fila (ele não vê o dashboard do admin).
  */
 export function rotaDoPapel(role: PlatformRole | null | undefined): string {
+  if (role === 'fotografo') return '/dashboard/galerias'
   if (role === 'designer') return '/admin/design'
   return areaDoPapel(role)
 }

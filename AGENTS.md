@@ -37,3 +37,8 @@ O pedido Fase 01 autoriza implementação incremental do produto digital, migrat
 ## Etapa 02 — autorização vigente
 
 O comando Etapa 02 autoriza três frentes reais, implementação e testes locais, commits/push de desenvolvimento, atualização do PR #2 draft e previews não produtivos. Índice em `docs/operacao-digital/README.md`, status em `STATUS-OPERACAO.md`, contratos em `ETAPA-02-CONTRACTS.md`. Não executar migration remota, merge/produção, custo, exclusão ou mudança externa sensível sem aprovação. Preservar d03cf8d, editor, selfie, prova/extras e pesquisa local. Gates locais não certificam schema remoto ou mídia real. Nenhum novo agente deve repetir as tarefas já integradas sem ler o status.
+
+
+## Galerias Digitais v1 — autorização posterior (17/11/2026)
+
+O pedido anexado "Implemente e publique a versão Galerias Digitais do Seu Álbum" autoriza branch/worktree separados, implementação, testes, push, nova PR baseada em main, migrations revisadas, merge e produção após os gates. Destinos exclusivos: Supabase Seu Álbum (`ytqbyfmroyilinxdhopv`), Vercel `seualbum`, GitHub `midiachurch/seualbum`. A experiência desta versão deixa de oferecer editor/prova/diagramação/físico/extras/cobrança na navegação; dados, contratos e rotas legadas permanecem preservados. Não ampliar papéis de conta ou alterar outros projetos para passar testes. Parar antes de operação remota com alvo/efeito divergente. Status da entrega em `docs/operacao-digital/GALERIAS-DIGITAIS-V1.md`.

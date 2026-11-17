@@ -15,11 +15,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (role !== 'fotografo') redirect(rotaDoPapel(role))
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[#f8f9fb]">
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:p-4">Pular para o conteúdo</a>
       <header className="font-marketing border-b border-[#EAEAEA] bg-white">
         <div className="container flex h-16 items-center justify-between gap-6">
           <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="flex min-h-[44px] shrink-0 items-center">
+            <Link href="/dashboard/galerias" className="flex min-h-[44px] shrink-0 items-center">
               {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
               <img src="/brand/logo-dark.png" alt="Seu Álbum" className="h-8 w-auto" />
             </Link>
@@ -45,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <DashboardNavMobile />
       </header>
 
-      <main className="container flex-1 py-10">{children}</main>
+      <main id="conteudo" className="container flex-1 py-8 sm:py-12">{children}</main>
     </div>
   )
 }

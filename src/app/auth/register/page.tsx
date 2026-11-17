@@ -10,7 +10,7 @@ export default function RegisterPage() {
     <>
       <h1 className="text-display-l text-[#444444]">Crie a conta do seu estúdio</h1>
       <p className="text-body mt-2 text-[#595959]">
-        Leva menos de um minuto. Você só paga quando enviar o primeiro álbum.
+        Crie seu espaço para compartilhar fotos e receber seleções.
       </p>
 
       <div className="mt-8">
