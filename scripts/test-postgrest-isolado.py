@@ -3,6 +3,8 @@
 Execute SEUALBUM_API_TESTS=1 python3 scripts/test-db-isolado.py.
 Sem portas no host, sem pull, sem .env. JWTs sintéticos não passam por Auth.
 """
+import os
+import importlib.util
 import base64
 import hashlib
 import hmac
@@ -72,6 +74,11 @@ console.log('ok - conta inativa com JWT já emitido retorna HTTP 403');
         with (output / 'postgrest-http.log').open('a') as log:
             log.write(result.stdout)
         print(result.stdout, end='', flush=True)
+        if os.environ.get('SEUALBUM_PORTAL_BROWSER') == '1':
+            spec = importlib.util.spec_from_file_location('portal_browser', ROOT / 'scripts/portal-browser-isolado.py')
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.run_portal_browser(db_name, secret, sql, output)
     finally:
         for name in (client_name, api_name):
             subprocess.run(['docker', 'rm', '-f', name], capture_output=True)

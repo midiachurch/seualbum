@@ -12,7 +12,7 @@ import { ANON_KEY, PORTA_APP, SERVICE_KEY, SUPABASE_URL, URL_APP } from './e2e/s
 export default defineConfig({
   testDir: './e2e',
   // O editor de álbum tem config própria (R2 falso): playwright.editor.config.ts.
-  testIgnore: ['editor/**', 'demo/**'],
+  testIgnore: ['editor/**', 'demo/**', 'portal/**'],
   globalSetup: './e2e/global-setup.ts',
   // Um navegador por vez: o `next dev` compila cada rota na primeira visita.
   fullyParallel: false,

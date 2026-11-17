@@ -32,6 +32,8 @@ def sql(content, user="postgres"):
 
 
 def main():
+    if os.environ.get("SEUALBUM_PORTAL_BROWSER") == "1" and os.environ.get("SEUALBUM_API_TESTS") != "1":
+        raise RuntimeError("SEUALBUM_PORTAL_BROWSER exige SEUALBUM_API_TESTS=1")
     for image in (DB_IMAGE, STORAGE_IMAGE, AUTH_IMAGE):
         run(["docker", "image", "inspect", image])
     try:
@@ -103,6 +105,11 @@ def main():
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             module.run_api(NAME, sql, OUTPUT)
+        if os.environ.get("SEUALBUM_SELECTION_CONCURRENCY") == "1":
+            spec = importlib.util.spec_from_file_location("selection_concurrency", ROOT / "scripts/selecao-concorrencia.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.run_selection_concurrency(NAME, sql, OUTPUT)
         print("Resultados: " + str(OUTPUT), flush=True)
         if failed:
             raise SystemExit(1)
