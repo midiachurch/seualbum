@@ -1,0 +1,20 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+const m=vi.hoisted(()=>({rpc:vi.fn(),set:vi.fn(),hash:vi.fn(),require:vi.fn(),config:true}))
+vi.mock('next/headers',()=>({cookies:async()=>({set:m.set})}))
+vi.mock('@/lib/supabase/server',()=>({createPublicClient:()=>({rpc:m.rpc})}))
+vi.mock('@/lib/supabase/queries',()=>({requireUser:m.require}))
+vi.mock('@/lib/portal/servidor',()=>({portalConfigurado:()=>m.config,sessaoPortal:m.hash}))
+const { entrarPortal, favoritoPortal, entregarPortal, criarAcessoPortal, revogarAcessoPortal }=await import('./portal')
+const link='a'.repeat(64),foto='d1000000-0000-4000-8000-000000000001'
+beforeEach(()=>{vi.clearAllMocks();m.config=true;m.rpc.mockResolvedValue({data:true,error:null});m.hash.mockResolvedValue('b'.repeat(64));m.require.mockResolvedValue({supabase:{rpc:m.rpc}})})
+describe('portal sem cadastro',()=>{
+  it('entrada inválida não toca o backend',async()=>{expect((await entrarPortal('../','12345678')).ok).toBe(false);expect(m.rpc).not.toHaveBeenCalled()})
+  it('código inválido não cria cookie',async()=>{m.rpc.mockResolvedValue({data:false,error:null});expect((await entrarPortal(link,'12345678')).ok).toBe(false);expect(m.set).not.toHaveBeenCalled()})
+  it('sucesso grava apenas sessão opaca HttpOnly',async()=>{expect((await entrarPortal(link,'12345678')).ok).toBe(true);const [nome,token,opts]=m.set.mock.calls[0];expect(nome).toBe('seualbum_portal');expect(token).toMatch(/^[a-f0-9]{64}$/);expect(opts.httpOnly).toBe(true);expect(JSON.stringify(m.rpc.mock.calls)).not.toContain(token)})
+  it('favorito sem sessão não altera dados',async()=>{m.hash.mockResolvedValue(null);expect((await favoritoPortal(link,foto,true)).ok).toBe(false);expect(m.rpc).not.toHaveBeenCalled()})
+  it('favorito usa sessão do servidor e estado explícito',async()=>{expect((await favoritoPortal(link,foto,false)).ok).toBe(true);expect(m.rpc).toHaveBeenCalledWith('portal_favorito',{p_sessao_hash:'b'.repeat(64),p_foto_id:foto,p_favorita:false})})
+  it('entrega rejeita revisão inválida',async()=>{expect((await entregarPortal(link,-1,foto)).ok).toBe(false);expect(m.rpc).not.toHaveBeenCalled()})
+  it('erro SQL não vaza detalhes',async()=>{m.rpc.mockResolvedValue({data:null,error:{message:'interno secreto'}});expect(JSON.stringify(await entregarPortal(link,0,foto,[foto]))).not.toContain('interno secreto')})
+  it('criação utiliza sessão normal e retorna credencial somente após sucesso',async()=>{const r=await criarAcessoPortal(foto);expect(r.ok).toBe(true);if(r.ok){expect(r.codigo).toMatch(/^\d{8}$/);expect(r.caminho).toMatch(/^\/portal\/[a-f0-9]{64}$/)}})
+  it('revogação é autorizada pela RPC sem fornecer código',async()=>{expect((await revogarAcessoPortal(foto)).ok).toBe(true);expect(m.rpc).toHaveBeenCalledWith('gerir_portal',{p_projeto_id:foto,p_link_hash:null,p_codigo:null,p_revogar:true})})
+})
