@@ -25,3 +25,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Não usar o projeto MidiaChurch nem expor credenciais ou dados pessoais em artefatos/testes/logs.
 
 <!-- END:seualbum-planning -->
+
+<!-- BEGIN:operacao-digital -->
+
+## Operação Digital — 16/11/2026
+
+O pedido Fase 01 autoriza implementação incremental do produto digital, migrations versionadas/testes seguros, três frentes em worktrees, publicação no GitHub via PR e preview. Prioridade vigente e contratos em `docs/operacao-digital/MASTER-PLAN.md` e `ARCHITECTURE.md`; resultados em `EXECUTION-STATUS.md`. As restrições documentais anteriores ficam históricas no que conflitarem com esta autorização. Preservar editor, selfie, prova, extras e integrações. Sem produção, custos adicionais, preços definitivos, exclusões ou migrations de produção com risco sem aprovação. Não usar outros projetos da conta.
+
+<!-- END:operacao-digital -->

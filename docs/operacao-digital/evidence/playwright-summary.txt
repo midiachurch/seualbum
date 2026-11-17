@@ -1,0 +1,4 @@
+Árvore integrada: 2/2 Chromium, 13,6 s.
+Favorito atualiza contador/filtro e retorna à grade: aprovado.
+Modal com setas/Escape e restauração de foco: aprovado.
+Integrações externas desligadas; não verifica persistência ou Auth.

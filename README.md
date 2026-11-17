@@ -1,5 +1,7 @@
 # SeuÁlbum
 
+Estratégia vigente: [Fase 01 — Operação Digital](docs/operacao-digital/MASTER-PLAN.md). [Execução e gates](docs/operacao-digital/EXECUTION-STATUS.md).
+
 Plataforma B2B de diagramação e design de álbuns para fotógrafos.
 Next.js (App Router) + Supabase + Tailwind/Radix, deploy na Vercel.
 

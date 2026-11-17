@@ -1,5 +1,7 @@
 # SeuAlbum 2.0 — planejamento mestre
 
+> Prioridade atual desde 16/11/2026: [Fase 01 — Operação Digital](operacao-digital/MASTER-PLAN.md). Este documento preserva o planejamento histórico; a nova frente autoriza implementação incremental e prioriza o primeiro produto digital comercial. Resultados atuais em [EXECUTION-STATUS](operacao-digital/EXECUTION-STATUS.md).
+
 Data: 15/11/2026. Status: consolidação local S1 autorizada e em execução; regressão SQL aprovada, gate de API/E2E e baseline remota pendentes. Sem rollout. Consulte [CONSOLIDACAO](sprints/CONSOLIDACAO.md).
 
 ## Diagnóstico executivo

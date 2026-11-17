@@ -1,5 +1,7 @@
 # Estado atual — leitura local em 15/11/2026
 
+> Atualização 16/11/2026: primeiro incremento da Operação Digital em [EXECUTION-STATUS](../operacao-digital/EXECUTION-STATUS.md). A descrição abaixo preserva a baseline histórica.
+
 Atualização S1: upload corrigido localmente; migration 0043 validada em banco descartável com 512 verificações SQL aprovadas. E2E bloqueado por API local ausente, remoto desconhecido. O inventário histórico abaixo descreve a baseline; situação vigente em [CONSOLIDACAO](../sprints/CONSOLIDACAO.md).
 
 Commit-base local: `1d90e82`. A leitura descreve o checkout local e não o release em produção.

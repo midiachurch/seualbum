@@ -1,6 +1,6 @@
 # ADR-003 — Favoritos e seleção separados da aprovação
 
-Status: diretriz aprovada em 15/11/2026; ainda não implementada.
+Status: diretriz aprovada em 15/11/2026; comando de favorito manual implementado/testado localmente em 16/11 na Operação Digital. Entrega por snapshot permanece pendente; nenhuma implantação remota. Ver [execução](../operacao-digital/EXECUTION-STATUS.md).
 
 ## Contexto
 
