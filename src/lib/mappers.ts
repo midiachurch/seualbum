@@ -121,6 +121,7 @@ export function mapTeamMember(row: Profile): TeamMember {
 
 export function mapPhoto(row: FotoRow): Photo {
   return {
+    nomeArquivo: row.nome_original ?? undefined,
     id: row.id,
     url: row.url ?? '',
     grupo: row.grupo ?? '',

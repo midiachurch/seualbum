@@ -1,0 +1,51 @@
+1..35
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 1 - ator 1 projeto 1 manual permitido
+ok 2 - ator 1 projeto 2 manual negado
+{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 3 - ator 2 projeto 1 manual negado
+ok 4 - ator 2 projeto 2 manual permitido
+{"sub":"91000000-0000-4000-8000-000000000003","role":"authenticated"}
+ok 5 - ator 3 projeto 1 manual permitido
+ok 6 - ator 3 projeto 2 manual negado
+{"sub":"91000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 7 - ator 4 projeto 1 manual negado
+ok 8 - ator 4 projeto 2 manual permitido
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 9 - ator 5 projeto 1 manual permitido
+ok 10 - ator 5 projeto 2 manual negado
+{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 11 - ator 6 projeto 1 manual negado
+ok 12 - ator 6 projeto 2 manual permitido
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+ok 13 - ator 7 projeto 1 manual permitido
+ok 14 - ator 7 projeto 2 manual permitido
+{"sub":"91000000-0000-4000-8000-000000000008","role":"authenticated"}
+ok 15 - ator 8 projeto 1 manual permitido
+ok 16 - ator 8 projeto 2 manual permitido
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 17 - desmarcar retorna sucesso
+ok 18 - desmarcação persistida
+ok 19 - marcação repetida não duplica evento
+ok 20 - evento atribui ator real
+ok 21 - evento tem data real
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 22 - foto de outro projeto negada
+ok 23 - foto inexistente negada
+ok 24 - estado null negado
+ok 25 - selfie mantém contrato original
+ok 26 - selfie ainda marca foto
+ok 27 - selfie mantém origem distinta
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 28 - conta inativa negada
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 29 - atribuição revogada negada
+{"role":"authenticated"}
+ok 30 - sessão sem sub negada
+ok 31 - anon sem grant
+ok 32 - service role sem grant
+ok 33 - authenticated possui grant
+ok 34 - falhas não alteram histórico manual
+ok 35 - falhas não desmarcam foto

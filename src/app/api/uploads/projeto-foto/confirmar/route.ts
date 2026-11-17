@@ -1,3 +1,4 @@
+import { normalizarNomeOriginal } from '@/lib/r2/nome-original'
 import { revalidatePath } from 'next/cache'
 import { after, NextResponse, type NextRequest } from 'next/server'
 import { BUCKET_R2, lerChaveFotoProjeto, lerExifConfirmacao, MIMES_FOTO_PROJETO, TAMANHO_MAXIMO_FOTO_PROJETO_R2 } from '@/lib/r2/chaves'
@@ -26,7 +27,7 @@ export const maxDuration = 60
  * foto uma vez só — uma foto apagada não volta por quem soubesse a chave.
  */
 export async function POST(request: NextRequest) {
-  const corpo = (await lerJson(request)) as { key?: unknown; grupo?: unknown; capturadaEm?: unknown; camera?: unknown } | null
+  const corpo = (await lerJson(request)) as { key?: unknown; grupo?: unknown; capturadaEm?: unknown; camera?: unknown; nomeOriginal?: unknown } | null
   const lida = lerChaveFotoProjeto(corpo?.key)
   if (!lida) return NextResponse.json({ erro: 'Arquivo inválido.' }, { status: 400 })
   const key = corpo!.key as string
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
         url: null,
         grupo,
         enviado_por: userId,
+        nome_original: normalizarNomeOriginal(corpo?.nomeOriginal),
         ...lerExifConfirmacao(corpo),
       })
       .select('id')

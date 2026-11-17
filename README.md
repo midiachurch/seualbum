@@ -1,7 +1,16 @@
 # SeuÁlbum
 
+Estratégia vigente: [Fase 01 — Operação Digital](docs/operacao-digital/MASTER-PLAN.md). [Execução e gates](docs/operacao-digital/EXECUTION-STATUS.md).
+
 Plataforma B2B de diagramação e design de álbuns para fotógrafos.
 Next.js (App Router) + Supabase + Tailwind/Radix, deploy na Vercel.
+
+## Planejamento SeuAlbum 2.0
+
+O [masterplan](docs/MASTERPLAN.md) centraliza visão, auditoria local,
+arquitetura modular, produtos, permissões, roadmap e decisões propostas.
+Este README continua sendo o guia de operação do MVP. O planejamento não
+autoriza migrations, implementação ou deploy por si só.
 
 ## Rodando localmente
 
@@ -501,7 +510,7 @@ passa a ler o próprio cadastro do cliente com colunas explícitas e a lista de
 clientes pela RPC `listar_clientes_visiveis` — publique o app junto com a
 migration (app primeiro, migration logo em seguida).
 
-Pendente: todas as migrations até a 0040 já estão aplicadas (a 0041 ainda não); falta criar o bucket público do R2
+Estado remoto não verificado nesta sprint: a afirmação histórica de 0041 pendente contradiz o comentário do SQL. Não presumir aplicação de 0041–0043. A 0043 foi testada somente localmente; ver `docs/sprints/CONSOLIDACAO.md`. Pendência histórica de infraestrutura a confirmar: criar o bucket público do R2
 (`R2_PUBLIC_BUCKET`/`R2_PUBLIC_URL`). Opcional: copiar os arquivos antigos com
 `scripts/copiar-storage-para-r2.mjs`. Também: desligar `pagamento_simulado` quando o Stripe
 estiver pronto e deploy na Vercel

@@ -1,0 +1,6 @@
+Commit remoto examinado: d7413a5. PR #2 aberto, draft.
+CI run 43993399082: success; tipos, lint, Vitest aprovados.
+Vercel deployment 7841064118: Preview success. Alias branch HTTP 302 -> SSO Vercel.
+Local: 44 migrations; 587 SQL aprovados e 46 HTTP aprovados; exit 0.
+Supabase migration list --linked: 403, baseline não obtida; nenhuma migration remota.
+Sem runtime Storage, R2/IAM/CORS ou login Auth certificados.

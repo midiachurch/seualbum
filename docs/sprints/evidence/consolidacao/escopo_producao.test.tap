@@ -1,0 +1,247 @@
+1..224
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 1 - fotografo 1 / projeto 1: helper
+ok 2 - fotografo 1 / projeto 1: RLS fotos
+ok 3 - fotografo 1 / projeto 1: RPC permitida
+ok 4 - fotografo 1 / projeto 2: helper
+ok 5 - fotografo 1 / projeto 2: RLS fotos
+ok 6 - fotografo 1 / projeto 2: RPC negada
+{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 7 - fotografo 2 / projeto 1: helper
+ok 8 - fotografo 2 / projeto 1: RLS fotos
+ok 9 - fotografo 2 / projeto 1: RPC negada
+ok 10 - fotografo 2 / projeto 2: helper
+ok 11 - fotografo 2 / projeto 2: RLS fotos
+ok 12 - fotografo 2 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000003","role":"authenticated"}
+ok 13 - cliente 3 / projeto 1: helper
+ok 14 - cliente 3 / projeto 1: RLS fotos
+ok 15 - cliente 3 / projeto 1: RPC permitida
+ok 16 - cliente 3 / projeto 2: helper
+ok 17 - cliente 3 / projeto 2: RLS fotos
+ok 18 - cliente 3 / projeto 2: RPC negada
+{"sub":"91000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 19 - cliente 4 / projeto 1: helper
+ok 20 - cliente 4 / projeto 1: RLS fotos
+ok 21 - cliente 4 / projeto 1: RPC negada
+ok 22 - cliente 4 / projeto 2: helper
+ok 23 - cliente 4 / projeto 2: RLS fotos
+ok 24 - cliente 4 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 25 - designer 5 / projeto 1: helper
+ok 26 - designer 5 / projeto 1: RLS fotos
+ok 27 - designer 5 / projeto 1: RPC permitida
+ok 28 - designer 5 / projeto 2: helper
+ok 29 - designer 5 / projeto 2: RLS fotos
+ok 30 - designer 5 / projeto 2: RPC negada
+{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 31 - operador 6 / projeto 1: helper
+ok 32 - operador 6 / projeto 1: RLS fotos
+ok 33 - operador 6 / projeto 1: RPC negada
+ok 34 - operador 6 / projeto 2: helper
+ok 35 - operador 6 / projeto 2: RLS fotos
+ok 36 - operador 6 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+ok 37 - admin 7 / projeto 1: helper
+ok 38 - admin 7 / projeto 1: RLS fotos
+ok 39 - admin 7 / projeto 1: RPC permitida
+ok 40 - admin 7 / projeto 2: helper
+ok 41 - admin 7 / projeto 2: RLS fotos
+ok 42 - admin 7 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000008","role":"authenticated"}
+ok 43 - gestor 8 / projeto 1: helper
+ok 44 - gestor 8 / projeto 1: RLS fotos
+ok 45 - gestor 8 / projeto 1: RPC permitida
+ok 46 - gestor 8 / projeto 2: helper
+ok 47 - gestor 8 / projeto 2: RLS fotos
+ok 48 - gestor 8 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 49 - ator 1 projeto 1 lê projetos
+ok 50 - ator 1 projeto 1 lê design_versions
+ok 51 - ator 1 projeto 1 lê versoes_laminas
+ok 52 - ator 1 projeto 1 lê album_layouts
+ok 53 - ator 1 projeto 1 lê album_layout_versoes
+ok 54 - ator 1 projeto 1 lê faturas
+ok 55 - ator 1 projeto 1 lê conversas
+ok 56 - ator 1 projeto 1 lê mensagens
+ok 57 - ator 1 projeto 1 reconhecimento
+ok 58 - ator 1 projeto 1 cria versão
+ok 59 - ator 1 projeto 2 lê projetos
+ok 60 - ator 1 projeto 2 lê design_versions
+ok 61 - ator 1 projeto 2 lê versoes_laminas
+ok 62 - ator 1 projeto 2 lê album_layouts
+ok 63 - ator 1 projeto 2 lê album_layout_versoes
+ok 64 - ator 1 projeto 2 lê faturas
+ok 65 - ator 1 projeto 2 lê conversas
+ok 66 - ator 1 projeto 2 lê mensagens
+ok 67 - ator 1 projeto 2 reconhecimento
+ok 68 - ator 1 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 69 - ator 2 projeto 1 lê projetos
+ok 70 - ator 2 projeto 1 lê design_versions
+ok 71 - ator 2 projeto 1 lê versoes_laminas
+ok 72 - ator 2 projeto 1 lê album_layouts
+ok 73 - ator 2 projeto 1 lê album_layout_versoes
+ok 74 - ator 2 projeto 1 lê faturas
+ok 75 - ator 2 projeto 1 lê conversas
+ok 76 - ator 2 projeto 1 lê mensagens
+ok 77 - ator 2 projeto 1 reconhecimento
+ok 78 - ator 2 projeto 1 cria versão
+ok 79 - ator 2 projeto 2 lê projetos
+ok 80 - ator 2 projeto 2 lê design_versions
+ok 81 - ator 2 projeto 2 lê versoes_laminas
+ok 82 - ator 2 projeto 2 lê album_layouts
+ok 83 - ator 2 projeto 2 lê album_layout_versoes
+ok 84 - ator 2 projeto 2 lê faturas
+ok 85 - ator 2 projeto 2 lê conversas
+ok 86 - ator 2 projeto 2 lê mensagens
+ok 87 - ator 2 projeto 2 reconhecimento
+ok 88 - ator 2 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000003","role":"authenticated"}
+ok 89 - ator 3 projeto 1 lê projetos
+ok 90 - ator 3 projeto 1 lê design_versions
+ok 91 - ator 3 projeto 1 lê versoes_laminas
+ok 92 - ator 3 projeto 1 lê album_layouts
+ok 93 - ator 3 projeto 1 lê album_layout_versoes
+ok 94 - ator 3 projeto 1 lê faturas
+ok 95 - ator 3 projeto 1 lê conversas
+ok 96 - ator 3 projeto 1 lê mensagens
+ok 97 - ator 3 projeto 1 reconhecimento
+ok 98 - ator 3 projeto 1 cria versão
+ok 99 - ator 3 projeto 2 lê projetos
+ok 100 - ator 3 projeto 2 lê design_versions
+ok 101 - ator 3 projeto 2 lê versoes_laminas
+ok 102 - ator 3 projeto 2 lê album_layouts
+ok 103 - ator 3 projeto 2 lê album_layout_versoes
+ok 104 - ator 3 projeto 2 lê faturas
+ok 105 - ator 3 projeto 2 lê conversas
+ok 106 - ator 3 projeto 2 lê mensagens
+ok 107 - ator 3 projeto 2 reconhecimento
+ok 108 - ator 3 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 109 - ator 4 projeto 1 lê projetos
+ok 110 - ator 4 projeto 1 lê design_versions
+ok 111 - ator 4 projeto 1 lê versoes_laminas
+ok 112 - ator 4 projeto 1 lê album_layouts
+ok 113 - ator 4 projeto 1 lê album_layout_versoes
+ok 114 - ator 4 projeto 1 lê faturas
+ok 115 - ator 4 projeto 1 lê conversas
+ok 116 - ator 4 projeto 1 lê mensagens
+ok 117 - ator 4 projeto 1 reconhecimento
+ok 118 - ator 4 projeto 1 cria versão
+ok 119 - ator 4 projeto 2 lê projetos
+ok 120 - ator 4 projeto 2 lê design_versions
+ok 121 - ator 4 projeto 2 lê versoes_laminas
+ok 122 - ator 4 projeto 2 lê album_layouts
+ok 123 - ator 4 projeto 2 lê album_layout_versoes
+ok 124 - ator 4 projeto 2 lê faturas
+ok 125 - ator 4 projeto 2 lê conversas
+ok 126 - ator 4 projeto 2 lê mensagens
+ok 127 - ator 4 projeto 2 reconhecimento
+ok 128 - ator 4 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 129 - ator 5 projeto 1 lê projetos
+ok 130 - ator 5 projeto 1 lê design_versions
+ok 131 - ator 5 projeto 1 lê versoes_laminas
+ok 132 - ator 5 projeto 1 lê album_layouts
+ok 133 - ator 5 projeto 1 lê album_layout_versoes
+ok 134 - ator 5 projeto 1 lê faturas
+ok 135 - ator 5 projeto 1 lê conversas
+ok 136 - ator 5 projeto 1 lê mensagens
+ok 137 - ator 5 projeto 1 reconhecimento
+ok 138 - ator 5 projeto 1 cria versão
+ok 139 - ator 5 projeto 2 lê projetos
+ok 140 - ator 5 projeto 2 lê design_versions
+ok 141 - ator 5 projeto 2 lê versoes_laminas
+ok 142 - ator 5 projeto 2 lê album_layouts
+ok 143 - ator 5 projeto 2 lê album_layout_versoes
+ok 144 - ator 5 projeto 2 lê faturas
+ok 145 - ator 5 projeto 2 lê conversas
+ok 146 - ator 5 projeto 2 lê mensagens
+ok 147 - ator 5 projeto 2 reconhecimento
+ok 148 - ator 5 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 149 - ator 6 projeto 1 lê projetos
+ok 150 - ator 6 projeto 1 lê design_versions
+ok 151 - ator 6 projeto 1 lê versoes_laminas
+ok 152 - ator 6 projeto 1 lê album_layouts
+ok 153 - ator 6 projeto 1 lê album_layout_versoes
+ok 154 - ator 6 projeto 1 lê faturas
+ok 155 - ator 6 projeto 1 lê conversas
+ok 156 - ator 6 projeto 1 lê mensagens
+ok 157 - ator 6 projeto 1 reconhecimento
+ok 158 - ator 6 projeto 1 cria versão
+ok 159 - ator 6 projeto 2 lê projetos
+ok 160 - ator 6 projeto 2 lê design_versions
+ok 161 - ator 6 projeto 2 lê versoes_laminas
+ok 162 - ator 6 projeto 2 lê album_layouts
+ok 163 - ator 6 projeto 2 lê album_layout_versoes
+ok 164 - ator 6 projeto 2 lê faturas
+ok 165 - ator 6 projeto 2 lê conversas
+ok 166 - ator 6 projeto 2 lê mensagens
+ok 167 - ator 6 projeto 2 reconhecimento
+ok 168 - ator 6 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+ok 169 - ator 7 projeto 1 lê projetos
+ok 170 - ator 7 projeto 1 lê design_versions
+ok 171 - ator 7 projeto 1 lê versoes_laminas
+ok 172 - ator 7 projeto 1 lê album_layouts
+ok 173 - ator 7 projeto 1 lê album_layout_versoes
+ok 174 - ator 7 projeto 1 lê faturas
+ok 175 - ator 7 projeto 1 lê conversas
+ok 176 - ator 7 projeto 1 lê mensagens
+ok 177 - ator 7 projeto 1 reconhecimento
+ok 178 - ator 7 projeto 1 cria versão
+ok 179 - ator 7 projeto 2 lê projetos
+ok 180 - ator 7 projeto 2 lê design_versions
+ok 181 - ator 7 projeto 2 lê versoes_laminas
+ok 182 - ator 7 projeto 2 lê album_layouts
+ok 183 - ator 7 projeto 2 lê album_layout_versoes
+ok 184 - ator 7 projeto 2 lê faturas
+ok 185 - ator 7 projeto 2 lê conversas
+ok 186 - ator 7 projeto 2 lê mensagens
+ok 187 - ator 7 projeto 2 reconhecimento
+ok 188 - ator 7 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000008","role":"authenticated"}
+ok 189 - ator 8 projeto 1 lê projetos
+ok 190 - ator 8 projeto 1 lê design_versions
+ok 191 - ator 8 projeto 1 lê versoes_laminas
+ok 192 - ator 8 projeto 1 lê album_layouts
+ok 193 - ator 8 projeto 1 lê album_layout_versoes
+ok 194 - ator 8 projeto 1 lê faturas
+ok 195 - ator 8 projeto 1 lê conversas
+ok 196 - ator 8 projeto 1 lê mensagens
+ok 197 - ator 8 projeto 1 reconhecimento
+ok 198 - ator 8 projeto 1 cria versão
+ok 199 - ator 8 projeto 2 lê projetos
+ok 200 - ator 8 projeto 2 lê design_versions
+ok 201 - ator 8 projeto 2 lê versoes_laminas
+ok 202 - ator 8 projeto 2 lê album_layouts
+ok 203 - ator 8 projeto 2 lê album_layout_versoes
+ok 204 - ator 8 projeto 2 lê faturas
+ok 205 - ator 8 projeto 2 lê conversas
+ok 206 - ator 8 projeto 2 lê mensagens
+ok 207 - ator 8 projeto 2 reconhecimento
+ok 208 - ator 8 projeto 2 cria versão
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 209 - designer não transfere responsável
+ok 210 - designer não remove vínculo para escapar do escopo
+ok 211 - designer edita layout atribuído
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 212 - revogar atribuição revoga acesso
+{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 213 - operador não abre conversa não atribuída
+ok 214 - operador abre conversa atribuída
+ok 215 - operador não escreve em conversa alheia
+ok 216 - operador escreve no projeto atribuído
+ok 217 - operador não insere fatura em projeto alheio
+ok 218 - financeiro nega projeto não atribuído
+ok 219 - financeiro permite operador atribuído
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 220 - conta inativa perde acesso
+ok 221 - conta inativa não ativa reconhecimento
+{}
+ok 222 - claims sem sub falham fechado no financeiro
+ok 223 - claims sem sub não acessam projeto
+ok 224 - anon não executa helper privado

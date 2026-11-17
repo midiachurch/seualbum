@@ -1,0 +1,15 @@
+1..12
+{"sub":"d1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 1 - fotógrafo cria galeria sem pedido
+ok 2 - retry não duplica galeria
+ok 3 - um projeto persistido
+ok 4 - sem antecipar etapa de aprovação/produção
+ok 5 - um cliente sem conta
+ok 6 - nenhuma identidade Auth fictícia
+ok 7 - chave com payload diferente negada
+ok 8 - email inválido rejeitado
+{"sub":"d1000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 9 - outro fotógrafo não lê galeria
+ok 10 - outro fotógrafo não captura chave
+ok 11 - anon não cria galeria
+ok 12 - criação gera um evento real

@@ -1,0 +1,54 @@
+{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 1 - outro fotógrafo não gere portal
+ok 2 - código curto rejeitado
+ok 3 - dono gera acesso
+ok 4 - hashes não legíveis diretamente
+ok 5 - anon não gere portal
+ok 6 - código incorreto negado sem exceção
+ok 7 - tentativa incorreta persistida
+ok 8 - código correto cria sessão sem Auth
+ok 9 - sessão lê somente galeria concedida
+ok 10 - fotos limitadas ao projeto
+ok 11 - listagem não expõe chave de objeto
+ok 12 - sessão inventada negada
+ok 13 - troca de foto para outro projeto negada
+ok 14 - foto autorizada preserva nome
+ok 15 - favorito por capacidade
+ok 16 - favorito retry idempotente
+ok 17 - favorito cruzado negado
+ok 18 - portal entrega snapshot revisão1
+ok 19 - retry entrega retorna mesma revisão
+ok 20 - rascunho posterior não altera entrega
+ok 21 - retry dos IDs confirmados independe do rascunho posterior
+ok 22 - entrega não pode incluir foto de outro projeto
+ok 23 - timeline deduplica entrega e não expõe notas internas
+ok 24 - RLS nega leitura anon direta de fotos privadas
+ok 25 - anon não chama core
+ok 26 - notificação interna única ao fotógrafo
+ok 27 - evento de favorito só na mudança
+{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 28 - renovar acesso revoga anterior
+ok 29 - sessão anterior negada após rotação
+ok 30 - link antigo não abre nova sessão
+ok 31 - novo acesso funciona
+ok 32 - sessão expirada negada
+f
+f
+f
+f
+f
+f
+f
+f
+f
+f
+ok 33 - limite atômico bloqueia login correto até expirar janela
+ok 34 - dez falhas preservadas
+ok 35 - sessão nova após janela de bloqueio
+{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 36 - dono revoga explicitamente
+ok 37 - revogação bloqueia nova escrita
+ok 38 - revogação bloqueia assinatura de imagem
+ok 39 - revogação bloqueia entrega
+ok 40 - tentativas revogadas não alteram snapshot
+1..40

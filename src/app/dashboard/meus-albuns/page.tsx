@@ -343,6 +343,7 @@ function AcaoDoAlbum({
         >
           Mensagens
         </Link>
+        <Link className="text-sm underline" href={`/dashboard/albuns/${order.projetos.id}/compartilhar`}>Galeria e seleção</Link>
       </span>
     )
   }
@@ -352,12 +353,7 @@ function AcaoDoAlbum({
   }
   if (order.projetos) {
     return (
-      <Link
-        href={`/dashboard/albuns/${order.projetos.id}/mensagens`}
-        className={bloco ? 'mt-4 block text-center text-sm font-medium underline underline-offset-2' : 'text-xs font-medium underline underline-offset-2'}
-      >
-        Mensagens
-      </Link>
+      <span className="flex flex-wrap gap-3"><Link href={`/dashboard/albuns/${order.projetos.id}/mensagens`} className="text-sm underline">Mensagens</Link><Link href={`/dashboard/albuns/${order.projetos.id}/compartilhar`} className="text-sm underline">Galeria e seleção</Link></span>
     )
   }
   return bloco ? null : <span className="text-xs text-muted-foreground">—</span>

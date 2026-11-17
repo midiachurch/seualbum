@@ -1,0 +1,7 @@
+1..6
+ok 1 - no INSERT, sem papel em app_metadata, nasce cliente
+ok 2 - papel gravado logo depois do INSERT vale
+ok 3 - fotógrafo criado pelo admin
+ok 4 - fotógrafo ganha a linha em fotografos
+ok 5 - só a primeira definição do papel conta
+ok 6 - conta antiga não vira equipe pelo app_metadata

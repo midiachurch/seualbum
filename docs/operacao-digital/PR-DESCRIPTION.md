@@ -1,0 +1,15 @@
+A Operação Digital agora permite criar galeria sem compra de diagramação, enviar fotos com fila limitada, compartilhar acesso por link/código sem cadastro, confirmar uma seleção versionada e recebê-la/exportá-la na área do fotógrafo. Favoritos, seleção entregue e aprovação de álbum continuam separados; editor, selfie, prova, extras e mensagens existentes foram preservados.
+
+- 0045: snapshots imutáveis por revisão, idempotência com payload explícito, escopo por projeto, notificação interna e nome original nullable. Exportação CSV e links temporários autenticados R2/Storage.
+- 0046: concessão/sessão de portal, código bcrypt, limite de tentativas, expiração, rotação e revogação; RPCs estreitas por capacidade, sem Auth fictício, service role ou policies anon amplas. Portal entrega exatamente os IDs confirmados.
+- 0047: criação digital idempotente reutilizando clientes/projetos, sem dependência de pedido, gráfica ou impressão.
+- Upload: máximo três execuções, lotes/retry com identidade conservada, HEIC sem MIME, nome original sanitizado persistido; progresso por arquivos, sem porcentagem fictícia de bytes.
+- UI: galerias/seleções recebidas no dashboard, compartilhamento, galeria guest paginada, modal/teclado, histórico de criação/entrega sem notas internas. Estratégia e contratos em docs/operacao-digital/README.md.
+
+Validação local integrada: **606 unitários aprovados / sete ignorados; 674 SQL; 64 HTTP; duas sessões concorrentes com um sucesso e um conflito; cinco cenários demo e um cenário guest positivo com Next/Server Actions/PostgREST/SQL reais**. Tipos, lint e build webpack aprovados. O gate guest verifica cookie/recarga/snapshot/notificação/revogação; só imagens foram substituídas. Containers e credenciais são exclusivamente sintéticos; regressões de prova/cobrança preservadas. Inclui a consolidação S1 e d03cf8d anteriores ao ciclo.
+
+**Draft, sem merge/produção e sem migration remota.** Supabase remoto continua com 403 antes de consultar baseline; preview Ready não aplica schema. Auth do fotógrafo, mídia R2/Storage real, Storage legado guest, prova/mensagens pelo guest, escolha comercial integrada de diagramação, timeline completa, assinatura/franquias/tráfego ainda exigem implementação/homologação. URLs guest R2 duram 60 s e não são revogáveis antes de expirar; exportações por 5 min. Limite técnico inicial de 1000 fotos/entrega. Não é lançamento comercial.
+
+Publicação da implementação `cd986e8`: CI run 44009963932 aprovado e [preview](https://seualbum-k3ohahc7i-midiachurch.vercel.app) confirmado success no ambiente Preview, ainda protegido por autenticação Vercel. Documentação posterior registra o recibo; não aplica schema e não representa homologação de serviços remotos.
+
+Revisão independente reforçou o vínculo do hash de sessão ao link; navegador testa cópia do mesmo cookie para outro portal e exige negação, preservando entrega e revogação.

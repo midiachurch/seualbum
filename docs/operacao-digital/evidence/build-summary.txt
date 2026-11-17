@@ -1,0 +1,9 @@
+⚠ Compiled with warnings in 5.0s
+✓ Compiled successfully in 8.6s
+  Running TypeScript ...
+  Finished TypeScript in 7.3s ...
+  Generating static pages using 7 workers (0/59) ...
+  Generating static pages using 7 workers (14/59) 
+  Generating static pages using 7 workers (29/59) 
+  Generating static pages using 7 workers (44/59) 
+✓ Generating static pages using 7 workers (59/59) in 460ms

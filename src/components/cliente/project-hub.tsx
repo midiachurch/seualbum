@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react'
 import { SimpleTabs } from '@/components/ui/simple-tabs'
 import { ClientStageBadge } from '@/components/cliente/client-stage-badge'
 import { ProjectTimeline } from '@/components/cliente/project-timeline'
+import { SelectionDeliveryPanel } from '@/components/cliente/selecao-entregue/selection-delivery-panel'
 import { ClientPhotosManager } from '@/components/cliente/client-photos-manager'
 import { EncontrarMinhasFotos } from '@/components/cliente/encontrar-minhas-fotos'
 import { clientStageOf, type Photographer, type Project } from '@/types/platform'
@@ -93,6 +94,7 @@ export function ProjectHub({
               <div className="space-y-5">
                 {reconhecimentoFacial && project.photos.length > 0 ? <EncontrarMinhasFotos projetoId={project.id} /> : null}
                 <ClientPhotosManager projetoId={project.id} initialPhotos={project.photos} />
+                <SelectionDeliveryPanel projetoId={project.id} />
               </div>
             ),
           },

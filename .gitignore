@@ -37,3 +37,7 @@ site-piloto/
 
 # Originais licenciados do Envato (pesados); o site usa as versões de public/images/
 /_envato-raw/
+
+# Caches Python locais
+__pycache__/
+*.pyc

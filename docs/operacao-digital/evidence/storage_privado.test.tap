@@ -1,0 +1,50 @@
+1..40
+ok 1 - bucket albuns_fotos privado
+ok 2 - RLS objetos habilitada
+{"sub":"b1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 3 - ator 1 projeto 1: leitura privada
+ok 4 - ator 1 projeto 1: update privado
+ok 5 - ator 1 projeto 1: insert negado
+ok 6 - ator 1 projeto 2: leitura privada
+ok 7 - ator 1 projeto 2: update privado
+ok 8 - ator 1 projeto 2: insert negado
+{"sub":"b1000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 9 - ator 2 projeto 1: leitura privada
+ok 10 - ator 2 projeto 1: update privado
+ok 11 - ator 2 projeto 1: insert negado
+ok 12 - ator 2 projeto 2: leitura privada
+ok 13 - ator 2 projeto 2: update privado
+ok 14 - ator 2 projeto 2: insert negado
+{"sub":"b1000000-0000-4000-8000-000000000003","role":"authenticated"}
+ok 15 - ator 3 projeto 1: leitura privada
+ok 16 - ator 3 projeto 1: update privado
+ok 17 - ator 3 projeto 1: insert negado
+ok 18 - ator 3 projeto 2: leitura privada
+ok 19 - ator 3 projeto 2: update privado
+ok 20 - ator 3 projeto 2: insert negado
+{"sub":"b1000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 21 - ator 4 projeto 1: leitura privada
+ok 22 - ator 4 projeto 1: update privado
+ok 23 - ator 4 projeto 1: insert derivado autorizado
+ok 24 - ator 4 projeto 2: leitura privada
+ok 25 - ator 4 projeto 2: update privado
+ok 26 - ator 4 projeto 2: insert negado
+{"sub":"b1000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 27 - ator 5 projeto 1: leitura privada
+ok 28 - ator 5 projeto 1: update privado
+ok 29 - ator 5 projeto 1: insert negado
+ok 30 - ator 5 projeto 2: leitura privada
+ok 31 - ator 5 projeto 2: update privado
+ok 32 - ator 5 projeto 2: insert derivado autorizado
+{"sub":"b1000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 33 - ator 6 projeto 1: leitura privada
+ok 34 - ator 6 projeto 1: update privado
+ok 35 - ator 6 projeto 1: insert derivado autorizado
+ok 36 - ator 6 projeto 2: leitura privada
+ok 37 - ator 6 projeto 2: update privado
+ok 38 - ator 6 projeto 2: insert derivado autorizado
+{"role":"anon"}
+ok 39 - anon não enumera derivados privados
+{"sub":"b1000000-0000-4000-8000-000000000006","role":"authenticated"}
+{"sub":"b1000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 40 - designer inativo não enumera objetos de projeto atribuído

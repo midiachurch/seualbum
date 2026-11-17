@@ -1,0 +1,39 @@
+1..25
+
+ok 1 - servidor reserva a chave para o cliente final que pediu o envio
+ok 2 - a chave já reservada não passa para outra pessoa (nem para o estúdio dono)
+ok 3 - quem reservou pode renovar (assinar de novo)
+ok 4 - chave fora da pasta de fotos do projeto não é reservada
+ok 5 - chave com .. não é reservada
+
+ok 6 - pela sessão do usuário (PostgREST) não dá para reservar
+ok 7 - nem gravar direto na tabela de reservas
+
+ok 8 - o cliente final vê a própria reserva
+
+ok 9 - o estúdio não vê a reserva de outra pessoa
+ok 10 - a corrida: o estúdio não confirma a chave que o cliente final enviou
+ok 11 - nem em nome de quem reservou
+
+ok 12 - quem reservou também não grava em nome de outra pessoa
+ok 13 - quem reservou confirma
+ok 14 - a confirmação consome a reserva
+ok 15 - a mesma chave não é confirmada de novo
+
+ok 16 - chave já registrada em `fotos` não é reservada de novo
+
+ok 17 - o cliente final apaga a própria foto
+ok 18 - nem quem enviou reconfirma a foto apagada sem novo envio
+
+ok 19 - nem outra pessoa que conhecia a chave
+
+ok 20 - reserva vencida não confirma
+
+ok 21 - service_role grava chave da pasta do projeto sem reserva
+
+ok 22 - só as chaves que nenhuma coluna cita (nem a pasta acima) saem; formatos estranhos ficam
+ok 23 - lista vazia não devolve nada
+
+ok 24 - só o servidor consulta referências
+
+ok 25 - no máximo 10000 chaves por chamada

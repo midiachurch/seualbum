@@ -1,0 +1,57 @@
+1..48
+{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 1 - fotografo 1 / projeto 1: helper
+ok 2 - fotografo 1 / projeto 1: RLS fotos
+ok 3 - fotografo 1 / projeto 1: RPC permitida
+ok 4 - fotografo 1 / projeto 2: helper
+ok 5 - fotografo 1 / projeto 2: RLS fotos
+ok 6 - fotografo 1 / projeto 2: RPC negada
+{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 7 - fotografo 2 / projeto 1: helper
+ok 8 - fotografo 2 / projeto 1: RLS fotos
+ok 9 - fotografo 2 / projeto 1: RPC negada
+ok 10 - fotografo 2 / projeto 2: helper
+ok 11 - fotografo 2 / projeto 2: RLS fotos
+ok 12 - fotografo 2 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000003","role":"authenticated"}
+ok 13 - cliente 3 / projeto 1: helper
+ok 14 - cliente 3 / projeto 1: RLS fotos
+ok 15 - cliente 3 / projeto 1: RPC permitida
+ok 16 - cliente 3 / projeto 2: helper
+ok 17 - cliente 3 / projeto 2: RLS fotos
+ok 18 - cliente 3 / projeto 2: RPC negada
+{"sub":"91000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 19 - cliente 4 / projeto 1: helper
+ok 20 - cliente 4 / projeto 1: RLS fotos
+ok 21 - cliente 4 / projeto 1: RPC negada
+ok 22 - cliente 4 / projeto 2: helper
+ok 23 - cliente 4 / projeto 2: RLS fotos
+ok 24 - cliente 4 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 25 - designer 5 / projeto 1: helper
+ok 26 - designer 5 / projeto 1: RLS fotos
+ok 27 - designer 5 / projeto 1: RPC permitida
+ok 28 - designer 5 / projeto 2: helper
+ok 29 - designer 5 / projeto 2: RLS fotos
+ok 30 - designer 5 / projeto 2: RPC negada
+{"sub":"91000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 31 - operador 6 / projeto 1: helper
+ok 32 - operador 6 / projeto 1: RLS fotos
+ok 33 - operador 6 / projeto 1: RPC negada
+ok 34 - operador 6 / projeto 2: helper
+ok 35 - operador 6 / projeto 2: RLS fotos
+ok 36 - operador 6 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000007","role":"authenticated"}
+ok 37 - admin 7 / projeto 1: helper
+ok 38 - admin 7 / projeto 1: RLS fotos
+ok 39 - admin 7 / projeto 1: RPC permitida
+ok 40 - admin 7 / projeto 2: helper
+ok 41 - admin 7 / projeto 2: RLS fotos
+ok 42 - admin 7 / projeto 2: RPC permitida
+{"sub":"91000000-0000-4000-8000-000000000008","role":"authenticated"}
+ok 43 - gestor 8 / projeto 1: helper
+ok 44 - gestor 8 / projeto 1: RLS fotos
+ok 45 - gestor 8 / projeto 1: RPC permitida
+ok 46 - gestor 8 / projeto 2: helper
+ok 47 - gestor 8 / projeto 2: RLS fotos
+ok 48 - gestor 8 / projeto 2: RPC permitida

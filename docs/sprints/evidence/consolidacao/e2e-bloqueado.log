@@ -1,0 +1,26 @@
+[WebServer] (node:44711) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:44729) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:44730) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⚠ Warning: Next.js ignored package-lock.json in /Users/juanito because it is outside the current Git repository (<workspace>).
+[WebServer]  To use this directory, set `turbopack.root` in your Next.js config.
+[WebServer]
+[WebServer]
+[WebServer] warn - The class `ease-[cubic-bezier(0.22,1,0.36,1)]` is ambiguous and matches multiple utilities.
+[WebServer] warn - If this is content and not a class, replace it with `ease-&lsqb;cubic-bezier(0.22,1,0.36,1)&rsqb;` to silence this warning.
+[WebServer] (node:44740) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+Error: Supabase local inacessível em http://127.0.0.1:54321 (TypeError: fetch failed). Rode `supabase start` e `supabase db reset --local`.
+
+   at global-setup.ts:15
+
+  13 |   const { error } = await servico().from('adicionais').select('id').limit(1)
+  14 |   if (error) {
+> 15 |     throw new Error(
+     |           ^
+  16 |       `Supabase local inacessível em ${SUPABASE_URL} (${error.message}). Rode \`supabase start\` e \`supabase db reset --local\`.`,
+  17 |     )
+  18 |   }
+    at globalSetup (<workspace>/e2e/global-setup.ts:15:11)

@@ -1,0 +1,76 @@
+-- Favorito manual: fixtures sintéticas; transação revertida.
+begin; create extension if not exists pgtap with schema extensions; select no_plan();
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-1@teste.local','{"role":"fotografo"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-2@teste.local','{"role":"fotografo"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-3@teste.local','{"role":"cliente"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000004','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-4@teste.local','{"role":"cliente"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000005','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-5@teste.local','{"role":"designer"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000006','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-6@teste.local','{"role":"operador"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000007','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-7@teste.local','{"role":"admin"}','{}',now(),now());
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('c1000000-0000-4000-8000-000000000008','00000000-0000-0000-0000-000000000000','authenticated','authenticated','s1-8@teste.local','{"role":"gestor"}','{}',now(),now());
+insert into public.clientes(id,user_id,fotografo_id,nome,email) values ('c3000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000003','c1000000-0000-4000-8000-000000000001','Cliente sintético 1','c1@teste.local');
+insert into public.projetos(id,nome,cliente_id,fotografo_id,responsavel_id,status) values ('c2000000-0000-4000-8000-000000000001','Projeto sintético 1','c3000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000005','em_diagramacao');
+insert into public.fotos(id,projeto_id,storage_path) values ('c4000000-0000-4000-8000-000000000001','c2000000-0000-4000-8000-000000000001','s1-1.jpg');
+insert into public.clientes(id,user_id,fotografo_id,nome,email) values ('c3000000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000004','c1000000-0000-4000-8000-000000000002','Cliente sintético 2','c2@teste.local');
+insert into public.projetos(id,nome,cliente_id,fotografo_id,responsavel_id,status) values ('c2000000-0000-4000-8000-000000000002','Projeto sintético 2','c3000000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000006','em_diagramacao');
+insert into public.fotos(id,projeto_id,storage_path) values ('c4000000-0000-4000-8000-000000000002','c2000000-0000-4000-8000-000000000002','s1-2.jpg');
+
+
+update public.fotos set nome_original='foto original.jpg' where id='c4000000-0000-4000-8000-000000000001';
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}',true); set local role authenticated;
+select lives_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'ator 1 entrega própria');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000002","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'ator 2 não decide cliente');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000003","role":"authenticated"}',true); set local role authenticated;
+select lives_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],1,'c5000000-0000-4000-8000-000000000003')$q$,'ator 3 entrega própria');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000004","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'ator 4 não decide cliente');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000005","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'ator 5 não decide cliente');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000006","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'ator 6 não decide cliente');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000007","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'ator 7 não decide cliente');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000008","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'ator 8 não decide cliente');
+
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}',true); set local role authenticated;
+select lives_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'retry do fotógrafo retorna entrega original');
+
+select is((select count(*)::integer from public.selecoes_entregues),2,'duas revisões, retry não duplica');
+select is((select count(*)::integer from public.selecao_notificacoes),2,'notificações internas únicas');
+select is((select count(*)::integer from public.projeto_atividades where mensagem like 'Seleção entregue:%'),2,'eventos reais únicos');
+select is((select count(*)::integer from public.fotos where favorita),0,'entrega não altera favoritos');
+select is((select max(revisao) from public.selecoes_entregues),2,'revisão incrementada');
+select is((select min(nome_original) from public.selecao_entregue_fotos),'foto original.jpg','snapshot conserva nome original');
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000002'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'22023',null,'mesma chave payload diferente rejeitada');
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000099')$q$,'40001',null,'revisão desatualizada conflita');
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000002'::uuid],2,'c5000000-0000-4000-8000-000000000098')$q$,'42501',null,'foto cruzada rejeitada');
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array[]::uuid[],2,'c5000000-0000-4000-8000-000000000097')$q$,'22023',null,'seleção vazia rejeitada');
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid,'c4000000-0000-4000-8000-000000000001'::uuid],2,'c5000000-0000-4000-8000-000000000096')$q$,'22023',null,'fotos duplicadas rejeitadas');
+select throws_ok($q$update public.selecoes_entregues set revisao=10$q$,'42501',null,'sem update direto');
+select throws_ok($q$delete from public.selecao_entregue_fotos$q$,'42501',null,'sem delete direto');
+select throws_ok($q$select private.entregar_selecao_core('c2000000-0000-4000-8000-000000000001',auth.uid(),null,array['c4000000-0000-4000-8000-000000000001'::uuid],2,gen_random_uuid())$q$,'42501',null,'core privado não chamável');
+reset role;
+update public.fotos set nome_original='nome alterado.jpg',storage_path='alterado.jpg' where id='c4000000-0000-4000-8000-000000000001';
+select is((select min(nome_original) from public.selecao_entregue_fotos),'foto original.jpg','metadado snapshot não muda com foto');
+select throws_ok($q$update public.selecoes_entregues set revisao=10$q$,'42501',null,'snapshot imutável mesmo para dono SQL');
+select throws_ok($q$delete from public.selecao_entregue_fotos$q$,'42501',null,'itens imutáveis mesmo para dono SQL');
+select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000002","role":"authenticated"}',true); set local role authenticated;
+select is((select count(*)::integer from public.selecoes_entregues),0,'outro fotógrafo não lê snapshot');
+select is((select count(*)::integer from public.selecao_entregue_fotos),0,'outro fotógrafo não lê itens');
+select is((select count(*)::integer from public.selecao_notificacoes),0,'outro fotógrafo não lê notificação');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000005","role":"authenticated"}',true); set local role authenticated;
+select is((select count(*)::integer from public.selecoes_entregues),2,'designer atribuído lê entrega');
+reset role; select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000007","role":"authenticated"}',true);
+update public.profiles set status='inativo' where id='c1000000-0000-4000-8000-000000000001';
+select set_config('request.jwt.claims','{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'conta inativa não entrega nem retry');
+
+select is((select count(*)::integer from public.selecoes_entregues),0,'inativo não lê snapshot');
+reset role; select set_config('request.jwt.claims','{"role":"authenticated"}',true); set local role authenticated;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'sem sub não entrega');
+reset role; set local role anon;
+select throws_ok($q$select public.entregar_selecao('c2000000-0000-4000-8000-000000000001',array['c4000000-0000-4000-8000-000000000001'::uuid],0,'c5000000-0000-4000-8000-000000000001')$q$,'42501',null,'anon sem grant');
+select throws_ok($q$select * from public.selecoes_entregues$q$,'42501',null,'anon sem select');
+reset role; select * from finish(); rollback;
