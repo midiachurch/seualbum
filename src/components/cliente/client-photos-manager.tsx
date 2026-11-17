@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageUp, Star, X } from 'lucide-react'
+import { definirFavoritoFoto } from '@/lib/actions/favoritos'
 import { criarUploadProjetoFoto } from '@/lib/upload-projeto-foto'
 import { cn } from '@/lib/utils'
 import type { Photo } from '@/types/platform'
@@ -12,6 +13,7 @@ type ManagedPhoto = Photo & {
   uploading?: boolean
   progress?: number
   erroEnvio?: string
+  salvandoFavorito?: boolean
 }
 
 // Inlined (não importado de '@/lib/demo-mode') porque essa checagem roda no
@@ -27,7 +29,34 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL
 export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: string; initialPhotos: Photo[] }) {
   const [photos, setPhotos] = useState<ManagedPhoto[]>(initialPhotos)
   const [dragActive, setDragActive] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [lightboxId, setLightboxId] = useState<string | null>(null)
+  const [somenteFavoritas, setSomenteFavoritas] = useState(false)
+  const [erroFavorito, setErroFavorito] = useState<string | null>(null)
+  const favoritosEmCursoRef = useRef(new Set<string>())
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const filtroRef = useRef<HTMLButtonElement>(null)
+  const focoAnteriorRef = useRef<HTMLElement | null>(null)
+  const lightboxAberto = lightboxId !== null
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    if (lightboxAberto && !dialog.open) {
+      focoAnteriorRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      dialog.showModal()
+    }
+    if (!lightboxAberto && dialog.open) {
+      dialog.close()
+      const anterior = focoAnteriorRef.current
+      if (anterior?.isConnected) anterior.focus()
+      else filtroRef.current?.focus()
+    }
+    if (lightboxAberto) {
+      const overflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = overflow }
+    }
+  }, [lightboxAberto])
   const inputRef = useRef<HTMLInputElement>(null)
   const objectUrlsRef = useRef<string[]>([])
   const enviosRef = useRef(new Map<string, ReturnType<typeof criarUploadProjetoFoto>>())
@@ -114,11 +143,36 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
     [projetoId, enviarFoto],
   )
 
-  function toggleFavorite(id: string) {
-    setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, favorita: !p.favorita } : p)))
+  async function toggleFavorite(photo: ManagedPhoto) {
+    if (photo.uploading || photo.erroEnvio || favoritosEmCursoRef.current.has(photo.id)) return
+    const favorita = !photo.favorita
+    favoritosEmCursoRef.current.add(photo.id)
+    setErroFavorito(null)
+    setPhotos((prev) => prev.map((p) => p.id === photo.id ? { ...p, favorita, salvandoFavorito: true } : p))
+    // A foto deixa a lista filtrada assim que é desmarcada.
+    if (somenteFavoritas && !favorita && lightboxId === (photo.idLocal ?? photo.id)) setLightboxId(null)
+    try {
+      if (!DEMO_MODE) {
+        const resultado = await definirFavoritoFoto(projetoId, photo.id, favorita)
+        if (!resultado.ok) throw new Error(resultado.erro)
+      }
+    } catch (error) {
+      setPhotos((prev) => prev.map((p) => p.id === photo.id ? { ...p, favorita: photo.favorita } : p))
+      setErroFavorito(error instanceof Error ? error.message : 'Não foi possível salvar o favorito. Tente novamente.')
+    } finally {
+      favoritosEmCursoRef.current.delete(photo.id)
+      setPhotos((prev) => prev.map((p) => p.id === photo.id ? { ...p, salvandoFavorito: false } : p))
+    }
   }
 
-  const lightboxPhoto = lightboxIndex !== null ? photos[lightboxIndex] : null
+  const favoritas = photos.filter((photo) => photo.favorita).length
+  const fotosVisiveis = somenteFavoritas ? photos.filter((photo) => photo.favorita) : photos
+  const lightboxIndex = fotosVisiveis.findIndex((photo) => (photo.idLocal ?? photo.id) === lightboxId)
+  const lightboxPhoto = lightboxIndex >= 0 ? fotosVisiveis[lightboxIndex] : null
+  function navegarFoto(delta: number) {
+    const photo = fotosVisiveis[lightboxIndex + delta]
+    if (photo) setLightboxId(photo.idLocal ?? photo.id)
+  }
   // Barra fixa do envio em segundo plano: a pessoa segue navegando na aba.
   const novas = photos.filter((p) => p.idLocal)
   const enviando = novas.filter((p) => p.uploading).length
@@ -126,6 +180,15 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
 
   return (
     <div className="space-y-5">
+      {DEMO_MODE ? <p className="rounded-xl bg-secondary p-3 text-sm">Demonstração: uploads e favoritos ficam apenas nesta tela.</p> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-sm text-muted-foreground">{favoritas} de {photos.length} fotos favoritas</p>
+        <button ref={filtroRef} type="button" aria-pressed={somenteFavoritas} onClick={() => setSomenteFavoritas((value) => !value)} className="min-h-11 rounded-full border px-4 text-sm">
+          {somenteFavoritas ? 'Mostrar todas as fotos' : 'Mostrar favoritas'}
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">Os favoritos são compartilhados com as pessoas que têm acesso ao projeto. A entrega da seleção e a aprovação do álbum são etapas separadas.</p>
+      {erroFavorito ? <p role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{erroFavorito}</p> : null}
       <div
         role="button"
         tabIndex={0}
@@ -154,17 +217,19 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
         <input ref={inputRef} type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} />
       </div>
 
-      {photos.length === 0 ? (
+      {fotosVisiveis.length === 0 ? (
         <p className="rounded-2xl border border-dashed p-10 text-center text-sm text-[#6B6B6B]">
-          Nenhuma foto enviada ainda.
+          {somenteFavoritas ? 'Nenhuma foto favorita. Marque a estrela nas fotos para encontrá-las aqui.' : 'Nenhuma foto enviada ainda.'}
         </p>
       ) : (
         <div className="grid grid-cols-3 gap-2">
-          {photos.map((photo, i) => (
+          {fotosVisiveis.map((photo) => (
             <div key={photo.idLocal ?? photo.id} className="min-w-0">
-            <div role="button" tabIndex={0} onClick={() => setLightboxIndex(i)} onKeyDown={(e) => e.key === 'Enter' && setLightboxIndex(i)} className="group relative aspect-square overflow-hidden rounded-xl bg-secondary">
+            <div className="group relative aspect-square overflow-hidden rounded-xl bg-secondary">
+              <button type="button" onClick={() => setLightboxId(photo.idLocal ?? photo.id)} aria-label={`Ampliar foto ${photo.nomeArquivo ?? photo.grupo}`} className="h-full w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]">
               {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:) e fotos mockadas, next/image não serve blob e cache local corrompe no volume externo. */}
               <img src={photo.url} alt={photo.grupo} className={cn('h-full w-full object-cover', photo.uploading && 'opacity-60')} />
+              </button>
               {photo.uploading ? (
                 <div className="absolute inset-x-0 bottom-0 h-1 bg-black/20">
                   <div className="h-full bg-white transition-all" style={{ width: `${photo.progress ?? 0}%` }} />
@@ -175,13 +240,14 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
               ) : null}
               <button
                 type="button"
-                disabled={photo.uploading || Boolean(photo.erroEnvio)}
+                disabled={photo.uploading || Boolean(photo.erroEnvio) || photo.salvandoFavorito}
                 onClick={(e) => {
                   e.stopPropagation()
-                  toggleFavorite(photo.id)
+                  startTransition(async () => { await toggleFavorite(photo) })
                 }}
                 aria-label={photo.favorita ? 'Remover dos favoritos' : 'Marcar como favorita'}
                 aria-pressed={photo.favorita}
+                aria-busy={photo.salvandoFavorito || undefined}
                 className="absolute right-0.5 top-0.5 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white"
               >
                 <Star className={cn('h-4 w-4', photo.favorita && 'fill-yellow-400 text-yellow-400')} aria-hidden />
@@ -201,12 +267,24 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
         </div>
       )}
 
+      <dialog
+        ref={dialogRef}
+        aria-label="Visualização de fotografia"
+        onCancel={() => setLightboxId(null)}
+        onClose={() => setLightboxId(null)}
+        onClick={(event) => { if (event.target === event.currentTarget) setLightboxId(null) }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') { event.preventDefault(); navegarFoto(-1) }
+          if (event.key === 'ArrowRight') { event.preventDefault(); navegarFoto(1) }
+        }}
+        className="fixed inset-0 m-0 h-[100dvh] max-h-none w-screen max-w-none bg-black p-0 text-white backdrop:bg-black/80"
+      >
       {lightboxPhoto ? (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black" onClick={() => setLightboxIndex(null)}>
+        <div className="flex h-full flex-col">
           <div className="flex items-center justify-between p-3">
             <button
               type="button"
-              onClick={() => setLightboxIndex(null)}
+              onClick={() => setLightboxId(null)}
               aria-label="Fechar"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white"
             >
@@ -214,34 +292,37 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
             </button>
             <button
               type="button"
-              disabled={lightboxPhoto.uploading || Boolean(lightboxPhoto.erroEnvio)}
+              disabled={lightboxPhoto.uploading || Boolean(lightboxPhoto.erroEnvio) || lightboxPhoto.salvandoFavorito}
               onClick={(e) => {
                 e.stopPropagation()
-                toggleFavorite(lightboxPhoto.id)
+                startTransition(async () => { await toggleFavorite(lightboxPhoto) })
               }}
+              aria-pressed={lightboxPhoto.favorita}
+              aria-busy={lightboxPhoto.salvandoFavorito || undefined}
               aria-label={lightboxPhoto.favorita ? 'Remover dos favoritos' : 'Marcar como favorita'}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white"
             >
               <Star className={cn('h-5 w-5', lightboxPhoto.favorita && 'fill-yellow-400 text-yellow-400')} aria-hidden />
             </button>
           </div>
-          <div className="relative flex flex-1 items-center justify-center px-2" onClick={(e) => e.stopPropagation()}>
+          {erroFavorito ? <p role="alert" className="px-4 py-2 text-sm text-red-300">{erroFavorito}</p> : null}
+          <div className="relative flex min-h-0 flex-1 items-center justify-center px-2" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element -- lightbox de preview local/mock, sem otimização de imagem. */}
             <img src={lightboxPhoto.url} alt={lightboxPhoto.grupo} className="max-h-full max-w-full object-contain" />
-            {lightboxIndex !== null && lightboxIndex > 0 ? (
+            {lightboxIndex > 0 ? (
               <button
                 type="button"
-                onClick={() => setLightboxIndex((i) => (i !== null ? i - 1 : i))}
+                onClick={() => navegarFoto(-1)}
                 aria-label="Foto anterior"
                 className="absolute left-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white"
               >
                 <ChevronLeft className="h-6 w-6" aria-hidden />
               </button>
             ) : null}
-            {lightboxIndex !== null && lightboxIndex < photos.length - 1 ? (
+            {lightboxIndex >= 0 && lightboxIndex < fotosVisiveis.length - 1 ? (
               <button
                 type="button"
-                onClick={() => setLightboxIndex((i) => (i !== null ? i + 1 : i))}
+                onClick={() => navegarFoto(1)}
                 aria-label="Próxima foto"
                 className="absolute right-2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white"
               >
@@ -250,10 +331,11 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
             ) : null}
           </div>
           <p className="p-4 text-center text-sm text-white/70">
-            {(lightboxIndex ?? 0) + 1} / {photos.length} · {lightboxPhoto.grupo}
+            {lightboxIndex + 1} / {fotosVisiveis.length} · {lightboxPhoto.grupo}
           </p>
         </div>
       ) : null}
+      </dialog>
 
       {enviando > 0 ? (
         <div
