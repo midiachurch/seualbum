@@ -32,7 +32,7 @@ Uma primeira fixture de portal violou corretamente a trava de pasta R2; corrigid
 
 ## Infraestrutura e bloqueios
 
-Referência remota consultada no início do ciclo: PR #2 draft em d7413a5, CI success/preview Ready. Isso não atesta o head novo. As novas alterações são publicadas somente após os gates; SHA e checks posteriores devem ser lidos no PR, sem inferir que schema remoto foi atualizado. Pesquisa local não versionada e seus 20 arquivos preservados por hash. Histórico d03cf8d mantido.
+Etapa 02 publicada até **cd986e8** e PR #2 atualizado, aberto/draft confirmado. **CI success** no run 44009963932 e **Vercel Preview success** no deployment 7843216905, ambos do mesmo SHA. [Preview verificado](https://seualbum-k3ohahc7i-midiachurch.vercel.app), protegido por autenticação Vercel (HTTP 302). Nenhuma produção ou migration remota. Este registro de publicação é documentação posterior à implementação; o head atual e seus checks ficam disponíveis no PR. Pesquisa local não versionada e seus 20 arquivos preservados por hash. Histórico d03cf8d mantido.
 
 Supabase: associação local `seu-album` confirmada e URL local corresponde ao ref; CLI com rede permitida recebe 403 na role de login antes do histórico. Nenhuma migration remota, consulta de dados de cliente ou contorno de permissão. Intervenção humana e gates em BLOQUEIOS.md.
 
@@ -43,3 +43,7 @@ Vercel: preview protegido por login; procedimento é entrar com conta autorizada
 Navegador autenticado do fotógrafo, R2/Storage API reais/IAM/CORS/URLs expiradas, mídia legada no portal guest, prova/comentários/mensagens guest, escolha comercial própria/contratada e passagem de estado integrada, timeline de todas etapas e marcação de leitura das notificações, assinatura/franquias/adicional/tráfego e regras comerciais. Limites técnicos de 1000 fotos por entrega e 100 galerias na lista não são planos comerciais. Galerias grandes precisam medição de memória/DOM/bytes; não foram certificadas por 11 arquivos sintéticos.
 
 Não há prontidão comercial ou porcentagem global alegada. Commits de implementação: `5840ded` (seleção), `2499c3b` (upload), `2ae9c40` (portal/galerias) e `9de0b68` (gates); testes e documentação em commits próprios. Sem merge, produção, migration remota, exclusão, preço definitivo ou custo adicional. Próximo ciclo: homologação local integrada, baseline/staging quando acesso for resolvido, depois integração guest da prova e escolha de diagramação; assinatura/cotas seguem contrato próprio.
+
+## Fechamento do ciclo
+
+Os containers descartáveis e listeners de teste 3313/3314 foram verificados ausentes após cleanup. Pesquisa local: 20 arquivos com hashes preservados. Nenhuma alteração rastreada de outro autor foi sobrescrita. A publicação da implementação e a homologação local estão comprovadas nos limites acima; homologação comercial/produção continuam abertas. Não foi calculado percentual sem critérios completos de aceite.
