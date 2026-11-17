@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers'
 import { createPublicClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/supabase/queries'
-import { cookiePortal, hashPortal, novoCodigo, novoSegredo, segredoValido, uuidValido } from '@/lib/portal/segredos'
+import { cookiePortal, hashPortal, hashSessaoPortal, novoCodigo, novoSegredo, segredoValido, uuidValido } from '@/lib/portal/segredos'
 import { portalConfigurado, sessaoPortal } from '@/lib/portal/servidor'
 
 type Resultado = { ok: true } | { ok: false; erro: string }
@@ -28,7 +28,7 @@ export async function revogarAcessoPortal(projetoId: string): Promise<Resultado>
 export async function entrarPortal(link: string, codigo: string): Promise<Resultado> {
   if (!segredoValido(link) || typeof codigo !== 'string' || !/^\d{8}$/.test(codigo) || !portalConfigurado()) return falha()
   const token = novoSegredo()
-  const { data, error } = await createPublicClient().rpc('abrir_portal', { p_link_hash: hashPortal(link), p_codigo: codigo, p_sessao_hash: hashPortal(token) })
+  const { data, error } = await createPublicClient().rpc('abrir_portal', { p_link_hash: hashPortal(link), p_codigo: codigo, p_sessao_hash: hashSessaoPortal(link, token) })
   if (error || data !== true) return falha()
   ;(await cookies()).set('seualbum_portal', token, cookiePortal(link))
   return { ok: true }

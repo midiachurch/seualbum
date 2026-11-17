@@ -20,7 +20,7 @@ Os dois agentes auxiliares concluíram os incrementos; IA1 também entregou o ga
 
 ## Verificações
 
-- Unitários integrados: 605 aprovados, 7 ignorados; 40 arquivos aprovados, 2 ignorados.
+- Unitários integrados: 606 aprovados, 7 ignorados; 40 arquivos aprovados, 2 ignorados.
 - SQL integrado: **674/674** verificações aprovadas; 47 migrations, incluindo 0045–0047. Inclui retry dos IDs confirmados após rascunho mudar e foto cruzada negada. Container descartável sem rede externa; 0015 omite somente criação do segredo Vault/cron na cópia de teste.
 - HTTP PostgREST:64 verificações aprovadas, incluindo portal por código/capacidade, snapshot, leitura cruzada negada e revogação. JWTs apenas sintéticos para atores autenticados; guest usa sessão opaca sem Auth.
 - Concorrência real: duas sessões SQL,uma entrega aceita e um conflito 40001, um snapshot persistido.
@@ -47,3 +47,7 @@ Não há prontidão comercial ou porcentagem global alegada. Commits de implemen
 ## Fechamento do ciclo
 
 Os containers descartáveis e listeners de teste 3313/3314 foram verificados ausentes após cleanup. Pesquisa local: 20 arquivos com hashes preservados. Nenhuma alteração rastreada de outro autor foi sobrescrita. A publicação da implementação e a homologação local estão comprovadas nos limites acima; homologação comercial/produção continuam abertas. Não foi calculado percentual sem critérios completos de aceite.
+
+## Reforço após revisão independente
+
+Revisão estática independente não encontrou travessia de projeto ou elevação na criação digital. Foi reforçado o vínculo entre URL e cookie: o hash da sessão agora inclui o link além do segredo opaco, impedindo reutilizar o cookie em outro link até quando seu Path é copiado manualmente. Teste unitário específico e cenário de navegador com cópia intencional do cookie verificam essa negação. O projeto continua determinado pela concessão na RPC; nenhum segredo bruto é salvo no banco. Contagem unitária atualizada para 606; demais regressões preservadas. URLs R2 já emitidas continuam com janela de 60 s, explicitamente não revogáveis antes da expiração.

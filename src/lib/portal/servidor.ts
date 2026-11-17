@@ -1,7 +1,7 @@
 import 'server-only'
 import { cookies } from 'next/headers'
 import { createPublicClient } from '@/lib/supabase/server'
-import { segredoValido, hashPortal } from './segredos'
+import { segredoValido, hashSessaoPortal } from './segredos'
 
 export type PortalProjeto = {
   id: string; nome: string; estudio: string | null; logo: string | null; revisao: number; total: number; favoritas: number; favorita_ids: string[]
@@ -12,7 +12,7 @@ export function portalConfigurado() { return Boolean(process.env.NEXT_PUBLIC_SUP
 export async function sessaoPortal(link: string) {
   if (!segredoValido(link) || !portalConfigurado()) return null
   const token = (await cookies()).get('seualbum_portal')?.value
-  return segredoValido(token) ? hashPortal(token) : null
+  return segredoValido(token) ? hashSessaoPortal(link, token) : null
 }
 export async function lerPortal(link: string, apos?: string): Promise<PortalProjeto | null> {
   const hash = await sessaoPortal(link)

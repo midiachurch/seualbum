@@ -18,3 +18,5 @@
 - D09: portal guest usa concessão e sessão opacas com hashes; código bcrypt, 10 erros/15 minutos por concessão, expiração de 30 dias/sessão de 8 horas e revogação em cada RPC. Sem JWT de cliente fictício ou service role. Operações do portal serializadas por projeto para ordenar revogação/entrega; custo de concorrência/performance precisa medição para galerias grandes.
 - D10: portal novo serve originais R2 por URL de 60 s após checagem, mantendo caminho autenticado Storage legado. Não ampliar policies anônimas para habilitar os legados. Prova/mensagens guest e proxy/imagens legadas ficam em gate de integração futuro.
 - D11: fila máximo de 3 por gerenciador, retry conserva operação; progresso agregado por arquivos, sem porcentagem fictícia de bytes. Não promete retomada após refresh, cobrança/franquias ou cancelamento de PUT iniciado.
+
+- D12: hash de sessão guest inclui o link e o segredo opaco; cópia de cookie entre Paths de portais é rejeitada. A RPC continua conferindo escopo da concessão em cada operação. Sem schema adicional ou usuário Auth fictício.
