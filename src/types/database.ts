@@ -12,6 +12,8 @@ import type {
 } from '@/types/platform'
 import type { DiagramacaoItemRow, PrioridadeDiagramacao, ResumoDiagramacao } from '@/lib/diagramacao/regras'
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
 export type BillingType = 'avulso' | 'assinatura'
 export type OrderStatus =
   | 'pendente'
@@ -266,6 +268,7 @@ export type R2UploadPendenteRow = {
 }
 
 export type FotoRow = {
+  nome_original?: string | null;
   id: string
   projeto_id: string
   storage_path: string
@@ -736,6 +739,19 @@ export type OrcamentoRow = {
 export type Database = {
   public: {
     Tables: {
+      selecoes_entregues: {
+        Row: { id: string; projeto_id: string; revisao: number; autor_id: string | null; portal_id: string | null; chave: string; revisao_esperada: number; foto_ids: string[]; created_at: string }
+        Insert: never; Update: never; Relationships: []
+      }
+      selecao_entregue_fotos: {
+        Row: { selecao_id: string; foto_id: string; bucket: string; storage_path: string; nome_original: string | null }
+        Insert: never; Update: never; Relationships: []
+      }
+      selecao_notificacoes: {
+        Row: { id: string; selecao_id: string; destinatario_id: string; created_at: string }
+        Insert: never; Update: never; Relationships: []
+      }
+
       profiles: {
         Row: Profile
         Insert: Pick<Profile, 'id' | 'email' | 'nome_completo'> & Partial<Profile>
@@ -1011,6 +1027,16 @@ export type Database = {
       diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
     }
     Functions: {
+      criar_galeria_digital: { Args: { p_id: string; p_nome: string; p_cliente_nome: string; p_cliente_email: string }; Returns: string }
+      gerir_portal: { Args: { p_projeto_id: string; p_link_hash: string | null; p_codigo: string | null; p_revogar?: boolean }; Returns: string | null }
+      abrir_portal: { Args: { p_link_hash: string; p_codigo: string; p_sessao_hash: string }; Returns: boolean }
+      portal_projeto: { Args: { p_sessao_hash: string; p_apos?: string }; Returns: Json }
+      portal_foto: { Args: { p_sessao_hash: string; p_foto_id: string }; Returns: Json }
+      portal_favorito: { Args: { p_sessao_hash: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
+      portal_entregar: { Args: { p_sessao_hash: string; p_foto_ids: string[]; p_revisao: number; p_chave: string }; Returns: Json }
+
+      entregar_selecao: { Args: { p_projeto_id: string; p_foto_ids: string[]; p_revisao_esperada: number; p_chave: string }; Returns: { id: string; revisao: number; total: number } }
+
       /** Grava o documento do editor se a revisão bater; null = conflito (0027). */
       salvar_album_layout: { Args: { p_id: string; p_documento: unknown; p_revisao: number }; Returns: number | null }
       /** Link de aprovação sem login (0027): tudo exige o token. */
