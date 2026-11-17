@@ -1,3 +1,5 @@
+> Atualização Etapa 02: prompts executados por agentes reais em worktrees `feat/od-etapa2-selecao` e `feat/od-etapa2-upload`, ambos sobre d03cf8d. Contrato vinculante anterior à execução em ETAPA-02-CONTRACTS.md. Entregas integradas pela coordenação; não reiniciar essas tarefas em outra IA sem ler STATUS-OPERACAO.md. Propriedade foi ampliada explicitamente para nome-original/rota de confirmação/teste focal da IA2. Database e arquivos compartilhados foram integrados somente pelo coordenador. O texto abaixo preserva o pacote original de distribuição.
+
 # Prompts para duas IAs — execução sem conflito
 
 Baseline compartilhada: `d7413a5` / PR #2. Antes de iniciar, o coordenador deve informar um único SHA integrado vigente. Cada IA cria branch/worktree próprio a partir desse SHA e não copia `.env`, autenticação, `.git`, node_modules ou caches para artefatos. Não iniciar pelo estado de um worktree antigo da primeira rodada. Estas são tarefas preparadas para distribuição; este documento não declara que foram executadas.

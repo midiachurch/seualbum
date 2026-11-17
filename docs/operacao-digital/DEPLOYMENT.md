@@ -30,3 +30,11 @@ Antes de qualquer aplicação remota: inventário de versões/funções/policies
 - `npm run build -- --webpack` (usar ambiente sintético, sem chaves reais; fontes Google exigem rede)
 
 Não iniciar build e servidor de teste simultaneamente no mesmo checkout: ambos usam `.next`. Não executar global setup autenticado contra stack existente sem confirmar propriedade, pois ele prepara dados/configuração.
+
+## Gates Etapa 02
+
+`SEUALBUM_API_TESTS=1 SEUALBUM_SELECTION_CONCURRENCY=1 SEUALBUM_PORTAL_BROWSER=1 python3 scripts/test-db-isolado.py` valida cadeia local, SQL/HTTP, duas sessões concorrentes e navegador guest positivo. O runner exige banco descartável sem rede externa, cria somente proxy loopback 3313 e Next 3314, JWT anon sintético sem service role e cleanup em finally. Não rodar junto de outro dev/build neste checkout. Sem essas flags, as suítes SQL não certificam navegador. Mídia do cenário guest é SVG sintético; não certifica R2/Storage.
+
+0045 cria snapshots e nome_original; 0046 cria portal por capacidade; 0047 cria galeria digital sem pedido. Todas dependem da cadeia anterior, não são aplicadas por push/preview. Campo de nome legado permanece null até metadado real existir. Storage privado continua protegido; nenhum bypass anon para assinar arquivos antigos.
+
+Os comandos Playwright portal não devem ser invocados diretamente sem o runner; a configuração rejeita ausência de variáveis sintéticas. Não salvar screenshots/traces com sessão guest no gate positivo. CI atual continua apenas tipos/lint/Vitest; SQL/HTTP/browser integrados têm evidência local e não foram introduzidos como instalação/pull no CI.

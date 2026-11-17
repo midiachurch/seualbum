@@ -1,5 +1,7 @@
 # Execução — Operação Digital
 
+> Relatório histórico da primeira rodada e continuação. Estado vigente da Etapa 02 em [STATUS-OPERACAO](STATUS-OPERACAO.md); índice em [README](README.md).
+
 16/11/2026. Primeiro incremento funcional local validado; produto comercial completo ainda em desenvolvimento. Branch `feat/operacao-digital`, checkpoint `checkpoint/pre-operacao-digital-20261116` em `01176cb`. Documentos históricos e alterações locais de pesquisa preservados.
 
 ## Existia e foi reaproveitado

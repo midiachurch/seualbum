@@ -1,0 +1,66 @@
+ok 1 - ator 1 projeto 1: RPC permitida
+ok 2 - ator 1 projeto 1: GET respeita RLS
+ok 3 - ator 1 projeto 2: RPC negada
+ok 4 - ator 1 projeto 2: GET respeita RLS
+ok 5 - ator 2 projeto 1: RPC negada
+ok 6 - ator 2 projeto 1: GET respeita RLS
+ok 7 - ator 2 projeto 2: RPC permitida
+ok 8 - ator 2 projeto 2: GET respeita RLS
+ok 9 - ator 3 projeto 1: RPC permitida
+ok 10 - ator 3 projeto 1: GET respeita RLS
+ok 11 - ator 3 projeto 2: RPC negada
+ok 12 - ator 3 projeto 2: GET respeita RLS
+ok 13 - ator 4 projeto 1: RPC negada
+ok 14 - ator 4 projeto 1: GET respeita RLS
+ok 15 - ator 4 projeto 2: RPC permitida
+ok 16 - ator 4 projeto 2: GET respeita RLS
+ok 17 - ator 5 projeto 1: RPC permitida
+ok 18 - ator 5 projeto 1: GET respeita RLS
+ok 19 - ator 5 projeto 2: RPC negada
+ok 20 - ator 5 projeto 2: GET respeita RLS
+ok 21 - ator 6 projeto 1: RPC negada
+ok 22 - ator 6 projeto 1: GET respeita RLS
+ok 23 - ator 6 projeto 2: RPC permitida
+ok 24 - ator 6 projeto 2: GET respeita RLS
+ok 25 - ator 7 projeto 1: RPC permitida
+ok 26 - ator 7 projeto 1: GET respeita RLS
+ok 27 - ator 7 projeto 2: RPC permitida
+ok 28 - ator 7 projeto 2: GET respeita RLS
+ok 29 - ator 8 projeto 1: RPC permitida
+ok 30 - ator 8 projeto 1: GET respeita RLS
+ok 31 - ator 8 projeto 2: RPC permitida
+ok 32 - ator 8 projeto 2: GET respeita RLS
+ok 33 - foto de outro projeto negada
+ok 34 - desmarcar retorna sucesso HTTP
+ok 35 - histórico registra duas mudanças reais com ator/data
+ok 36 - retry de estado explícito não duplica evento
+ok 37 - novo GET por cliente recupera estado compartilhado persistido
+ok 38 - RPC de selfie mantém contrato e marcação
+ok 39 - GET recupera favorito alterado pela selfie
+ok 40 - JWT authenticated sem sub falha fechado
+ok 41 - sem token: RPC sem grant negada
+ok 42 - JWT anon: RPC sem grant negada
+ok 43 - valor null rejeitado via HTTP
+ok 44 - oito comandos concorrentes de mesmo estado têm sucesso
+ok 45 - concorrência produz uma mudança/evento e estado persistido
+HTTP assertions: 45
+ok 46 - outro fotógrafo não concede portal
+ok 47 - fotógrafo dono concede portal via HTTP
+ok 48 - login errado falha sem abortar contador
+ok 49 - cliente sem conta abre sessão por código
+ok 50 - capacidade retorna só projeto/fotos concedidos
+ok 51 - resumo portal não retorna chave privada
+ok 52 - capacidade não atravessa projeto na leitura de imagem
+ok 53 - capacidade inventada falha fechado
+ok 54 - portal grava favorito por RPC sem acesso geral
+ok 55 - portal entrega snapshot real via HTTP
+ok 56 - retry HTTP retorna snapshot único
+ok 57 - timeline HTTP não duplica entrega
+ok 58 - outro fotógrafo não lê snapshot por tabela
+ok 59 - dono recupera itens entregues por RLS
+ok 60 - revogar portal via HTTP
+ok 61 - sessão já emitida não lê após revogação
+ok 62 - sessão revogada não altera favorito
+ok 63 - sessão revogada não entrega seleção
+HTTP assertions total: 63
+ok - conta inativa com JWT já emitido retorna HTTP 403

@@ -1,5 +1,7 @@
 # Seu Álbum — Fase 01 / Operação Digital
 
+> Índice vigente da Etapa 02: [README](README.md). Estratégia reconstruída com origem explícita em [SEUALBUM-FASE-01](SEUALBUM-FASE-01.md); execução atual em [STATUS-OPERACAO](STATUS-OPERACAO.md).
+
 Estratégia vigente desde 16/11/2026: priorizar um produto comercial digital para fotógrafos dentro do repositório existente. Esta prioridade substitui a ordem de expansão de sete módulos do [masterplan histórico](../MASTERPLAN.md), preservando seus ADRs compatíveis e os investimentos anteriores.
 
 ## Fontes canônicas

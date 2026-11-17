@@ -1,0 +1,8 @@
+Unitários:605 aprovados,7 ignorados;40 arquivos aprovados,2 ignorados.
+TypeScript e ESLint:exit0.
+SQL:674 aprovados;47 migrations locais,0015 sem segredo Vault/cron na cópia de teste.
+HTTP:63 JS +1 conta inativa=64 verificações.
+Concorrência:2 sessões,1sucesso/1conflito40001,1snapshot.
+Navegador demo:5/5 Chromium. Navegador guest positivo:1/1 Chromium com Next/PostgREST/SQL reais, mídia substituída.
+Build webpack:exit0; credenciais reais desativadas; avisos existentes HEIC/Tailwind/lockfile.
+Nenhuma migration remota ou produção.

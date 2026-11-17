@@ -1,0 +1,50 @@
+{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 1 - ator 1 entrega própria
+{"sub":"c1000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 2 - ator 2 não decide cliente
+{"sub":"c1000000-0000-4000-8000-000000000003","role":"authenticated"}
+ok 3 - ator 3 entrega própria
+{"sub":"c1000000-0000-4000-8000-000000000004","role":"authenticated"}
+ok 4 - ator 4 não decide cliente
+{"sub":"c1000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 5 - ator 5 não decide cliente
+{"sub":"c1000000-0000-4000-8000-000000000006","role":"authenticated"}
+ok 6 - ator 6 não decide cliente
+{"sub":"c1000000-0000-4000-8000-000000000007","role":"authenticated"}
+ok 7 - ator 7 não decide cliente
+{"sub":"c1000000-0000-4000-8000-000000000008","role":"authenticated"}
+ok 8 - ator 8 não decide cliente
+{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 9 - retry do fotógrafo retorna entrega original
+ok 10 - duas revisões, retry não duplica
+ok 11 - notificações internas únicas
+ok 12 - eventos reais únicos
+ok 13 - entrega não altera favoritos
+ok 14 - revisão incrementada
+ok 15 - snapshot conserva nome original
+ok 16 - mesma chave payload diferente rejeitada
+ok 17 - revisão desatualizada conflita
+ok 18 - foto cruzada rejeitada
+ok 19 - seleção vazia rejeitada
+ok 20 - fotos duplicadas rejeitadas
+ok 21 - sem update direto
+ok 22 - sem delete direto
+ok 23 - core privado não chamável
+ok 24 - metadado snapshot não muda com foto
+ok 25 - snapshot imutável mesmo para dono SQL
+ok 26 - itens imutáveis mesmo para dono SQL
+{"sub":"c1000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 27 - outro fotógrafo não lê snapshot
+ok 28 - outro fotógrafo não lê itens
+ok 29 - outro fotógrafo não lê notificação
+{"sub":"c1000000-0000-4000-8000-000000000005","role":"authenticated"}
+ok 30 - designer atribuído lê entrega
+{"sub":"c1000000-0000-4000-8000-000000000007","role":"authenticated"}
+{"sub":"c1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 31 - conta inativa não entrega nem retry
+ok 32 - inativo não lê snapshot
+{"role":"authenticated"}
+ok 33 - sem sub não entrega
+ok 34 - anon sem grant
+ok 35 - anon sem select
+1..35

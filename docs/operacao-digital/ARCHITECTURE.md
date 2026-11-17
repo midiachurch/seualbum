@@ -16,3 +16,7 @@ O primeiro incremento fecha favorito manual persistido na galeria autenticada ex
 Portal sem cadastro exige credencial específica revogável, código verificado no servidor, expiração/rate limit, nenhuma leitura anon ampla. Entrega de seleção exige snapshot transacional com originais identificáveis; favorito continua independente. Timeline usa eventos reais persistidos e ator/data, nunca datas simuladas. Assinatura e franquias exigem ledger de reservas/consumo servidor, provedor e regras comerciais aprovadas. Não lançar cotas fictícias nem preços definitivos.
 
 Três frentes usam branches/worktrees independentes e integração pelo coordenador após revisão. Gate SQL anterior continua obrigatório; novo recurso não certifica tenancy global. API/E2E, baseline remota e ensaio de rollout continuam gates comerciais.
+
+## Implementação incremental da Etapa 02
+
+Criação digital na 0047 reutiliza clientes/projetos sem pedido obrigatório. Snapshot e exportação autenticada na 0045; concessão, sessão e RPCs do portal na 0046. Detalhes em ETAPA-02-CONTRACTS.md e SELECTION-CONTRACT.md. O parágrafo anterior de contratos futuros representa o planejamento da primeira rodada; o status vigente é STATUS-OPERACAO.md. Assinaturas/franquias continuam futuras. Portal guest não incorpora ainda prova/mensagens e não assina Supabase Storage por bypass. Não houve aplicação remota.

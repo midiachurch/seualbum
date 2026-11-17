@@ -33,3 +33,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 O pedido Fase 01 autoriza implementação incremental do produto digital, migrations versionadas/testes seguros, três frentes em worktrees, publicação no GitHub via PR e preview. Prioridade vigente e contratos em `docs/operacao-digital/MASTER-PLAN.md` e `ARCHITECTURE.md`; resultados em `EXECUTION-STATUS.md`. As restrições documentais anteriores ficam históricas no que conflitarem com esta autorização. Preservar editor, selfie, prova, extras e integrações. Sem produção, custos adicionais, preços definitivos, exclusões ou migrations de produção com risco sem aprovação. Não usar outros projetos da conta.
 
 <!-- END:operacao-digital -->
+
+## Etapa 02 — autorização vigente
+
+O comando Etapa 02 autoriza três frentes reais, implementação e testes locais, commits/push de desenvolvimento, atualização do PR #2 draft e previews não produtivos. Índice em `docs/operacao-digital/README.md`, status em `STATUS-OPERACAO.md`, contratos em `ETAPA-02-CONTRACTS.md`. Não executar migration remota, merge/produção, custo, exclusão ou mudança externa sensível sem aprovação. Preservar d03cf8d, editor, selfie, prova/extras e pesquisa local. Gates locais não certificam schema remoto ou mídia real. Nenhum novo agente deve repetir as tarefas já integradas sem ler o status.

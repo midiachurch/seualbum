@@ -1,3 +1,15 @@
+> Atualização Etapa 02 (17/11/2026): esta matriz original foi elaborada em d7413a5. O estado incremental abaixo tem precedência; evidências em STATUS-OPERACAO.md. A estratégia reconstruída agora está em SEUALBUM-FASE-01.md com origem explícita, sem alegação de recuperação do original.
+
+| Requisito alterado | Estado atual | Evidência/limite |
+|---|---|---|
+| Criar galeria sem compra de serviço | Implementado localmente | RPC 0047 e UI /dashboard/galerias, 12 testes SQL; navegador Auth integrado pendente |
+| Fila e nome original | Implementado localmente | máximo de 3, retry mesma operação, HEIC sem MIME, nome sanitizado persistido e mapeado; mídia real não homologada |
+| Confirmação e snapshot | Implementado localmente | RPC 0045, revisão/imutabilidade/idempotência, concorrência de duas sessões; UI autenticada e portal conectados, sem homologação completa |
+| Exportação | Parcial | CSV e links R2/Storage autenticados por 5 min; não ZIP consolidado, mídia real pendente, nome legado desconhecido permanece null |
+| Portal sem conta/código/revogação | Parcial com núcleo implementado | RPC 0046 testada por SQL/HTTP; cookie HttpOnly/mesmoSite, formulário guest, mídia R2, galeria paginada; prova/mensagens/Storage legado pendentes; login browser guest local positivo verificado com mídia substituída |
+| Timeline/notificação | Parcial | eventos reais de criação e entrega, notificação interna de seleção deduplicada; entregas visíveis no dashboard; marcação de leitura e demais etapas pendentes |
+| Assinatura/franquias/tráfego | Pendente | nenhuma ativação de preços/cotas/exclusões |
+
 # Matriz do MVP — comparação com a Fase 01
 
 Baseline examinada: `d7413a5`, PR #2. A classificação abaixo descreve código e evidência local; não certifica operação comercial ou aplicação de migrations no Supabase remoto.

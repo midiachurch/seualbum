@@ -1,3 +1,5 @@
+> Histórico: este pacote até d7413a5 foi autorizado explicitamente e publicado no PR #2. A ordem Etapa 02 autoriza os novos pushes de desenvolvimento e atualização do PR em rascunho. Não representa autorização de merge, migration remota ou produção.
+
 # Pacote para publicação pública — pendente de aprovação
 
 Destino exato: `https://github.com/midiachurch/seualbum`, repositório público. Branch `feat/operacao-digital`; PR em rascunho para main, sem merge. A revisão automática bloqueou o push por exposição do histórico completo e novos conteúdos sem confirmação explícita desse payload/destino público. Nenhuma tentativa de contornar o bloqueio foi feita.
