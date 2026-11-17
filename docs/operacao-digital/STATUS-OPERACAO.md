@@ -1,5 +1,7 @@
 # Status da Operação Digital — Etapa 02
 
+> Registro histórico. Situação posterior e autorização de publicação em [Galerias Digitais v1](GALERIAS-DIGITAIS-V1.md). PR #2 mesclado em 17/11/2026; bloqueio 403 resolvido e histórico remoto de 47 migrations consultado com sucesso.
+
 Data do ciclo: 17/11/2026. Base preservada `d03cf8d`; desenvolvimento em `feat/operacao-digital`. O arquivo estratégico foi reconstruído com origem explícita em SEUALBUM-FASE-01.md; não foi alegada recuperação do original.
 
 ## Implementado e integrado localmente

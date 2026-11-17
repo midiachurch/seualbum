@@ -1,0 +1,26 @@
+{
+  "pull_request": "https://github.com/midiachurch/seualbum/pull/3",
+  "implementation_commit": "3b6efb8",
+  "checks_verified_sha": "41d97bc363eaa84dc5cb81165de7d9730ded5713",
+  "ci_run": 44107632051,
+  "ci_conclusion": "success",
+  "preview_deployment": 7856766126,
+  "preview_url": "https://seualbum-eljohv5ez-midiachurch.vercel.app",
+  "preview_state": "success",
+  "preview_http": 302,
+  "migrations_applied": [
+    "20261117000400_0048_estado_portal.sql"
+  ],
+  "remote_history_count": 48,
+  "final_dry_run_pending": [],
+  "merged": false,
+  "production_published_for_this_release": false,
+  "real_media_verified": false,
+  "unexpected_tool_resource": {
+    "project": "seualbum-check-env",
+    "project_id": "prj_wvAATmNG1wMR98uKiVaHSvxrGnBh",
+    "deployment_id": "dpl_5tG2reGXzweLvASuS7yV4VRyHgZv",
+    "url": "https://seualbum-check-env.vercel.app",
+    "cleanup": "awaiting explicit authorization"
+  }
+}

@@ -42,7 +42,7 @@ export function RegisterForm() {
 
     try {
       if (DEMO_MODE) {
-        const next = plano ? `/dashboard/novo-pedido?plano=${plano}` : '/dashboard'
+        const next = '/dashboard/galerias'
         form.set('next', next)
         // Cadastro público é sempre o fluxo do fotógrafo/estúdio (seção 16).
         form.set('role', 'fotografo')
@@ -66,7 +66,7 @@ export function RegisterForm() {
             nome_completo: String(form.get('nome_contato') || form.get('nome_estudio')),
             telefone: String(form.get('telefone') ?? ''),
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/novo-pedido`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard/galerias`,
         },
       })
 
@@ -83,7 +83,7 @@ export function RegisterForm() {
         return
       }
 
-      router.replace(plano ? `/dashboard/novo-pedido?plano=${plano}` : '/dashboard')
+      router.replace('/dashboard/galerias')
       router.refresh()
     } catch {
       // Ex.: NEXT_PUBLIC_SUPABASE_URL/ANON_KEY ausentes — sem isso o cliente
@@ -98,7 +98,7 @@ export function RegisterForm() {
       {/* A ida ao Google perde o estado da página: o plano vai na URL de volta. */}
       <GoogleButton
         modo="cadastro"
-        next={plano ? `/dashboard/novo-pedido?plano=${encodeURIComponent(plano)}` : '/dashboard/novo-pedido'}
+        next={'/dashboard/galerias'}
       />
       <form onSubmit={onSubmit} className="space-y-4">
         {DEMO_MODE ? (

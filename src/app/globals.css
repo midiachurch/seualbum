@@ -289,3 +289,9 @@
     scroll-behavior: auto !important;
   }
 }
+
+@layer base {
+  :focus-visible { outline: 3px solid #315bc1; outline-offset: 3px; }
+  button:disabled { cursor: not-allowed; opacity: .55; }
+  dialog { color: hsl(var(--foreground)); }
+}

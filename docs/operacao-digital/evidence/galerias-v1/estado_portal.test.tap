@@ -1,0 +1,19 @@
+{"sub":"d1000000-0000-4000-8000-000000000001","role":"authenticated"}
+d2000000-0000-4000-8000-000000000001
+ok 1 - sem acesso antes da geração
+af2dab6a-547d-4af4-b1e0-8ffc78c739a7
+ok 2 - estado ativo após criar
+ok 3 - somente estado e validade sem credenciais
+ok 4 - validade futura
+
+ok 5 - revogação permanece consultável
+69b1a743-ca1d-46fb-9db8-1e3121eebfda
+ok 6 - expiração identificada
+{"sub":"d1000000-0000-4000-8000-000000000002","role":"authenticated"}
+ok 7 - outro fotógrafo não consulta acesso
+{"sub":"d1000000-0000-4000-8000-000000000003","role":"authenticated"}
+{"sub":"d1000000-0000-4000-8000-000000000001","role":"authenticated"}
+ok 8 - dono inativo negado
+ok 9 - anon não consulta metadados
+ok 10 - service role sem execução concedida
+1..10

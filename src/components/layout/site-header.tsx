@@ -6,13 +6,7 @@ import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const NAV_LINKS = [
-  { href: '/albuns', label: 'Álbuns' },
-  { href: '/servicos', label: 'Serviços' },
-  { href: '/portfolio', label: 'Portfólio' },
-  { href: '/como-funciona', label: 'Como funciona' },
-  { href: '/precos', label: 'Preços' },
-]
+const NAV_LINKS = [{ href: '/#como-funciona', label: 'Como funciona' }]
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false)
@@ -43,14 +37,14 @@ export function SiteHeader() {
               href="/auth/login"
               className="text-sm font-medium text-[#595959] transition-colors hover:text-[#444444]"
             >
-              Área do cliente
+              Entrar
             </Link>
             <Button
               asChild
               size="sm"
               className="btn-marketing border-2 border-[#444444]/40 bg-transparent text-[#444444] hover:border-[#444444] hover:bg-transparent"
             >
-              <Link href="/criar-album">Criar meu álbum</Link>
+              <Link href="/auth/register">Criar conta</Link>
             </Button>
           </div>
 
@@ -101,15 +95,15 @@ export function SiteHeader() {
               onClick={() => setOpen(false)}
               className="text-sm font-medium text-[#595959]"
             >
-              Área do cliente
+              Entrar
             </Link>
             <Button
               asChild
               size="lg"
               className="btn-marketing border-2 border-[#444444]/40 bg-transparent text-[#444444] hover:border-[#444444] hover:bg-transparent"
             >
-              <Link href="/criar-album" onClick={() => setOpen(false)}>
-                Criar meu álbum
+              <Link href="/auth/register" onClick={() => setOpen(false)}>
+                Criar conta
               </Link>
             </Button>
           </div>

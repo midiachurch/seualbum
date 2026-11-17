@@ -22,7 +22,7 @@ const PERFIS: Record<PerfilDevLogin, { emailEnv: string; senhaEnv: string; desti
   fotografo: {
     emailEnv: 'DEV_LOGIN_FOTOGRAFO_EMAIL',
     senhaEnv: 'DEV_LOGIN_FOTOGRAFO_PASSWORD',
-    destino: '/dashboard/novo-pedido',
+    destino: '/dashboard/galerias',
   },
   // O casal (cliente final): cai direto nos álbuns dele, para testar a prova e o upsell.
   cliente: { emailEnv: 'DEV_LOGIN_CLIENTE_EMAIL', senhaEnv: 'DEV_LOGIN_CLIENTE_PASSWORD', destino: '/cliente' },

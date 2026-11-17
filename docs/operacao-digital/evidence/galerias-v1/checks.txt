@@ -1,0 +1,11 @@
+Unitários: 606 aprovados, 7 ignorados.
+TypeScript e lint: exit 0.
+SQL: 684 verificações aprovadas; 48 migrations descartáveis.
+HTTP: 64 verificações.
+Playwright demo: 5/5.
+Playwright Auth/portal integrado: 3/3, com jornadas de 1440 e 390 px. Auth/SQL reais; mídia/R2 substituídos.
+Retry UI: 1 assinatura, 1 PUT, 2 confirmações após falha simulada, mesma chave/ID.
+Build webpack final: exit 0.
+0048 aplicada no projeto Seu Álbum após CI verde; lista correspondente e dry-run final sem pendências.
+CI e preview aprovados para 41d97bc; atualização documental posterior verificável na PR #3.
+Concorrência real: duas sessões, um sucesso/um conflito 40001; um snapshot.

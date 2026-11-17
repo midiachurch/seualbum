@@ -1,0 +1,7 @@
+Projeto vinculado: Seu Álbum, ref confirmado.
+Plano revisado: somente 20261117000400_0048_estado_portal.sql.
+CI verde antes de aplicação.
+Aplicada somente 0048. Histórico correspondente: 48 migrations.
+Dry-run final: upToDate=true, migrations=[].
+RPC existe; authenticated execute=true; anon/service_role execute=false.
+Sem reset, repair, exclusão ou alteração de papel da conta.

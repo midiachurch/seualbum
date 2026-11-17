@@ -1,5 +1,7 @@
 # Operação Digital — índice vigente
 
+> Ciclo atual: [Galerias Digitais v1](GALERIAS-DIGITAIS-V1.md). Os documentos da Etapa 02 abaixo registram o ciclo anterior. Em 17/11, PR #2 já mesclado e migrations 0002–0047 confirmadas no remoto.
+
 Etapa 02, execução incremental sobre `d03cf8d`, preservando histórico e produto existente. Fonte da nova autorização: comando Etapa 02 fornecido pelo usuário. Não autoriza migration remota, produção, merge, exclusão ou custo.
 
 | Assunto | Documento canônico |

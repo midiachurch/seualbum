@@ -1,76 +1,42 @@
 'use client'
-
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Images, UserRound } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { SeloNaoLidas } from '@/components/mensagens/selo-nao-lidas'
-
-const NAV = [
-  { href: '/dashboard', label: 'Visão geral' },
-  { href: '/dashboard/novo-pedido', label: 'Novo pedido' },
-  { href: '/dashboard/meus-albuns', label: 'Meus álbuns' },
-  { href: '/dashboard/galerias', label: 'Galerias digitais' },
-  { href: '/dashboard/orcamentos', label: 'Meus orçamentos' },
-  { href: '/dashboard/catalogo', label: 'Catálogo' },
-  { href: '/dashboard/mensagens', label: 'Mensagens' },
+const items = [
+  { href: '/dashboard/galerias', label: 'Galerias', icon: Images },
+  { href: '/dashboard/conta', label: 'Minha conta', icon: UserRound },
 ]
-
-function ativo(pathname: string, href: string) {
-  // "Visão geral" só na raiz; as demais valem para as subpáginas (ex.: a prova
-  // /dashboard/albuns/… fica sob "Meus álbuns").
-  if (href === '/dashboard') return pathname === '/dashboard'
-  if (href === '/dashboard/meus-albuns') return pathname.startsWith(href) || pathname.startsWith('/dashboard/albuns')
-  return pathname.startsWith(href)
-}
-
-/** Links inline no cabeçalho (desktop). */
-export function DashboardNavDesktop() {
-  const pathname = usePathname()
+function Navigation({ mobile = false }: { mobile?: boolean }) {
+  const path = usePathname()
   return (
-    <nav aria-label="Painel" className="hidden items-center gap-6 sm:flex">
-      {NAV.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          aria-current={ativo(pathname, item.href) ? 'page' : undefined}
-          className={cn(
-            'inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-[#171717]',
-            ativo(pathname, item.href) ? 'text-[#171717]' : 'text-[#595959]',
-          )}
-        >
-          {item.label}
-          {item.href === '/dashboard/mensagens' ? <SeloNaoLidas /> : null}
-        </Link>
-      ))}
-    </nav>
-  )
-}
-
-/**
- * Faixa rolável abaixo do cabeçalho (celular). Antes do `sm` a navegação não
- * existia: o fotógrafo só chegava a "Meus álbuns" pelos botões das páginas.
- */
-export function DashboardNavMobile() {
-  const pathname = usePathname()
-  return (
-    <nav aria-label="Painel" className="border-t border-[#EAEAEA] sm:hidden">
-      <ul className="flex gap-1 overflow-x-auto px-3 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {NAV.map((item) => (
-          <li key={item.href} className="shrink-0">
+    <nav
+      aria-label={mobile ? 'Painel no celular' : 'Painel'}
+      className={mobile ? 'border-t bg-white sm:hidden' : 'hidden sm:block'}
+    >
+      <ul className={cn('flex gap-2', mobile && 'px-4 py-2')}>
+        {items.map(({ href, label, icon: Icon }) => (
+          <li key={href}>
             <Link
-              href={item.href}
-              aria-current={ativo(pathname, item.href) ? 'page' : undefined}
+              href={href}
+              aria-current={path.startsWith(href) ? 'page' : undefined}
               className={cn(
-                'inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-4 text-sm font-medium transition-colors',
-                ativo(pathname, item.href) ? 'bg-[#171717] text-white' : 'text-[#595959] hover:bg-[#F5F5F5]',
+                'inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors',
+                path.startsWith(href) ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100',
               )}
             >
-              {item.label}
-              {item.href === '/dashboard/mensagens' ? <SeloNaoLidas invertido={ativo(pathname, item.href)} /> : null}
+              <Icon size={17} aria-hidden />
+              {label}
             </Link>
           </li>
         ))}
       </ul>
     </nav>
   )
+}
+export function DashboardNavDesktop() {
+  return <Navigation />
+}
+export function DashboardNavMobile() {
+  return <Navigation mobile />
 }

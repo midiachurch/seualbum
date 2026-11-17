@@ -184,7 +184,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
           {somenteFavoritas ? 'Mostrar todas as fotos' : 'Mostrar favoritas'}
         </button>
       </div>
-      <p className="text-xs text-muted-foreground">Os favoritos são compartilhados com as pessoas que têm acesso ao projeto. A entrega da seleção e a aprovação do álbum são etapas separadas.</p>
+      <p className="text-xs text-muted-foreground">Os favoritos são compartilhados com as pessoas que têm acesso ao projeto. Marcar favoritas salva um rascunho. O cliente confirma a entrega pelo link da galeria.</p>
       {errosArquivos.length ? <div role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{errosArquivos.map((erro, i) => <p key={i}>{erro}</p>)}</div> : null}
       {novas.length ? <div role="status" className="space-y-1 text-sm text-muted-foreground"><p>{concluidas} de {novas.length} envios concluídos · {esperando} na fila · {enviando} em envio · {falhas} com falha</p><progress aria-label="Progresso geral dos envios" max={novas.length} value={concluidas} className="w-full" /></div> : null}
       {erroFavorito ? <p role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{erroFavorito}</p> : null}
@@ -192,7 +192,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
         role="button"
         tabIndex={0}
         onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click() } }}
         onDragOver={(e) => {
           e.preventDefault()
           setDragActive(true)
@@ -210,7 +210,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
       >
         <ImageUp className="h-8 w-8 text-[#6B6B6B]" aria-hidden />
         <div>
-          <p className="font-medium text-[#171717]">Adicionar mais fotos</p>
+          <p className="font-medium text-[#171717]">Adicionar fotos</p>
           <p className="text-xs text-[#6B6B6B]">Toque para escolher ou arraste os arquivos aqui</p>
         </div>
         <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = '' }} />
@@ -221,7 +221,7 @@ export function ClientPhotosManager({ projetoId, initialPhotos }: { projetoId: s
           {somenteFavoritas ? 'Nenhuma foto favorita. Marque a estrela nas fotos para encontrá-las aqui.' : 'Nenhuma foto enviada ainda.'}
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {fotosVisiveis.map((photo) => (
             <div key={photo.idLocal ?? photo.id} className="min-w-0">
             <div className="group relative aspect-square overflow-hidden rounded-xl bg-secondary">
