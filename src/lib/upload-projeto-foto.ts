@@ -2,7 +2,8 @@
 
 import { lerMetadadosFoto, type MetadadosFoto } from '@/lib/exif'
 import { enviarEConfirmarR2, type EstadoEnvioR2 } from '@/lib/upload-r2'
-import { ehUuid } from '@/lib/r2/chaves'
+import { ehUuid, MIMES_FOTO_PROJETO, TAMANHO_MAXIMO_FOTO_PROJETO_R2 } from '@/lib/r2/chaves'
+import { normalizarNomeOriginal } from '@/lib/r2/nome-original'
 import { novoUuid } from '@/store/usePedidoWizardStore'
 
 const MIME_POR_EXTENSAO: Record<string, string> = {
@@ -15,9 +16,18 @@ const MIME_POR_EXTENSAO: Record<string, string> = {
 }
 
 /** Alguns navegadores entregam HEIC com `type` vazio; a extensão resolve. */
-function mimeDoArquivo(file: File) {
+function mimeDoArquivo(file: Pick<File, 'type' | 'name'>) {
   if (file.type) return file.type
   return MIME_POR_EXTENSAO[file.name.split('.').pop()?.toLowerCase() ?? ''] ?? ''
+}
+
+/** Validação antecipada de UX; a rota e o HeadObject continuam autoritativos. */
+export function validarArquivoFotoProjeto(file: Pick<File, 'type' | 'name' | 'size'>): string | null {
+  if (!MIMES_FOTO_PROJETO.has(mimeDoArquivo(file))) return 'Formato não aceito. Use JPG, PNG, HEIC ou WebP.'
+  if (!Number.isFinite(file.size) || file.size <= 0) return 'O arquivo está vazio ou tem tamanho inválido.'
+  if (file.size > TAMANHO_MAXIMO_FOTO_PROJETO_R2) return 'Foto maior que 300 MB.'
+  if (!normalizarNomeOriginal(file.name)) return 'Nome de arquivo inválido.'
+  return null
 }
 
 /**
@@ -39,7 +49,10 @@ export async function uploadProjetoFoto(
 
 /** Uma operação por arquivo. Reutilize `executar` ao tentar novamente. */
 export function criarUploadProjetoFoto(projetoId: string, file: File, grupo?: string) {
-  const corpo = { projetoId, idArquivo: novoUuid(), nome: file.name, tipo: mimeDoArquivo(file), tamanho: file.size }
+  const erro = validarArquivoFotoProjeto(file)
+  if (erro) throw new Error(erro)
+  const nomeOriginal = normalizarNomeOriginal(file.name)!
+  const corpo = { projetoId, idArquivo: novoUuid(), nome: nomeOriginal, tipo: mimeDoArquivo(file), tamanho: file.size }
   const estado: EstadoEnvioR2 = {}
   let metadados: Promise<MetadadosFoto> | undefined
   let emCurso: Promise<Awaited<ReturnType<typeof uploadProjetoFoto>>> | undefined
@@ -49,7 +62,7 @@ export function criarUploadProjetoFoto(projetoId: string, file: File, grupo?: st
     const meta = await (metadados ??= lerMetadadosFoto(file))
     const r = await enviarEConfirmarR2(
       '/api/uploads/projeto-foto', corpo, file,
-      { grupo: grupo ?? null, capturadaEm: meta.capturadaEm, camera: meta.camera }, estado,
+      { grupo: grupo ?? null, nomeOriginal, capturadaEm: meta.capturadaEm, camera: meta.camera }, estado,
     )
     if (!ehUuid(r.id) || typeof r.url !== 'string' || !r.url) {
       throw new Error('O servidor não confirmou os dados da foto. Tente novamente.')

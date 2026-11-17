@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ meta: vi.fn(), uuid: vi.fn() }))
 vi.mock('@/lib/exif', () => ({ lerMetadadosFoto: mocks.meta }))
 vi.mock('@/store/usePedidoWizardStore', () => ({ novoUuid: mocks.uuid }))
 
-import { criarUploadProjetoFoto, uploadProjetoFoto } from './upload-projeto-foto'
+import { criarUploadProjetoFoto, uploadProjetoFoto, validarArquivoFotoProjeto } from './upload-projeto-foto'
 import { enviarEConfirmarR2 } from './upload-r2'
 
 const PROJETO = '11111111-1111-4111-8111-111111111111'
@@ -33,7 +33,7 @@ describe('upload de foto do projeto com retomada', () => {
     fetchMock.mockResolvedValueOnce(assinatura()).mockResolvedValueOnce(new Response()).mockResolvedValueOnce(confirmado())
     expect(await uploadProjetoFoto(PROJETO, arquivo(), 'Cerimônia')).toEqual({ id: FOTO, storagePath: KEY, url: RESULTADO.url, meta: META })
     expect(corpoDaChamada(0)).toMatchObject({ projetoId: PROJETO, idArquivo: ARQUIVO, tipo: 'image/jpeg', tamanho: 4 })
-    expect(corpoDaChamada(2)).toEqual({ key: KEY, grupo: 'Cerimônia', ...META })
+    expect(corpoDaChamada(2)).toEqual({ key: KEY, grupo: 'Cerimônia', nomeOriginal: 'foto.jpg', ...META })
     expect(metodos()).toEqual(['POST', 'PUT', 'POST'])
   })
 
@@ -122,5 +122,31 @@ describe('upload de foto do projeto com retomada', () => {
     fetchMock.mockResolvedValueOnce(assinatura()).mockResolvedValueOnce(new Response()).mockResolvedValueOnce(Response.json({ ok: true }))
     expect(await enviarEConfirmarR2('/api/uploads/midia', { nome: 'foto.jpg' }, arquivo())).toEqual({ ok: true, key: KEY })
     expect(metodos()).toEqual(['POST', 'PUT', 'POST'])
+  })
+})
+
+
+describe('validação antecipada de arquivo', () => {
+  it('aceita HEIC e HEIF com MIME vazio sem descartar silenciosamente', () => {
+    for (const name of ['CAMERA.HEIC', 'foto.heif']) expect(validarArquivoFotoProjeto({ name, type: '', size: 10 })).toBeNull()
+  })
+  it.each([
+    { name: 'arquivo.exe', type: '', size: 1 },
+    { name: 'foto.jpg', type: 'text/html', size: 1 },
+    { name: 'foto.jpg', type: 'image/jpeg', size: 0 },
+    { name: 'foto.jpg', type: 'image/jpeg', size: 301 * 1024 * 1024 },
+  ])('recusa formato/tamanho inválido antes de rede/EXIF %j', (file) => {
+    expect(validarArquivoFotoProjeto(file)).not.toBeNull()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('mantém nome original seguro no registro e no retry da confirmação', async () => {
+    fetchMock.mockResolvedValueOnce(assinatura()).mockResolvedValueOnce(new Response()).mockRejectedValueOnce(new Error('rede'))
+    const envio = criarUploadProjetoFoto(PROJETO, new File(['foto'], 'C:\\pasta\\original.jpg', { type: 'image/jpeg' }))
+    await expect(envio.executar()).rejects.toThrow()
+    fetchMock.mockResolvedValueOnce(confirmado())
+    await envio.executar()
+    expect(corpoDaChamada(0).nome).toBe('original.jpg')
+    expect(corpoDaChamada(2).nomeOriginal).toBe('original.jpg')
+    expect(corpoDaChamada(3)).toEqual(corpoDaChamada(2))
   })
 })

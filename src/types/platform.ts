@@ -302,6 +302,7 @@ export type Briefing = {
 }
 
 export type Photo = {
+  nomeArquivo?: string
   id: string
   url: string
   grupo: string

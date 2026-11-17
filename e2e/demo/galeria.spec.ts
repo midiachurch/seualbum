@@ -57,3 +57,23 @@ test('modal navega por teclado, fecha com Escape e restaura foco', async ({ page
   await expect(modal).not.toBeVisible()
   await expect(thumbs.nth(0)).toBeFocused()
 })
+
+test('upload demo limita fila, aceita novos lotes e apresenta arquivo inválido', async ({ page }) => {
+  const input = page.locator('input[type=file]')
+  const arquivos = (inicio: number, total: number) => Array.from({ length: total }, (_, i) => ({
+    name: `foto-${inicio + i}.jpg`, mimeType: 'image/jpeg', buffer: Buffer.from('imagem sintética demo'),
+  }))
+  await input.setInputFiles(arquivos(1, 8))
+  const fila = page.getByRole('status').filter({ hasText: /envios concluídos/ })
+  await expect(fila).toContainText('3 em envio')
+  await expect(fila).toContainText('5 na fila')
+  await input.setInputFiles(arquivos(9, 2))
+  await expect(fila).toContainText('de 10 envios concluídos')
+  await expect(fila).not.toContainText('4 em envio')
+  await expect(fila).toContainText('10 de 10 envios concluídos', { timeout: 15_000 })
+  await input.setInputFiles({ name: 'camera.HEIC', mimeType: '', buffer: Buffer.from('HEIC sintético demo') })
+  await expect(fila).toContainText('11 de 11 envios concluídos', { timeout: 10_000 })
+  await input.setInputFiles({ name: 'arquivo.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('inválido') })
+  await expect(page.getByRole('alert').filter({ hasText: 'arquivo.exe' })).toContainText('Formato não aceito')
+  await expect(fila).toContainText('11 de 11 envios concluídos')
+})
