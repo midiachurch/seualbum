@@ -4,6 +4,7 @@ Requer Docker e as três imagens oficiais já disponíveis. Sem pull/instalaçã
 Exclui somente inicialização de segredo Vault/cron da cópia em memória da 0015.
 """
 import os
+import importlib.util
 from pathlib import Path
 import re
 import subprocess
@@ -97,6 +98,11 @@ def main():
             bad = bool(re.search(r"^not ok|^Bail out!|^# Looks like", result, re.M)) or not plan or len(checks) != int(plan[1])
             failed |= bad
             print(f"{file.name}: {len(checks)} verificações, {'FALHOU' if bad else 'OK'}", flush=True)
+        if os.environ.get("SEUALBUM_API_TESTS") == "1":
+            spec = importlib.util.spec_from_file_location("postgrest_test", ROOT / "scripts/test-postgrest-isolado.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.run_api(NAME, sql, OUTPUT)
         print("Resultados: " + str(OUTPUT), flush=True)
         if failed:
             raise SystemExit(1)
