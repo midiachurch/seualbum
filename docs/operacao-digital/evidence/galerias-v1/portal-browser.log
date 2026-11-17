@@ -97,17 +97,17 @@ Running 3 tests using 1 worker
 [WebServer] (node:11717) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
 [WebServer] [browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
-[WebServer] 
+[WebServer]
 [WebServer] - A server/client branch `if (typeof window !== 'undefined')`.
 [WebServer] - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
 [WebServer] - Date formatting in a user's locale which doesn't match the server.
 [WebServer] - External changing data without sending a snapshot of it along with the HTML.
 [WebServer] - Invalid HTML tag nesting.
-[WebServer] 
+[WebServer]
 [WebServer] It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
-[WebServer] 
+[WebServer]
 [WebServer] https://react.dev/link/hydration-mismatch
-[WebServer] 
+[WebServer]
 [WebServer]   ...
 [WebServer]     <ScrollAndMaybeFocusHandler cacheNode={{rsc:{...}, ...}}>
 [WebServer]       <InnerScrollHandlerNew focusAndScrollRef={{scrollRef:null, ...}} cacheNode={{rsc:{...}, ...}}>
@@ -145,7 +145,7 @@ Running 3 tests using 1 worker
 [WebServer]                     ...
 [WebServer]                   ...
 [WebServer]         ...
-[WebServer]  
+[WebServer]
 [WebServer] (node:11723) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
 [WebServer] (node:11726) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
