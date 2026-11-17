@@ -1042,7 +1042,9 @@ export type Database = {
       }
       /** Limite de buscas por selfie: true = pode buscar, e fica registrada (0042). */
       registrar_busca_facial: { Args: { p_limite?: number }; Returns: boolean }
-      /** Marca como favoritas fotos do projeto — quem enxerga o projeto (0042). */
+      /** Define favorito manual compartilhado, sem entregar seleção (0044). */
+      definir_favorito_foto: { Args: { p_projeto_id: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
+      /** Marca favoritas por selfie; comando unidirecional separado (0042). */
       favoritar_fotos: { Args: { p_projeto_id: string; p_foto_ids: string[] }; Returns: number }
       /** Reserva a chave de um envio do R2 para quem o pediu, por 24h (0040). Só service_role. */
       reservar_upload_r2: { Args: { p_key: string; p_user_id: string }; Returns: boolean }
