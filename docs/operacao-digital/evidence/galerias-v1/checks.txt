@@ -6,5 +6,6 @@ Playwright demo: 5/5.
 Playwright Auth/portal integrado: 3/3, com jornadas de 1440 e 390 px. Auth/SQL reais; mídia/R2 substituídos.
 Retry UI: 1 assinatura, 1 PUT, 2 confirmações após falha simulada, mesma chave/ID.
 Build webpack final: exit 0.
-Nenhuma migration remota aplicada por esta entrega.
+0048 aplicada no projeto Seu Álbum após CI verde; lista correspondente e dry-run final sem pendências.
+CI e preview aprovados para 41d97bc; atualização documental posterior verificável na PR #3.
 Concorrência real: duas sessões, um sucesso/um conflito 40001; um snapshot.

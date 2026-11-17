@@ -1,4 +1,4 @@
-# Galerias Digitais v1 — entrega em andamento
+# Galerias Digitais v1 — PR publicada; homologação externa pendente
 
 Data: 17/11/2026. Autorização: pedido anexado do usuário para implementar, publicar nova PR, revisar/aplicar migrations, integrar e verificar produção. Os limites anteriores de Etapa 02 são históricos no que conflitam com este pedido.
 
@@ -21,7 +21,7 @@ Worktree exclusivo `/private/tmp/seualbum-galerias-digitais-v1`, branch `feat/ga
 
 É aditiva e compatível com a versão ainda em produção: nenhuma tabela, coluna, policy ou RPC existente é alterada. 0043–0047 revisadas como dependências e continuam cobertas pelas regressões. Em caso de rollback de frontend, a função aditiva pode permanecer sem afetar a versão anterior. Não usar reset/repair nem excluir registros.
 
-Alvos conferidos: Supabase `ytqbyfmroyilinxdhopv`; Vercel `seualbum`, ID `prj_nHefeqEHHGDxpDkilEtDbz1fZXII`. Histórico remoto contém as 47 migrations anteriores, todas correspondentes. Simulação lista SOMENTE a 0048. Ainda não aplicada nesta entrega.
+Alvos conferidos: Supabase `ytqbyfmroyilinxdhopv`; Vercel `seualbum`, ID `prj_nHefeqEHHGDxpDkilEtDbz1fZXII`. Histórico remoto contém as 47 migrations anteriores, todas correspondentes. Simulação lista SOMENTE a 0048. Aplicada nesta entrega após CI verde, em 17/11/2026. Nova consulta confirma 48 migrations correspondentes e segunda simulação `upToDate=true`, sem pendências.
 
 ## Validação e capturas
 
@@ -42,7 +42,11 @@ Conta de teste indicada pelo usuário: identificador mantido apenas na conversa,
 
 Produção anterior observada: `https://seualbum.vercel.app`, deployment `dpl_AZzEg1ZnkfP2ToMGMfXY9afg5e1F` / `https://seualbum-lgd961i7k-midiachurch.vercel.app`, Ready em `main` `4fac791`. Ready não comprova upload/fluxo comercial saudável.
 
-Próximos gates: concluir commit/push e PR; verificar CI/preview do SHA final; resolver configuração/login de homologação; aplicar apenas 0048 após CI e ensaio; confirmar lista/dry-run sem pendências; merge e acompanhar deploy automático do SHA integrado; jornada completa em produção com conteúdo próprio. Não alegar produção ou R2 validados antes desses gates.
+PR publicada: [#3 — Galerias Digitais v1](https://github.com/midiachurch/seualbum/pull/3), aberta, sem merge. Implementação `3b6efb8`, normalização de evidência `41d97bc`. CI `44107632051` e Vercel Preview `7856766126` aprovados para `41d97bc363eaa84dc5cb81165de7d9730ded5713`. [Preview](https://seualbum-eljohv5ez-midiachurch.vercel.app), HTTP 302 para autenticação Vercel; não houve bypass. Ready não comprova fluxo com mídia real. A sessão GitHub ativa não tinha push; usada a sessão proprietária já autenticada somente no processo, sem trocar a conta global nem expor tokens.
+
+Migration 0048 aplicada no alvo correto após CI verde; simulação final sem pendências. Consulta pós-aplicação confere existência da RPC e grants: authenticated=true, anon=false, service_role=false. Nenhuma migration anterior reaplicada, nenhum reset/repair.
+
+Próximos gates: resolver configuração R2/preview e conta de fotógrafo; homologar serviços reais; fazer merge e acompanhar deploy automático do SHA integrado; jornada completa em produção com conteúdo próprio. Não alegar produção ou R2 validados antes desses gates. Esta atualização documental posterior também dispara os checks do head da PR; o SHA vigente deve ser consultado no GitHub.
 
 ## Incidente da ferramenta Vercel
 
