@@ -31,9 +31,9 @@ Build conserva avisos de libheif/extração de require, classe Tailwind ambígua
 
 ## GitHub, Supabase e Vercel
 
-- GitHub: autenticação e branches remotas verificadas. Main remota em `1d90e82`; PR desta branch inclui os quatro commits locais anteriores da consolidação S1. Publicação bloqueada pela revisão automática: destino público e payload composto pelo incremento e quatro commits anteriores exigem confirmação explícita. Nenhum push ou PR criado. Pacote em [PUBLICATION-REVIEW](PUBLICATION-REVIEW.md).
+- GitHub: autenticação e branches remotas verificadas. Main remota em `1d90e82`; PR desta branch inclui os quatro commits locais anteriores da consolidação S1. Publicação pública autorizada explicitamente e confirmada até `d7413a5`; [PR #2](https://github.com/midiachurch/seualbum/pull/2) aberto em rascunho, sem merge. A recusa automática inicial foi resolvida por autorização do usuário; o primeiro push recebeu 403 da conta sem escrita, e o push pela conta proprietária autenticada foi bem-sucedido. Conta originalmente ativa restaurada.
 - Supabase: projeto CLI local identificado como `seu-album`. Tentativa de ler histórico de migrations retornou 403 por privilégios insuficientes no endpoint de login. **Nenhuma migration remota aplicada; baseline desconhecida.**
-- Vercel: vínculo local `seualbum`; metadado GitHub de Production com sucesso em 25/10/2026 para `1d90e82`. **Nenhum novo preview ou produção confirmado nesta rodada.** Variáveis remotas e isolamento de preview não verificados.
+- Vercel: vínculo local `seualbum`; metadado GitHub de Production com sucesso em 25/10/2026 para `1d90e82`. **Preview de `d7413a5` confirmado Ready/success** em [Vercel](https://seualbum-cxpmfvrto-midiachurch.vercel.app). O alias da branch redireciona HTTP 302 para SSO da Vercel; a aplicação protegida não foi homologada. Nenhuma publicação em produção. Variáveis remotas e isolamento de preview não verificados.
 
 ## Pendências do produto e aprovações
 
@@ -46,3 +46,15 @@ Sem preços definitivos, custos adicionais, exclusão, migração de produção 
 ## Registro final da validação integrada
 
 Repetição do harness SQL/HTTP na árvore principal concluiu com exit 0: 547 verificações SQL e 46 HTTP aprovadas. Containers exclusivos foram descartados pelo harness. Commits locais do incremento: `b64e05f`, `7bc4f1c`, `d6a1b24`; documentação em commit próprio. Build e navegador executados sequencialmente após a tentativa inicial de fontes restritas.
+
+## Continuação do PR #2 — 16/11/2026
+
+CI remoto concluído com sucesso: instalação, tipos, lint e Vitest. Vercel Preview e Vercel Preview Comments também em sucesso. Não foi identificado erro de compilação ou teste que exigisse correção funcional. Logs de erros simulados de Stripe são cenários negativos dos testes, sem falha do job. Não confundir Ready com validação do banco.
+
+Nova suíte `storage_privado.test.sql`: 40 verificações de bucket/RLS e leitura/escrita de editor por projeto/papel, anon e inativo. Repetição combinada na árvore local: **587/587 SQL e 46 HTTP aprovados**, exit 0. Nenhuma policy/migration alterada. Runtime Storage/R2, assinatura/CORS/IAM e Auth permanecem sem certificação. Limites de aprovação pública por UUID e avulsos em [STORAGE-REVIEW](STORAGE-REVIEW.md).
+
+Nova tentativa somente leitura `supabase migration list --linked` retornou novamente 403 antes de obter histórico. Nenhuma migration remota aplicada. Não houve tentativa de contornar permissões ou usar service role.
+
+Inventário comparativo em [MVP-MATRIX](MVP-MATRIX.md). O arquivo chamado `SEUALBUM-FASE-01.md` não foi encontrado no repositório; comparação baseada no pedido original da Fase 01, sem alegar leitura de versão externa. Prompts prontos e arquivos exclusivos em [PROMPTS-PARALELOS](PROMPTS-PARALELOS.md): IA 1 snapshot de seleção, IA 2 fila de upload. Estes próximos incrementos ainda não foram executados por esses prompts.
+
+As alterações desta continuação são locais (teste Storage, evidências e documentação); não houve novo push, merge ou produção. A revisão pública anterior cobria até `d7413a5`. Sem necessidade de repetir build/Vitest por documentação e SQL apenas; o novo SQL foi executado pelo harness combinado. Baseline para iniciar as duas IAs deve ser o novo commit local integrado informado pelo coordenador, e não worktrees antigos.

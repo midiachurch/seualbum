@@ -1,0 +1,43 @@
+# Prompts para duas IAs — execução sem conflito
+
+Baseline compartilhada: `d7413a5` / PR #2. Antes de iniciar, o coordenador deve informar um único SHA integrado vigente. Cada IA cria branch/worktree próprio a partir desse SHA e não copia `.env`, autenticação, `.git`, node_modules ou caches para artefatos. Não iniciar pelo estado de um worktree antigo da primeira rodada. Estas são tarefas preparadas para distribuição; este documento não declara que foram executadas.
+
+As duas frentes podem ocorrer simultaneamente porque o backend não altera o gerenciador de fotos, e o frontend não consome a futura seleção entregue. A UI da entrega será uma etapa posterior, após revisão do contrato do backend. Aprovação de álbum e comando de selfie ficam preservados.
+
+| Frente | Branch sugerida | Arquivos exclusivos permitidos |
+|---|---|---|
+| IA 1 — Entrega de seleção / backend | `feat/od-selecao-snapshot` | Nova migration 0045 (reservada a esta frente), `supabase/tests/selecao_entregue.test.sql`, novo fixture/teste HTTP específico em `supabase/tests/api/` e `scripts/` com prefixo `selecao-`, `src/lib/actions/selecao-entregue.ts`, teste homônimo, `src/lib/selecao-entregue/`, `src/types/database.ts`, `docs/operacao-digital/SELECTION-CONTRACT.md` |
+| IA 2 — Galeria / fila de upload | `feat/od-galeria-fila` | `src/components/cliente/client-photos-manager.tsx`, novo helper e teste `src/lib/fila-upload-projeto.ts` / `.test.ts`, `e2e/demo/galeria.spec.ts`, `docs/operacao-digital/GALLERY-ACCEPTANCE.md` |
+| Coordenador | `feat/operacao-digital` | Integração, documentação central/AGENTS/roadmap, CI/package/configs e harness compartilhado; somente o coordenador integra alterações nesses arquivos |
+
+Não alterar arquivos fora da coluna sem combinar redistribuição de propriedade antes. Em particular, nenhuma das IAs altera `package.json`, lockfile, `scripts/test-db-isolado.py`, `playwright*.config.ts`, migrations antigas, selfie, prova ou cobrança. Se for necessário mudar contrato ou arquivo compartilhado, entregar proposta pontual ao coordenador e continuar trabalho independente. Não integrar alterando silenciosamente as entregas da outra IA.
+
+## Prompt individual — IA 1
+
+> Você é responsável pelo backend da entrega de seleção do Seu Álbum. Trabalhe em branch/worktree isolado `feat/od-selecao-snapshot` a partir do SHA fornecido pelo coordenador. Leia AGENTS.md, docs/MASTERPLAN.md, docs/operacao-digital/ARCHITECTURE.md, FLOWS.md, MVP-MATRIX.md, ADR-003 e as migrations 0043/0044. Leia o guia Next local relevante antes de escrever Server Actions. Não use outro projeto da conta, service role para autorização, dados pessoais ou credenciais reais.
+>
+> Implemente localmente um snapshot transacional de seleção entregue, separado de favorito manual, selfie e aprovação de álbum. Antes do código, escreva `SELECTION-CONTRACT.md` com nomes/argumentos SQL e tipos da action, modelo, autorização por capacidade, revisão/idempotência, comportamento de conflito e política de imutabilidade. Use como invariantes fixos: sessão ativa; cada foto pertence ao projeto; negação a outro estúdio/cliente/produtor sem atribuição; nenhuma escrita anon; permissão de leitura da equipe não implica poder de decidir em nome do cliente; nova entidade sem alterar a semântica dos favoritos; evento com autor/data apenas após commit real; nenhuma nota interna retornada. O contrato não pode ser publicado como concluído antes de seus testes.
+>
+> O comando deve receber estado explícito (IDs escolhidos), revisão esperada e chave idempotente por projeto/ator; rejeitar entradas inválidas, IDs cruzados e payload divergente com mesma chave. Retry do mesmo comando retorna a mesma entrega sem duplicar evento. Concorrência de revisão precisa de um vencedor e conflito detectável, sem sobrescrever snapshot anterior. Não criar assinatura/portal/diagramação neste incremento. Não simular a decisão do cliente por causa de papel global de equipe; se o escopo de quem entrega não puder ser derivado da política existente, formule a proposta e deixe o comando negado até revisão do coordenador.
+>
+> Preserve IDs, bucket e caminho dos originais como metadados privados. Audite a origem do nome original: `FotoRow` atual não tem campo durável específico de nome original. Não invente nomes, não reutilize URL assinada como identificador e não declare exportação completa sem resolver essa lacuna. Caso adição de metadado exija alterar upload/rotas fora da propriedade, registre contrato de adaptação para o coordenador; não edite arquivos da IA 2. Nenhum segredo/chave de objeto deve ser exposto por permissão pública ampla.
+>
+> Arquivos permitidos: os da coluna IA 1 acima. Reserve 0045 apenas para esta frente; não altere migrations antigas. Política RLS e RPC precisam de testes negativos diretos, incluindo inativo, anon/sem sub, outro projeto, responsável revogado, idempotência, revisão concorrente e isolamento das linhas de snapshot. Verifique que favorito e aprovação continuam independentes. Execute unitários, tipos, lint focal e SQL/HTTP em banco descartável por mecanismo acordado com o coordenador; não aplique migration remota nem aponte testes para stack existente. Não altere harness compartilhado sem revisão.
+>
+> Entregue lista de arquivos, contrato final, resultados verificáveis, limitações, migração reversível ensaiada e diff para integração. Sem push, merge, deploy, instalação, custo, exclusão ou preços. Não declare o fluxo comercial inteiro pronto por ter implementado a RPC.
+
+## Prompt individual — IA 2
+
+> Você é responsável pela fila de upload e qualidade da galeria existente do Seu Álbum. Trabalhe em branch/worktree isolado `feat/od-galeria-fila` a partir do SHA fornecido pelo coordenador. Leia AGENTS.md, docs/MASTERPLAN.md, ARCHITECTURE.md e MVP-MATRIX.md da Operação Digital; leia os guias Next/React locais de Client Components e Server Actions antes de código. Preserve reconhecimento por selfie, favoritos persistidos, modal, editor, prova e cobrança.
+>
+> Implemente fila de upload com no máximo três arquivos em execução simultânea no `client-photos-manager.tsx`, usando helper isolado `fila-upload-projeto.ts`. O limite deve valer também quando novos lotes são adicionados durante uploads e ao clicar retry. Cada item deve reutilizar a mesma operação retornada por `criarUploadProjetoFoto`, conservando UUID/chave e etapa já concluída. Não criar novo envio por retry, não bloquear a interface, não disparar chamadas novas após desmontagem. Envio já em curso só deve ser cancelado se a API existente suportar cancelamento seguro; não afirmar cancelamento que não ocorre. Exponha estados de espera/envio/falha/conclusão com mensagens acessíveis e contador coerente; preserve ID persistido, rollback de favorito, foco e navegação do modal.
+>
+> Não crie UI de entrega de seleção nem consuma a futura action da IA 1. Favoritos continuam rascunho compartilhado. Não altere permissões, endpoints, tipos de banco, helper existente de upload ou regras R2. Se encontrar necessidade nesses arquivos, reporte proposta ao coordenador. Nome local de arquivo é apenas apresentação; não declarar que nome original persiste depois de recarregar.
+>
+> Arquivos permitidos: os da coluna IA 2 acima. Teste limite global com lotes sucessivos, falha que libera vaga, retry com a mesma operação, clique repetido e descarte de itens ainda não iniciados na desmontagem. Esses testes devem verificar comportamento de concorrência, sem refletir detalhes internos. Amplie os cenários demo existentes para os estados observáveis que forem viáveis e responsividade/foco; demo não prova PUT/R2 ou autenticação. Não altere Playwright config, package/lock ou harness compartilhado.
+>
+> Execute tipos, lint focal, unitários significativos e navegador demo acordado com o coordenador. Não rode build e dev simultaneamente na mesma `.next`. Entregue diff, resultados, limitações de retry/refresh/cancelamento e `GALLERY-ACCEPTANCE.md`. Sem push, merge, deploy, migration remota, instalação, custo, exclusão ou preços.
+
+## Integração pelo coordenador
+
+Revisar o contrato de seleção antes de conectá-lo à UI. Integrar fila e backend separadamente, preservando os commits existentes. Executar tipos/lint/Vitest, regressão SQL/HTTP, demo e build no SHA integrado; browser Auth/Storage e baseline remota continuam gates independentes. Registrar tarefas pendentes sem tratar sucesso de CI/preview como validação da infraestrutura remota. Publicação de novos commits públicos deve respeitar a autorização vigente e a revisão de conteúdo, sem merge ou produção.

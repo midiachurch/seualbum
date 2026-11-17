@@ -1,5 +1,7 @@
 # Permissões: atual, risco e alvo
 
+> Baseline histórica abaixo. Localmente a 0043 restringiu produção por atribuição e conta ativa; a 0044 separou favorito manual. Continuação validou 587 verificações SQL e 46 HTTP, incluindo Storage privado. Estado remoto desconhecido por 403; ver [execução](../operacao-digital/EXECUTION-STATUS.md) e [limites de Storage](../operacao-digital/STORAGE-REVIEW.md).
+
 ## Estado atual e fronteiras
 
 `profiles.role` possui admin, gestor, operador, designer, fotografo e cliente. `ROLE_PERMISSIONS` é matriz de apresentação/aplicação; não é policy SQL. Proxy revalida usuário e área, mas exclui APIs; helpers e Route Handlers repetem autenticação. A service role ignora RLS e deve ter finalidade estreita, validação prévia e retorno mínimo.

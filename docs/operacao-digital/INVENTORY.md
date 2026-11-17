@@ -37,3 +37,7 @@ Vínculo CLI local identificado pelo nome `seu-album`; não listado catálogo de
 Docker instalado foi iniciado; imagens oficiais locais permitem testes sem pull, sem rede externa e sem portas host. GitHub CLI e Supabase CLI instalados. CI atual executa tipos, lint e Vitest, sem SQL/Playwright. Navegador demo cobre interface sem backend; API e Auth precisam evidência própria.
 
 Gates comerciais abertos: baseline remota, RLS global de catálogos/avulsos, API/Auth e upload real, portal revogável, seleção entregue/exportação, timeline de eventos, recorrência e cotas, preview isolado e homologação. Sem conclusão de prontidão comercial.
+
+## Atualização de continuação do PR #2
+
+PR público em rascunho confirmado e CI aprovado. Preview Ready, com HTTP 302 para SSO na URL de branch; sem homologação funcional. Nova regressão Storage eleva SQL a 587/587; HTTP continua 46/46 no gate combinado. Detalhes e limites em EXECUTION-STATUS.md e STORAGE-REVIEW.md. A consulta remota de migrations segue bloqueada por 403; nenhuma aplicação remota.
