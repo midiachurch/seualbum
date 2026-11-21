@@ -269,6 +269,19 @@ export type R2UploadPendenteRow = {
   created_at: string
 }
 
+/** Coleção (set) de fotos de um projeto: visão sobre as mesmas fotos, sem duplicar mídia (migration 0056). */
+export type ColecaoFotoRow = { id: string; projeto_id: string; nome: string; ordem: number; criado_por: string | null; created_at: string }
+export type GaleriaDownloadConfigRow = {
+  projeto_id: string
+  liberado: boolean
+  expira_em: string | null
+  limite_fotos: number
+  atualizado_por: string | null
+  updated_at: string
+}
+export type PortalColecao = { id: string; nome: string; total: number }
+export type PortalDownloadConfig = { liberado: boolean; expira_em: string | null; limite: number; usados: number }
+
 /** Store (migration 0055): venda do estúdio ao cliente final, contexto financeiro próprio. */
 export type StoreProdutoTipo = 'colecao_digital' | 'foto_avulsa' | 'impressao' | 'servico'
 export type StoreProdutoRow = {
@@ -970,6 +983,10 @@ export type Database = {
         Update: Partial<EventoAnaliticoRow>
         Relationships: []
       }
+      colecoes_foto: { Row: ColecaoFotoRow; Insert: never; Update: never; Relationships: [] }
+      colecao_fotos: { Row: { colecao_id: string; foto_id: string }; Insert: never; Update: never; Relationships: [] }
+      galeria_download_config: { Row: GaleriaDownloadConfigRow; Insert: never; Update: never; Relationships: [] }
+      galeria_downloads: { Row: { acesso_id: string; foto_id: string; projeto_id: string; vezes: number; primeiro_em: string; ultimo_em: string }; Insert: never; Update: never; Relationships: [] }
       store_produtos: { Row: StoreProdutoRow; Insert: never; Update: never; Relationships: [] }
       store_projeto_produtos: { Row: { projeto_id: string; produto_id: string; created_at: string }; Insert: never; Update: never; Relationships: [] }
       store_pedidos: { Row: StorePedidoRow; Insert: never; Update: never; Relationships: [] }
@@ -1200,6 +1217,15 @@ export type Database = {
       criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
       revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
       aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
+      salvar_colecao: { Args: { p_id: string; p_projeto: string; p_nome: string; p_ordem?: number }; Returns: string }
+      remover_colecao: { Args: { p_id: string }; Returns: boolean }
+      definir_fotos_colecao: { Args: { p_colecao: string; p_foto_ids: string[] }; Returns: number }
+      definir_download_galeria: { Args: { p_projeto: string; p_liberado: boolean; p_expira_em: string | null; p_limite: number }; Returns: boolean }
+      pode_gerir_galeria: { Args: { p_projeto: string }; Returns: boolean }
+      portal_colecoes: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_fotos_colecao: { Args: { p_sessao_hash: string; p_colecao: string; p_apos?: string }; Returns: Json }
+      portal_download_config: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_download_foto: { Args: { p_sessao_hash: string; p_foto_id: string }; Returns: Json }
       store_salvar_produto: { Args: { p_id: string; p_org: string; p_nome: string; p_tipo: StoreProdutoTipo; p_preco: number; p_comissao_bps: number; p_ativo: boolean; p_descricao?: string | null }; Returns: string }
       store_vincular_produto: { Args: { p_projeto: string; p_produto: string; p_vincular: boolean }; Returns: boolean }
       store_catalogo_portal: { Args: { p_sessao_hash: string }; Returns: Json }

@@ -29,3 +29,23 @@ export async function lerProvaPortal(link: string): Promise<import('./prova').Po
   const { data, error } = await createPublicClient().rpc('portal_prova', { p_sessao_hash: hash })
   return error ? null : lerContratoProva(data)
 }
+
+export type ColecaoPortal = { id: string; nome: string; total: number }
+export async function lerColecoesPortal(link: string): Promise<ColecaoPortal[]> {
+  const hash = await sessaoPortal(link)
+  if (!hash) return []
+  const { data, error } = await createPublicClient().rpc('portal_colecoes', { p_sessao_hash: hash })
+  return error || !Array.isArray(data) ? [] : (data as unknown as ColecaoPortal[])
+}
+export async function lerFotosColecaoPortal(link: string, colecao: string, apos?: string): Promise<PortalProjeto['fotos'] | null> {
+  const hash = await sessaoPortal(link)
+  if (!hash) return null
+  const { data, error } = await createPublicClient().rpc('portal_fotos_colecao', { p_sessao_hash: hash, p_colecao: colecao, p_apos: apos ?? undefined })
+  return error || !Array.isArray(data) ? null : (data as unknown as PortalProjeto['fotos'])
+}
+export async function downloadLiberadoPortal(link: string): Promise<boolean> {
+  const hash = await sessaoPortal(link)
+  if (!hash) return false
+  const { data, error } = await createPublicClient().rpc('portal_download_config', { p_sessao_hash: hash })
+  return !error && typeof data === 'object' && data !== null && !Array.isArray(data) && (data as { liberado?: unknown }).liberado === true
+}
