@@ -295,6 +295,105 @@ export type ConviteOrganizacaoRow = {
 /** Linha da equipe devolvida por `listar_equipe_organizacao` (0051). */
 export type EquipeMembroRow = { user_id: string; nome: string; email: string; papel: PapelOrganizacao; status: 'ativo' | 'removido' }
 
+/** Booking (migrations 0060-0062). Escrita só por RPC; token_hash nunca é legível. */
+export type AgendaTipoRecurso = 'pessoa' | 'equipamento' | 'espaco'
+export type AgendaRecursoRow = {
+  id: string
+  organizacao_id: string
+  nome: string
+  slug: string
+  tipo: AgendaTipoRecurso
+  descricao: string | null
+  fuso: string
+  duracao_min: number
+  buffer_min: number
+  intervalo_min: number
+  antecedencia_min_min: number
+  antecedencia_max_dias: number
+  cancelamento_antecedencia_h: number
+  /** Sinal SIMULADO em centavos; nulo = sem sinal. */
+  sinal_centavos: number | null
+  publicado: boolean
+  ativo: boolean
+  created_at: string
+  updated_at: string
+}
+export type AgendaDisponibilidadeRow = { id: string; recurso_id: string; dia_semana: number; inicio: string; fim: string }
+export type AgendaBloqueioRow = { id: string; recurso_id: string; periodo: string; motivo: string | null; criado_por: string | null; created_at: string }
+export type AgendaStatusReserva = 'hold' | 'confirmada' | 'cancelada' | 'expirada' | 'concluida'
+export type AgendaSinalStatus = 'nenhum' | 'pendente' | 'pago' | 'reembolso_pendente' | 'reembolsado'
+export type AgendaReservaRow = {
+  id: string
+  organizacao_id: string
+  recurso_id: string
+  status: AgendaStatusReserva
+  inicio: string
+  fim: string
+  ocupa_ate: string
+  contato_nome: string
+  contato_email: string
+  contato_telefone: string | null
+  expira_em: string | null
+  confirmada_em: string | null
+  cancelada_em: string | null
+  cancelada_por: 'cliente' | 'estudio' | null
+  motivo_cancelamento: string | null
+  concluida_em: string | null
+  cliente_id: string | null
+  sinal_centavos: number | null
+  sinal_status: AgendaSinalStatus
+  remarcacoes: number
+  created_at: string
+  updated_at: string
+}
+export type AgendaReservaEventoRow = {
+  id: string
+  reserva_id: string
+  tipo: AgendaStatusReserva | 'remarcada' | 'sinal' | 'cliente_vinculado' | 'reembolso'
+  ator: 'cliente' | 'estudio' | 'sistema'
+  ator_id: string | null
+  detalhes: Json
+  created_at: string
+}
+export type AgendaSlotRow = { slot_inicio: string; slot_fim: string }
+/** Resposta de `agenda_recurso_publico` (somente dados que o visitante pode ver). */
+export type AgendaRecursoPublico = {
+  slug: string
+  nome: string
+  tipo: AgendaTipoRecurso
+  descricao: string | null
+  estudio: string | null
+  fuso: string
+  duracao_min: number
+  sinal_centavos: number | null
+  cancelamento_antecedencia_h: number
+  antecedencia_max_dias: number
+}
+/** Resposta de `agenda_criar_hold`. */
+export type AgendaHoldPublico = {
+  id: string
+  status: AgendaStatusReserva
+  inicio: string
+  fim: string
+  expira_em: string | null
+  sinal_centavos: number | null
+  sinal_status: AgendaSinalStatus
+}
+/** Resposta de `agenda_reserva_publica` (a própria reserva, sem contato). */
+export type AgendaReservaPublica = {
+  id: string
+  status: AgendaStatusReserva
+  inicio: string
+  fim: string
+  expira_em: string | null
+  recurso: string
+  estudio: string | null
+  fuso: string
+  sinal_centavos: number | null
+  sinal_status: AgendaSinalStatus
+  cancelamento_antecedencia_h: number
+}
+
 /** Catálogo de planos da galeria, hipóteses simuladas (migration 0050). */
 export type PlanoGaleriaRow = {
   slug: string
@@ -920,6 +1019,11 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      agenda_recursos: { Row: AgendaRecursoRow; Insert: never; Update: never; Relationships: [] }
+      agenda_disponibilidade: { Row: AgendaDisponibilidadeRow; Insert: never; Update: never; Relationships: [] }
+      agenda_bloqueios: { Row: AgendaBloqueioRow; Insert: never; Update: never; Relationships: [] }
+      agenda_reservas: { Row: AgendaReservaRow; Insert: never; Update: never; Relationships: [] }
+      agenda_reserva_eventos: { Row: AgendaReservaEventoRow; Insert: never; Update: never; Relationships: [] }
       planos_galeria: {
         Row: PlanoGaleriaRow
         Insert: PlanoGaleriaRow
@@ -1130,6 +1234,28 @@ export type Database = {
       adicionar_membro_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'> }; Returns: string }
       remover_membro_organizacao: { Args: { p_org: string; p_user: string }; Returns: boolean }
       listar_equipe_organizacao: { Args: { p_org: string }; Returns: EquipeMembroRow[] }
+      agenda_salvar_recurso: { Args: { p_org: string; p_id: string | null; p_nome: string; p_slug: string; p_tipo: AgendaTipoRecurso; p_descricao: string | null; p_fuso: string; p_duracao_min: number; p_buffer_min: number; p_intervalo_min: number; p_antecedencia_min_min: number; p_antecedencia_max_dias: number; p_cancelamento_antecedencia_h: number; p_sinal_centavos: number | null; p_publicado: boolean }; Returns: string }
+      agenda_arquivar_recurso: { Args: { p_recurso: string }; Returns: boolean }
+      agenda_definir_disponibilidade: { Args: { p_recurso: string; p_janelas: Json }; Returns: number }
+      agenda_criar_bloqueio: { Args: { p_recurso: string; p_inicio: string; p_fim: string; p_motivo: string | null }; Returns: string }
+      agenda_remover_bloqueio: { Args: { p_id: string }; Returns: boolean }
+      agenda_listar_slots_estudio: { Args: { p_recurso: string; p_de: string; p_ate: string }; Returns: AgendaSlotRow[] }
+      agenda_reservar_estudio: { Args: { p_recurso: string; p_inicio: string; p_nome: string; p_email: string; p_telefone: string | null; p_token_hash: string }; Returns: string }
+      agenda_confirmar: { Args: { p_id: string }; Returns: string }
+      agenda_cancelar: { Args: { p_id: string; p_motivo: string | null }; Returns: string }
+      agenda_concluir: { Args: { p_id: string }; Returns: string }
+      agenda_remarcar: { Args: { p_id: string; p_novo_inicio: string }; Returns: string }
+      agenda_registrar_sinal: { Args: { p_id: string }; Returns: string }
+      agenda_registrar_reembolso: { Args: { p_id: string }; Returns: boolean }
+      agenda_vincular_cliente: { Args: { p_id: string }; Returns: string }
+      agenda_recurso_publico: { Args: { p_slug: string }; Returns: AgendaRecursoPublico | null }
+      agenda_listar_slots: { Args: { p_slug: string; p_de: string; p_ate: string }; Returns: AgendaSlotRow[] }
+      agenda_criar_hold: { Args: { p_slug: string; p_inicio: string; p_nome: string; p_email: string; p_telefone: string | null; p_token_hash: string }; Returns: AgendaHoldPublico }
+      agenda_reserva_publica: { Args: { p_id: string; p_token_hash: string }; Returns: AgendaReservaPublica }
+      agenda_confirmar_publica: { Args: { p_id: string; p_token_hash: string }; Returns: string }
+      agenda_pagar_sinal_simulado: { Args: { p_id: string; p_token_hash: string }; Returns: string }
+      agenda_cancelar_publica: { Args: { p_id: string; p_token_hash: string }; Returns: string }
+      agenda_remarcar_publica: { Args: { p_id: string; p_token_hash: string; p_novo_inicio: string }; Returns: string }
       franquia_permite_envio: { Args: { p_projeto: string; p_bytes: number }; Returns: boolean }
       escolher_plano_galeria: { Args: { p_chave: string; p_plano: string }; Returns: string }
       consumo_franquia_galeria: { Args: Record<string, never>; Returns: ConsumoFranquiaGaleriaRow[] }
