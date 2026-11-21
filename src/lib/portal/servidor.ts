@@ -1,6 +1,7 @@
 import 'server-only'
 import { cookies } from 'next/headers'
 import { createPublicClient } from '@/lib/supabase/server'
+import { lerContratoProva } from './prova'
 import { segredoValido, hashSessaoPortal } from './segredos'
 
 export type PortalProjeto = {
@@ -20,4 +21,11 @@ export async function lerPortal(link: string, apos?: string): Promise<PortalProj
   const { data, error } = await createPublicClient().rpc('portal_projeto', { p_sessao_hash: hash, p_apos: apos ?? undefined })
   if (error || !data || typeof data !== 'object' || Array.isArray(data)) return null
   return data as unknown as PortalProjeto
+}
+
+export async function lerProvaPortal(link: string): Promise<import('./prova').PortalProva | null> {
+  const hash = await sessaoPortal(link)
+  if (!hash) return null
+  const { data, error } = await createPublicClient().rpc('portal_prova', { p_sessao_hash: hash })
+  return error ? null : lerContratoProva(data)
 }

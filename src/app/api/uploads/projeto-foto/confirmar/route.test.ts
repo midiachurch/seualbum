@@ -44,7 +44,7 @@ beforeEach(() => {
 describe('nome original na confirmação autorizada', () => {
   it('persiste basename seguro somente no primeiro INSERT', async () => {
     expect((await POST(req('C:\\pasta\\original\u0000.jpg'))).status).toBe(200)
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ nome_original: 'original.jpg', storage_path: key }))
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ nome_original: 'original.jpg', storage_path: key, tamanho_bytes: 10 }))
   })
   it('retry não altera metadados de foto já registrada', async () => {
     mocks.existente = true

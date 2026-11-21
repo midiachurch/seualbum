@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "node scripts/operacao-local.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -11,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:local": "playwright test -c playwright.local.config.ts",
     "test:e2e:editor": "playwright test -c playwright.editor.config.ts"
   },
   "dependencies": {

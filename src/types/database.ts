@@ -267,6 +267,70 @@ export type R2UploadPendenteRow = {
   created_at: string
 }
 
+/** Estúdio como unidade comercial (migration 0051). Escrita só pelo trigger/RPCs. */
+export type OrganizacaoRow = { id: string; nome: string; dono_id: string; created_at: string }
+export type PapelOrganizacao = 'dono' | 'admin' | 'editor' | 'visualizador'
+export type OrganizacaoMembroRow = {
+  organizacao_id: string
+  user_id: string
+  papel: PapelOrganizacao
+  status: 'ativo' | 'removido'
+  adicionado_por: string | null
+  created_at: string
+  removido_em: string | null
+}
+/** Convite por link para a equipe (migration 0053). O token_hash nunca é legível pelo app. */
+export type ConviteOrganizacaoRow = {
+  id: string
+  organizacao_id: string
+  email: string
+  papel: Exclude<PapelOrganizacao, 'dono'>
+  criado_por: string | null
+  status: 'pendente' | 'aceito' | 'revogado'
+  aceito_por: string | null
+  aceito_em: string | null
+  expira_em: string
+  created_at: string
+}
+/** Linha da equipe devolvida por `listar_equipe_organizacao` (0051). */
+export type EquipeMembroRow = { user_id: string; nome: string; email: string; papel: PapelOrganizacao; status: 'ativo' | 'removido' }
+
+/** Catálogo de planos da galeria, hipóteses simuladas (migration 0050). */
+export type PlanoGaleriaRow = {
+  slug: string
+  nome: string
+  preco_mensal_centavos: number
+  armazenamento_bytes: number
+  ativo: boolean
+  ordem: number
+  created_at: string
+}
+/** Assinatura simulada da galeria, com snapshot do plano (migration 0050). Escrita só pela RPC. */
+export type AssinaturaGaleriaRow = {
+  id: string
+  fotografo_id: string
+  chave: string
+  plano_slug: string
+  plano_nome: string
+  preco_mensal_centavos: number
+  armazenamento_bytes: number
+  origem: 'simulada'
+  status: 'ativa' | 'substituida' | 'cancelada'
+  iniciada_em: string
+  encerrada_em: string | null
+}
+
+/** Consumo medido da franquia da galeria (migration 0050). Sem plano: capacidade/percentual nulos. */
+export type ConsumoFranquiaGaleriaRow = {
+  plano_slug: string | null
+  capacidade_bytes: number | null
+  usado_bytes: number
+  fotos_total: number
+  fotos_sem_medicao: number
+  percentual: number | null
+  situacao: 'sem_plano' | 'dentro' | 'alerta' | 'excedida'
+}
+
 export type FotoRow = {
   nome_original?: string | null;
   id: string
@@ -286,6 +350,8 @@ export type FotoRow = {
   /** EXIF (migration 0025): relógio da câmera, sem fuso ("2026-09-20T14:32:05.12"). */
   capturada_em: string | null
   camera: string | null
+  /** Bytes do original no R2, do HeadObject na confirmação (migration 0050). Nulo em fotos anteriores à medição. */
+  tamanho_bytes?: number | null
   created_at: string
 }
 
@@ -748,7 +814,7 @@ export type Database = {
         Insert: never; Update: never; Relationships: []
       }
       selecao_notificacoes: {
-        Row: { id: string; selecao_id: string; destinatario_id: string; created_at: string }
+        Row: { id: string; selecao_id: string; destinatario_id: string; created_at: string; lida_em: string | null }
         Insert: never; Update: never; Relationships: []
       }
 
@@ -834,6 +900,36 @@ export type Database = {
         Row: EventoAnaliticoRow
         Insert: Pick<EventoAnaliticoRow, 'evento'> & Partial<Pick<EventoAnaliticoRow, 'projeto_id' | 'propriedades'>>
         Update: Partial<EventoAnaliticoRow>
+        Relationships: []
+      }
+      organizacoes: {
+        Row: OrganizacaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      convites_organizacao: {
+        Row: ConviteOrganizacaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      organizacao_membros: {
+        Row: OrganizacaoMembroRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      planos_galeria: {
+        Row: PlanoGaleriaRow
+        Insert: PlanoGaleriaRow
+        Update: Partial<PlanoGaleriaRow>
+        Relationships: []
+      }
+      assinaturas_galeria: {
+        Row: AssinaturaGaleriaRow
+        Insert: never
+        Update: never
         Relationships: []
       }
       r2_uploads_pendentes: {
@@ -1027,12 +1123,25 @@ export type Database = {
       diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
     }
     Functions: {
+      criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
+      revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
+      aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
+      papel_na_organizacao: { Args: { p_org: string }; Returns: PapelOrganizacao | null }
+      adicionar_membro_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'> }; Returns: string }
+      remover_membro_organizacao: { Args: { p_org: string; p_user: string }; Returns: boolean }
+      listar_equipe_organizacao: { Args: { p_org: string }; Returns: EquipeMembroRow[] }
+      franquia_permite_envio: { Args: { p_projeto: string; p_bytes: number }; Returns: boolean }
+      escolher_plano_galeria: { Args: { p_chave: string; p_plano: string }; Returns: string }
+      consumo_franquia_galeria: { Args: Record<string, never>; Returns: ConsumoFranquiaGaleriaRow[] }
       criar_galeria_digital: { Args: { p_id: string; p_nome: string; p_cliente_nome: string; p_cliente_email: string }; Returns: string }
       gerir_portal: { Args: { p_projeto_id: string; p_link_hash: string | null; p_codigo: string | null; p_revogar?: boolean }; Returns: string | null }
       abrir_portal: { Args: { p_link_hash: string; p_codigo: string; p_sessao_hash: string }; Returns: boolean }
       portal_projeto: { Args: { p_sessao_hash: string; p_apos?: string }; Returns: Json }
       portal_foto: { Args: { p_sessao_hash: string; p_foto_id: string }; Returns: Json }
       portal_favorito: { Args: { p_sessao_hash: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
+      portal_prova: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_lamina: { Args: { p_sessao_hash: string; p_lamina_id: string }; Returns: Json }
+      portal_comentar_prova: { Args: { p_sessao_hash: string; p_versao_id: string; p_lamina_id: string | null; p_tipo: string; p_texto: string; p_chave: string }; Returns: string }
       portal_entregar: { Args: { p_sessao_hash: string; p_foto_ids: string[]; p_revisao: number; p_chave: string }; Returns: Json }
 
       entregar_selecao: { Args: { p_projeto_id: string; p_foto_ids: string[]; p_revisao_esperada: number; p_chave: string }; Returns: { id: string; revisao: number; total: number } }
@@ -1070,6 +1179,7 @@ export type Database = {
       registrar_busca_facial: { Args: { p_limite?: number }; Returns: boolean }
       /** Define favorito manual compartilhado, sem entregar seleção (0044). */
       definir_favorito_foto: { Args: { p_projeto_id: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
+      marcar_notificacao_selecao_lida: { Args: { p_id: string }; Returns: boolean }
       /** Marca favoritas por selfie; comando unidirecional separado (0042). */
       favoritar_fotos: { Args: { p_projeto_id: string; p_foto_ids: string[] }; Returns: number }
       /** Reserva a chave de um envio do R2 para quem o pediu, por 24h (0040). Só service_role. */
