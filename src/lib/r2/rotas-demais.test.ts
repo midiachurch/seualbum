@@ -165,6 +165,7 @@ describe('fotos do projeto (/api/uploads/projeto-foto)', () => {
         grupo: 'Novas fotos',
         enviado_por: USER,
         nome_original: null,
+        tamanho_bytes: 2048,
         capturada_em: '2026-05-01T18:30:00',
         camera: 'R5',
       },
