@@ -1759,14 +1759,16 @@ async function fotosAvulsasParaEditor(
   fotos: AlbumLayoutRow['fotos'],
 ): Promise<FotoDoEditor[]> {
   // `albuns/…` no R2; caminho antigo no bucket `albuns_fotos` (ver bucketDoArquivoAlbum).
+  // Referência a original de projeto (0090) traz o próprio bucket; os demais seguem a regra de sempre.
+  const bucketDe = (f: AlbumLayoutRow['fotos'][number]) => f.bucket ?? bucketDoArquivoAlbum(f.path)
   const urls = await assinarArquivos(
     supabase,
-    fotos.map((f) => ({ bucket: bucketDoArquivoAlbum(f.path), path: f.path })),
+    fotos.map((f) => ({ bucket: bucketDe(f), path: f.path })),
     EXPIRACAO_EDITOR_SEGUNDOS,
   )
   return fotos.map((f) => ({
     id: f.id,
-    url: urls.get(`${bucketDoArquivoAlbum(f.path)}:${f.path}`) ?? '',
+    url: urls.get(`${bucketDe(f)}:${f.path}`) ?? '',
     nome: f.nome,
     largura: f.largura,
     altura: f.altura,

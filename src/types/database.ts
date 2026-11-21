@@ -605,7 +605,17 @@ export type AlbumLayoutRow = {
    * Só álbuns independentes. `path` com prefixo `albuns/` está no Cloudflare R2;
    * sem ele, é um arquivo antigo do bucket `albuns_fotos` (ver `bucketDoArquivoAlbum`).
    */
-  fotos: { id: string; path: string; nome: string; largura: number | null; altura: number | null }[]
+  fotos: {
+    id: string
+    path: string
+    nome: string
+    largura: number | null
+    altura: number | null
+    /** Só referências (0090): bucket da chave original, que não está na pasta do álbum. */
+    bucket?: string
+    /** true = aponta o original de um projeto (seleção → álbum): sair do álbum NUNCA apaga o arquivo. */
+    referencia?: boolean
+  }[]
   /** Calculada no banco: quantidade de lâminas do documento. */
   laminas_qtd: number
   miniatura: string | null
@@ -620,6 +630,77 @@ export type AlbumLayoutRow = {
   em_espera_desde?: string | null
   created_at: string
   updated_at: string
+}
+
+/** Vínculo imutável álbum ↔ snapshot de seleção (migration 0090). */
+export type AlbumSelecaoVinculoRow = {
+  id: string
+  layout_id: string
+  selecao_id: string
+  projeto_id: string
+  revisao: number
+  destino: 'projeto' | 'avulso'
+  /** IDs de `fotos` do instante da criação; nunca mudam. */
+  foto_ids: string[]
+  chave: string
+  criado_por: string | null
+  created_at: string
+}
+
+/** Registro de uma restauração de versão do álbum (migration 0091). */
+export type AlbumRestauracaoRow = {
+  id: string
+  layout_id: string
+  versao_origem_id: string
+  versao_nova_id: string
+  versao_antes_id: string
+  chave: string
+  revisao: number
+  criado_por: string | null
+  created_at: string
+}
+
+export type PapelDesignNoProjeto = 'producao' | 'dono' | 'admin' | 'editor' | 'visualizador'
+
+/** Retorno de `design_selecao_resumo` (0090). */
+export type DesignSelecaoResumo = {
+  papel: PapelDesignNoProjeto
+  pode_criar: boolean
+  pode_abrir_editor: boolean
+  tem_album_projeto: boolean
+  albuns: { layout_id: string; selecao_id: string; revisao: number; destino: 'projeto' | 'avulso'; total: number; criado_em: string }[]
+}
+
+/** Retorno de `criar_album_da_selecao` (0090). `criado: false` = repetição idempotente. */
+export type CriarAlbumDaSelecaoResultado = {
+  layout_id: string
+  vinculo_id: string
+  revisao: number
+  total: number
+  destino: 'projeto' | 'avulso'
+  criado: boolean
+}
+
+/** Retorno de `restaurar_versao_album` (0091). */
+export type RestauracaoAlbumResultado = {
+  versao_id: string
+  versao_anterior_id: string
+  revisao: number
+  restaurada_de: string
+  repetida: boolean
+}
+
+/** Item de `design_historico_versoes` (0091): a assinatura prova que a versão é reproduzível. */
+export type DesignHistoricoVersao = {
+  versao_id: string
+  numero: number
+  status: string
+  base_versao_id: string | null
+  laminas: number
+  herdadas: number
+  alteradas: number
+  assinatura: string
+  criada_em: string
 }
 
 /** Lâmina (página/imagem) de uma versão da prova — migration 0018. */
@@ -1039,6 +1120,18 @@ export type Database = {
         Update: Partial<Omit<AlbumLayoutRow, 'id' | 'created_at' | 'revisao' | 'laminas_qtd'>>
         Relationships: []
       }
+      album_selecao_vinculos: {
+        Row: AlbumSelecaoVinculoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      album_restauracoes: {
+        Row: AlbumRestauracaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       album_layout_versoes: {
         Row: AlbumLayoutVersaoRow
         Insert: Pick<AlbumLayoutVersaoRow, 'layout_id' | 'documento'> & Partial<Omit<AlbumLayoutVersaoRow, 'id' | 'created_at'>>
@@ -1232,6 +1325,17 @@ export type Database = {
 
       entregar_selecao: { Args: { p_projeto_id: string; p_foto_ids: string[]; p_revisao_esperada: number; p_chave: string }; Returns: { id: string; revisao: number; total: number } }
 
+      /** 0090: papel/permissão de design e álbuns já nascidos de seleções do projeto. */
+      design_selecao_resumo: { Args: { p_projeto: string }; Returns: DesignSelecaoResumo }
+      /** 0090: cria o documento de álbum a partir do snapshot, sem duplicar originais; idempotente por chave. */
+      criar_album_da_selecao: {
+        Args: { p_selecao_id: string; p_destino: 'projeto' | 'avulso'; p_chave: string; p_nome: string; p_formato: string; p_orientacao: string; p_documento?: unknown }
+        Returns: CriarAlbumDaSelecaoResultado
+      }
+      /** 0091: restaurar cria NOVA versão e guarda o estado de antes; idempotente por chave. */
+      restaurar_versao_album: { Args: { p_layout_id: string; p_versao_id: string; p_chave: string }; Returns: RestauracaoAlbumResultado }
+      design_versao_assinatura: { Args: { p_versao: string }; Returns: string }
+      design_historico_versoes: { Args: { p_projeto: string }; Returns: DesignHistoricoVersao[] }
       /** Grava o documento do editor se a revisão bater; null = conflito (0027). */
       salvar_album_layout: { Args: { p_id: string; p_documento: unknown; p_revisao: number }; Returns: number | null }
       /** Link de aprovação sem login (0027): tudo exige o token. */
