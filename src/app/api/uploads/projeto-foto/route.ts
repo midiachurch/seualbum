@@ -35,6 +35,16 @@ export async function POST(request: NextRequest) {
   const acesso = await projetoParaUpload(projetoId)
   if (!acesso.ok) return acesso.resposta
 
+  // Franquia (0050/0052): só barra NOVOS envios e só com a flag ligada. Falha de
+  // medição nunca derruba o upload — a decisão é "falhar aberto" e registrar.
+  if (process.env.SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO === '1') {
+    const { data: cabe, error: franquiaError } = await acesso.supabase.rpc('franquia_permite_envio', { p_projeto: projetoId, p_bytes: tamanho })
+    if (franquiaError) console.error('[uploads:projeto-foto] franquia', franquiaError.message)
+    else if (cabe === false) {
+      return NextResponse.json({ erro: 'O armazenamento do estúdio atingiu o limite do plano. Suas fotos continuam disponíveis; para enviar mais, é preciso ampliar o plano.', codigo: 'franquia_excedida' }, { status: 403 })
+    }
+  }
+
   let admin: ReturnType<typeof createAdminClient>
   try {
     admin = createAdminClient()

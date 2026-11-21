@@ -62,10 +62,11 @@ const rpcs = vi.hoisted(() => ({
   chamadas: [] as { quem: 'usuario' | 'servidor'; nome: string; args: unknown }[],
   reservada: true as boolean,
   emUso: false as boolean,
+  franquia: { data: true as unknown, error: null as { message: string } | null },
 }))
 const supabase = {
   from: (t: string) => consulta(t),
-  rpc: async (nome: string, args: unknown) => (rpcs.chamadas.push({ quem: 'usuario', nome, args }), { data: rpcs.emUso, error: null }),
+  rpc: async (nome: string, args: unknown) => (rpcs.chamadas.push({ quem: 'usuario', nome, args }), nome === 'franquia_permite_envio' ? { data: rpcs.franquia.data, error: rpcs.franquia.error } : { data: rpcs.emUso, error: null }),
 }
 const admin = {
   rpc: async (nome: string, args: unknown) => (rpcs.chamadas.push({ quem: 'servidor', nome, args }), { data: rpcs.reservada, error: null }),
@@ -109,7 +110,8 @@ beforeEach(() => {
   // Por padrão quem confirma tem a reserva da chave (0040).
   banco.responder = (c) =>
     c.operacao === 'select' ? { data: c.tabela === 'r2_uploads_pendentes' ? { r2_key: 'k' } : null } : { data: { id: 'nova' } }
-  Object.assign(rpcs, { chamadas: [], reservada: true, emUso: false })
+  Object.assign(rpcs, { chamadas: [], reservada: true, emUso: false, franquia: { data: true, error: null } })
+  vi.unstubAllEnvs()
   r2.urlDeEnvio.mockReset().mockResolvedValue({ url: 'https://r2/put', expiraEm: 'x' })
   r2.metadadosDoObjeto.mockReset().mockResolvedValue({ tamanho: 2048, contentType: 'image/jpeg' })
   r2.removerObjetos.mockReset().mockResolvedValue(undefined)
@@ -203,6 +205,39 @@ describe('fotos do projeto (/api/uploads/projeto-foto)', () => {
   it('400 para chave fora da pasta de fotos (ex.: lâmina)', async () => {
     expect((await confirmarFoto(req({ key: `projetos/${PROJETO}/versoes/${ARQ}/${ARQ}-a.jpg` }))).status).toBe(400)
     expect(r2.metadadosDoObjeto).not.toHaveBeenCalled()
+  })
+
+  describe('franquia de armazenamento (flag SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO)', () => {
+    const corpo = { projetoId: PROJETO, idArquivo: ARQ, nome: 'a.jpg', tipo: 'image/jpeg', tamanho: 2048 }
+    const consultasFranquia = () => rpcs.chamadas.filter((c) => c.nome === 'franquia_permite_envio')
+    beforeEach(() => {
+      r2.metadadosDoObjeto.mockResolvedValue(null)
+      r2.urlDeEnvio.mockResolvedValue({ url: 'https://r2/put', expiraEm: '2030-01-01T00:00:00.000Z' })
+    })
+    it('desligada por padrão: nem consulta a franquia', async () => {
+      expect((await assinarFoto(req(corpo))).status).toBe(200)
+      expect(consultasFranquia()).toHaveLength(0)
+    })
+    it('ligada e dentro do limite: assina normalmente, consultando só projeto e bytes', async () => {
+      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '1')
+      expect((await assinarFoto(req(corpo))).status).toBe(200)
+      expect(consultasFranquia()).toEqual([{ quem: 'usuario', nome: 'franquia_permite_envio', args: { p_projeto: PROJETO, p_bytes: 2048 } }])
+    })
+    it('ligada e acima do limite: 403 explicativo, sem reservar chave nem assinar', async () => {
+      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '1')
+      rpcs.franquia.data = false
+      const r = await assinarFoto(req(corpo))
+      expect(r.status).toBe(403)
+      expect(await r.json()).toMatchObject({ codigo: 'franquia_excedida' })
+      expect(rpcs.chamadas.filter((c) => c.nome === 'reservar_upload_r2')).toHaveLength(0)
+      expect(r2.urlDeEnvio).not.toHaveBeenCalled()
+    })
+    it('ligada e medição com erro: falha aberta, o envio continua', async () => {
+      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '1')
+      rpcs.franquia.data = null
+      rpcs.franquia.error = { message: 'funcao ausente' }
+      expect((await assinarFoto(req(corpo))).status).toBe(200)
+    })
   })
 
   describe('DELETE (apagar a foto)', () => {
