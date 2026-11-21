@@ -173,6 +173,8 @@ export type ProjetoRow = {
   nome: string
   cliente_id: string
   fotografo_id: string
+  /** Estúdio (organização) do projeto, imutável (migrations 0051/0054). Nulo só em dados anteriores ao backfill. */
+  organizacao_id?: string | null
   responsavel_id: string | null
   plano_id: string | null
   tipo_evento: string | null
@@ -265,6 +267,72 @@ export type R2UploadPendenteRow = {
   user_id: string
   expira_em: string
   created_at: string
+}
+
+/** Store (migration 0055): venda do estúdio ao cliente final, contexto financeiro próprio. */
+export type StoreProdutoTipo = 'colecao_digital' | 'foto_avulsa' | 'impressao' | 'servico'
+export type StoreProdutoRow = {
+  id: string
+  organizacao_id: string
+  nome: string
+  descricao: string | null
+  tipo: StoreProdutoTipo
+  preco_centavos: number
+  comissao_bps: number
+  ativo: boolean
+  criado_por: string | null
+  created_at: string
+}
+export type StorePedidoStatus = 'pendente' | 'pago' | 'recusado' | 'cancelado' | 'estornado'
+/** Colunas legíveis pelo app: o token_hash da entrega nunca é exposto. */
+export type StorePedidoRow = {
+  id: string
+  organizacao_id: string
+  projeto_id: string
+  chave: string
+  comprador_nome: string
+  comprador_email: string
+  contexto: 'venda_estudio'
+  status: StorePedidoStatus
+  moeda: 'BRL'
+  total_centavos: number
+  comissao_centavos: number
+  liquido_centavos: number
+  provedor: 'simulado'
+  created_at: string
+  pago_em: string | null
+  encerrado_em: string | null
+}
+export type StorePedidoItemRow = {
+  id: string
+  pedido_id: string
+  produto_id: string
+  nome: string
+  tipo: string
+  preco_centavos: number
+  comissao_bps: number
+  quantidade: number
+  foto_ids: string[]
+  total_centavos: number
+  comissao_centavos: number
+}
+export type StoreDivergenciaRow = {
+  id: string
+  organizacao_id: string | null
+  pedido_id: string | null
+  provedor: string
+  evento_id: string
+  tipo: 'pago' | 'recusado' | 'estornado'
+  valor_centavos: number
+  resultado: 'divergente' | 'fora_de_ordem' | 'pedido_inexistente'
+  detalhe: string | null
+  created_at: string
+}
+export type StoreCatalogoItem = { id: string; nome: string; descricao: string | null; tipo: StoreProdutoTipo; preco_centavos: number }
+export type StoreEntrega = {
+  pedido_id: string
+  status: StorePedidoStatus
+  itens: { nome: string; tipo: string; quantidade: number; fotos: { id: string; nome: string | null }[] }[]
 }
 
 /** Estúdio como unidade comercial (migration 0051). Escrita só pelo trigger/RPCs. */
@@ -902,6 +970,11 @@ export type Database = {
         Update: Partial<EventoAnaliticoRow>
         Relationships: []
       }
+      store_produtos: { Row: StoreProdutoRow; Insert: never; Update: never; Relationships: [] }
+      store_projeto_produtos: { Row: { projeto_id: string; produto_id: string; created_at: string }; Insert: never; Update: never; Relationships: [] }
+      store_pedidos: { Row: StorePedidoRow; Insert: never; Update: never; Relationships: [] }
+      store_pedido_itens: { Row: StorePedidoItemRow; Insert: never; Update: never; Relationships: [] }
+      store_entrega_falhas: { Row: { id: string; pedido_id: string; foto_id: string | null; motivo: string; created_at: string }; Insert: never; Update: never; Relationships: [] }
       organizacoes: {
         Row: OrganizacaoRow
         Insert: never
@@ -1121,11 +1194,21 @@ export type Database = {
     Views: {
       /** Centro de controle da diagramação (0038), security_invoker: só a equipe vê linhas. */
       diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
+      store_divergencias: { Row: StoreDivergenciaRow; Relationships: [] }
     }
     Functions: {
       criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
       revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
       aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
+      store_salvar_produto: { Args: { p_id: string; p_org: string; p_nome: string; p_tipo: StoreProdutoTipo; p_preco: number; p_comissao_bps: number; p_ativo: boolean; p_descricao?: string | null }; Returns: string }
+      store_vincular_produto: { Args: { p_projeto: string; p_produto: string; p_vincular: boolean }; Returns: boolean }
+      store_catalogo_portal: { Args: { p_sessao_hash: string }; Returns: Json }
+      store_criar_pedido: { Args: { p_sessao_hash: string; p_chave: string; p_nome: string; p_email: string; p_itens: Json; p_token_hash: string }; Returns: Json }
+      store_cancelar_pedido: { Args: { p_sessao_hash: string; p_pedido: string }; Returns: boolean }
+      store_aplicar_evento: { Args: { p_provedor: string; p_evento_id: string; p_pedido: string; p_tipo: 'pago' | 'recusado' | 'estornado'; p_valor: number }; Returns: Json }
+      store_entrega: { Args: { p_token_hash: string }; Returns: Json }
+      store_entrega_foto: { Args: { p_token_hash: string; p_foto_id: string }; Returns: Json }
+      store_registrar_falha_entrega: { Args: { p_pedido: string; p_foto: string | null; p_motivo: string }; Returns: boolean }
       papel_no_projeto_org: { Args: { p_projeto: string }; Returns: PapelOrganizacao | null }
       pode_ler_projeto_org: { Args: { p_projeto: string }; Returns: boolean }
       pode_editar_projeto_org: { Args: { p_projeto: string }; Returns: boolean }
