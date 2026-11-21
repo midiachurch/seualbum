@@ -15,6 +15,7 @@ const NAV = [
   { href: '/dashboard/estudio', label: 'Estúdio' },
   { href: '/dashboard/equipe', label: 'Equipe' },
   { href: '/dashboard/store', label: 'Loja' },
+  { href: '/dashboard/site', label: 'Site' },
   { href: '/dashboard/catalogo', label: 'Catálogo' },
   { href: '/dashboard/mensagens', label: 'Mensagens' },
 ]

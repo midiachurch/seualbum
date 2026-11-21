@@ -648,6 +648,71 @@ export type StudioLinhaTempoRow = { ocorrido_em: string; tipo: StudioTipoLinhaTe
 export type StudioOutboxListaRow = Pick<StudioOutboxRow, 'id' | 'canal' | 'destinatario' | 'destinatario_tipo' | 'cliente_id' | 'assunto' | 'corpo' | 'origem' | 'status' | 'tentativas' | 'max_tentativas' | 'proxima_tentativa_em' | 'ultimo_erro' | 'simulada' | 'enviada_em' | 'created_at'> & { cliente_nome: string | null }
 /** Item reservado para processamento (0083). */
 export type StudioOutboxReservaRow = Pick<StudioOutboxRow, 'id' | 'canal' | 'destinatario' | 'assunto' | 'corpo' | 'tentativas'>
+/** Sites por organização (migrations 0070/0071). Escrita só por RPC; `rascunho` nunca é público. */
+export type SiteStatus = 'rascunho' | 'publicado' | 'despublicado'
+export type SiteRow = {
+  id: string
+  organizacao_id: string
+  slug: string
+  nome: string
+  status: SiteStatus
+  rascunho: Json
+  rascunho_rev: number
+  versao_publicada_id: string | null
+  publicado_em: string | null
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+export type SiteVersaoRow = {
+  id: string
+  site_id: string
+  organizacao_id: string
+  numero: number
+  conteudo: Json
+  midias: Json
+  nota: string | null
+  chave_idempotencia: string
+  criado_por: string | null
+  created_at: string
+}
+export type SiteMidiaRow = {
+  id: string
+  organizacao_id: string
+  chave: string
+  nome: string
+  largura_px: number | null
+  altura_px: number | null
+  tamanho_kb: number | null
+  criado_por: string | null
+  created_at: string
+}
+export type SiteEventoRow = {
+  id: string
+  site_id: string
+  organizacao_id: string
+  ator: string | null
+  acao: string
+  versao_id: string | null
+  detalhe: string | null
+  created_at: string
+}
+export type SiteDominioStatus = 'pendente' | 'verificado' | 'falhou'
+export type SiteDominioRow = {
+  id: string
+  site_id: string
+  organizacao_id: string
+  dominio: string
+  status: SiteDominioStatus
+  token: string
+  ativo: boolean
+  verificacao_solicitada_em: string | null
+  verificado_em: string | null
+  falhou_em: string | null
+  falhou_motivo: 'registro_nao_encontrado' | 'dominio_verificado_por_outro' | 'dominio_em_uso' | null
+  criado_por: string | null
+  created_at: string
+}
 
 /** Catálogo de planos da galeria, hipóteses simuladas (migration 0050). */
 export type PlanoGaleriaRow = {
@@ -1296,6 +1361,36 @@ export type Database = {
       studio_optout: { Row: StudioOptoutRow; Insert: never; Update: never; Relationships: [] }
       studio_outbox: { Row: StudioOutboxRow; Insert: never; Update: never; Relationships: [] }
       studio_outbox_registro: { Row: StudioOutboxRegistroRow; Insert: never; Update: never; Relationships: [] }
+      sites: {
+        Row: SiteRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_versoes: {
+        Row: SiteVersaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_midias: {
+        Row: SiteMidiaRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_eventos: {
+        Row: SiteEventoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_dominios: {
+        Row: SiteDominioRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       planos_galeria: {
         Row: PlanoGaleriaRow
         Insert: PlanoGaleriaRow
@@ -1500,6 +1595,23 @@ export type Database = {
       store_divergencias: { Row: StoreDivergenciaRow; Relationships: [] }
     }
     Functions: {
+      criar_site: { Args: { p_org: string; p_nome: string; p_slug: string }; Returns: string }
+      atualizar_site_dados: { Args: { p_site: string; p_nome: string; p_slug: string }; Returns: boolean }
+      salvar_site_rascunho: { Args: { p_site: string; p_conteudo: Json; p_rev: number }; Returns: number }
+      registrar_site_midia: { Args: { p_org: string; p_chave: string; p_nome: string; p_largura: number | null; p_altura: number | null; p_tamanho_kb: number | null }; Returns: string }
+      remover_site_midia: { Args: { p_id: string }; Returns: string }
+      publicar_site: { Args: { p_site: string; p_chave: string; p_nota?: string | null }; Returns: string }
+      reverter_site_versao: { Args: { p_site: string; p_versao: string }; Returns: string }
+      despublicar_site: { Args: { p_site: string }; Returns: boolean }
+      restaurar_site_versao_no_rascunho: { Args: { p_site: string; p_versao: string }; Returns: number }
+      adicionar_site_dominio: { Args: { p_site: string; p_dominio: string }; Returns: { id: string; token: string }[] }
+      preparar_verificacao_dominio: { Args: { p_id: string }; Returns: { dominio: string; token: string; status: SiteDominioStatus }[] }
+      confirmar_verificacao_dominio: { Args: { p_id: string; p_registros: string[] }; Returns: string }
+      definir_site_dominio_ativo: { Args: { p_id: string; p_ativo: boolean }; Returns: boolean }
+      remover_site_dominio: { Args: { p_id: string }; Returns: boolean }
+      obter_site_publicado: { Args: { p_slug: string }; Returns: Json | null }
+      obter_site_publicado_por_host: { Args: { p_host: string }; Returns: Json | null }
+      resolver_site_por_host: { Args: { p_host: string }; Returns: string | null }
       criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
       revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
       aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
