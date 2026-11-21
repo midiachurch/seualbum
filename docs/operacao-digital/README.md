@@ -1,5 +1,7 @@
 # Operação Digital — índice vigente
 
+> Ciclo local autorizado em 21/11/2026: [Operação local e três fases](OPERACAO-LOCAL.md). Construção e testes sem publicação ou dependência de serviços externos. O registro abaixo preserva a execução anterior.
+
 Etapa 02, execução incremental sobre `d03cf8d`, preservando histórico e produto existente. Fonte da nova autorização: comando Etapa 02 fornecido pelo usuário. Não autoriza migration remota, produção, merge, exclusão ou custo.
 
 | Assunto | Documento canônico |

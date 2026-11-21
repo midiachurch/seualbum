@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { lerPortal } from '@/lib/portal/servidor'
+import { lerPortal, lerProvaPortal } from '@/lib/portal/servidor'
 import { segredoValido, uuidValido } from '@/lib/portal/segredos'
+import { PortalProof } from '@/components/portal/portal-proof'
 import { PortalGallery } from '@/components/portal/portal-gallery'
 export const metadata: Metadata = { title: 'Galeria privada', robots: { index: false, follow: false }, referrer: 'no-referrer' }
 export const dynamic = 'force-dynamic'
@@ -10,5 +11,6 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
   const { apos } = await searchParams
   if (!segredoValido(link)) notFound()
   const projeto = await lerPortal(link, uuidValido(apos) ? apos : undefined)
-  return <PortalGallery link={link} projeto={projeto} paginada={Boolean(apos)} />
+  const prova = projeto ? await lerProvaPortal(link) : null
+  return <><PortalGallery link={link} projeto={projeto} paginada={Boolean(apos)} />{projeto && prova && <PortalProof link={link} prova={prova} />}</>
 }

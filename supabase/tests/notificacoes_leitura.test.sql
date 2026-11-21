@@ -1,0 +1,48 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+select no_plan();
+insert into auth.users(id,instance_id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
+('e1000000-0000-4000-8000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','leitura-1@example.invalid','{"role":"fotografo"}','{}',now(),now()),
+('e1000000-0000-4000-8000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','leitura-2@example.invalid','{"role":"fotografo"}','{}',now(),now()),
+('e1000000-0000-4000-8000-000000000003','00000000-0000-0000-0000-000000000000','authenticated','authenticated','leitura-admin@example.invalid','{"role":"admin"}','{}',now(),now());
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+select public.criar_galeria_digital('e2000000-0000-4000-8000-000000000001','Galeria teste','Cliente teste','cliente@example.invalid');
+reset role;
+insert into public.fotos(id,projeto_id,storage_path) values ('e3000000-0000-4000-8000-000000000001','e2000000-0000-4000-8000-000000000001','teste.jpg');
+set local role authenticated;
+select public.entregar_selecao('e2000000-0000-4000-8000-000000000001',array['e3000000-0000-4000-8000-000000000001'::uuid],0,'e4000000-0000-4000-8000-000000000001');
+reset role;
+create temp table aviso as select id from public.selecao_notificacoes where destinatario_id='e1000000-0000-4000-8000-000000000001';
+grant select on aviso to authenticated;
+set local role authenticated;
+select is((select lida_em from public.selecao_notificacoes where id=(select id from aviso)),null::timestamptz,'notificação começa não lida');
+select is(public.marcar_notificacao_selecao_lida((select id from aviso)),true,'destinatário marca leitura');
+select ok((select lida_em is not null from public.selecao_notificacoes where id=(select id from aviso)),'data de leitura real persistida');
+select is(public.marcar_notificacao_selecao_lida((select id from aviso)),true,'retry idempotente');
+select throws_ok($$update public.selecao_notificacoes set lida_em=null$$,'42501',null,'sem UPDATE direto');
+reset role;
+create temp table primeira_leitura as select lida_em from public.selecao_notificacoes where id=(select id from aviso);
+grant select on primeira_leitura to authenticated;
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+set local role authenticated;
+select is(public.marcar_notificacao_selecao_lida((select id from aviso)),false,'outro fotógrafo não altera leitura');
+select is((select count(*)::integer from public.selecao_notificacoes),0,'outro fotógrafo não lê notificação');
+select is(public.marcar_notificacao_selecao_lida(gen_random_uuid()),false,'ID desconhecido não confirma sucesso');
+reset role;
+select is((select lida_em from public.selecao_notificacoes where id=(select id from aviso)),(select lida_em from primeira_leitura),'data original preservada');
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+update public.profiles set status='inativo' where id='e1000000-0000-4000-8000-000000000001';
+select set_config('request.jwt.claims','{"sub":"e1000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+select throws_ok($$select public.marcar_notificacao_selecao_lida((select id from aviso))$$,'42501',null,'inativo não marca leitura');
+reset role;
+select set_config('request.jwt.claims','{"role":"authenticated"}',true);
+set local role authenticated;
+select throws_ok($$select public.marcar_notificacao_selecao_lida(gen_random_uuid())$$,'42501',null,'sem identidade rejeitado');
+reset role;
+set local role anon;
+select throws_ok($$select public.marcar_notificacao_selecao_lida(gen_random_uuid())$$,'42501',null,'anon sem EXECUTE');
+reset role;
+select * from finish();
+rollback;

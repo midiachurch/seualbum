@@ -84,6 +84,8 @@ export async function POST(request: NextRequest) {
         grupo,
         enviado_por: userId,
         nome_original: normalizarNomeOriginal(corpo?.nomeOriginal),
+        // Tamanho real vindo do R2 (HeadObject), nunca do navegador: base da medição de franquia (0050).
+        tamanho_bytes: objeto.tamanho,
         ...lerExifConfirmacao(corpo),
       })
       .select('id')
