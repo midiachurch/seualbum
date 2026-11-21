@@ -1126,6 +1126,9 @@ export type Database = {
       criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
       revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
       aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
+      papel_no_projeto_org: { Args: { p_projeto: string }; Returns: PapelOrganizacao | null }
+      pode_ler_projeto_org: { Args: { p_projeto: string }; Returns: boolean }
+      pode_editar_projeto_org: { Args: { p_projeto: string }; Returns: boolean }
       papel_na_organizacao: { Args: { p_org: string }; Returns: PapelOrganizacao | null }
       adicionar_membro_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'> }; Returns: string }
       remover_membro_organizacao: { Args: { p_org: string; p_user: string }; Returns: boolean }

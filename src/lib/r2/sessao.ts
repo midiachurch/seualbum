@@ -86,14 +86,21 @@ async function sessaoComPapel(): Promise<{ supabase: Supabase; userId: string; r
 /**
  * Porta de entrada de /api/uploads/projeto-foto: a mesma regra da policy de
  * escrita do antigo bucket `projetos_fotos` (0002) — quem enxerga o projeto
- * (`pode_ver_projeto`: equipe, o estúdio dono ou o cliente final) envia fotos.
+ * (`pode_ver_projeto`: equipe, o estúdio dono ou o cliente final) envia fotos —
+ * mais quem produz pela organização do projeto (`pode_editar_projeto_org`, 0054).
  */
 export async function projetoParaUpload(projetoId: string): Promise<Acesso> {
   if (isDemoMode() || !r2Configurado()) return negado('Armazenamento de fotos não configurado.', 503)
   const s = await sessaoComPapel()
   if (!s) return negado('Faça login de novo.', 401)
   const { data: pode, error } = await s.supabase.rpc('pode_ver_projeto', { p_projeto_id: projetoId })
-  if (error || pode !== true) return negado('Projeto não encontrado.', 404)
+  if (error) return negado('Projeto não encontrado.', 404)
+  if (pode !== true) {
+    // Equipe da organização do projeto (0054): só dono, admin e editor enviam;
+    // o visualizador enxerga o projeto mas não passa por aqui.
+    const { data: membro, error: membroError } = await s.supabase.rpc('pode_editar_projeto_org', { p_projeto: projetoId })
+    if (membroError || membro !== true) return negado('Projeto não encontrado.', 404)
+  }
   return { ok: true, supabase: s.supabase, userId: s.userId }
 }
 

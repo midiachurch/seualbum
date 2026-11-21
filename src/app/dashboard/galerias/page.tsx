@@ -12,7 +12,10 @@ export default async function GaleriasPage(){
  const entregas=supabase&&ids.length?await supabase.from('selecoes_entregues').select('id,projeto_id,revisao,foto_ids').in('id',ids):null
  const consumo=supabase?await supabase.rpc('consumo_franquia_galeria'):null
  const planos=supabase?await supabase.from('planos_galeria').select('slug,nome,preco_mensal_centavos,armazenamento_bytes').eq('ativo',true).order('ordem'):null
- const resultado=supabase?await supabase.from('projetos').select('id,nome,created_at').eq('fotografo_id',user.id).order('created_at',{ascending:false}).limit(100):null
+ // Galerias do estúdio: as próprias e as da organização onde a pessoa é membro (a RLS 0054 já limita).
+ const orgs=supabase?await supabase.from('organizacoes').select('id'):null
+ const orgIds=(orgs?.data??[]).map(o=>o.id)
+ const resultado=supabase?await supabase.from('projetos').select('id,nome,created_at').or(orgIds.length?`fotografo_id.eq.${user.id},organizacao_id.in.(${orgIds.join(',')})`:`fotografo_id.eq.${user.id}`).order('created_at',{ascending:false}).limit(100):null
  return <main className="space-y-6"><h1 className="text-3xl font-semibold">Galerias digitais</h1><NewGallery />
  {consumo?.error||planos?.error?<p className="text-sm" role="status">Armazenamento e planos temporariamente indisponíveis.</p>:planos?.data?.length?<FranquiaGaleria consumo={consumo?.data?.[0]??null} planos={planos.data}/>:null}
  <section className="space-y-3 rounded-2xl border p-5" aria-label="Seleções recebidas"><h2 className="text-xl font-semibold">Seleções recebidas</h2>
