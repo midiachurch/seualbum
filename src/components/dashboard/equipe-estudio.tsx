@@ -2,17 +2,21 @@
 
 import { useState, useTransition } from 'react'
 import { adicionarMembroEquipe, removerMembroEquipe } from '@/lib/actions/equipe'
+import { criarConviteEquipe, revogarConviteEquipe } from '@/lib/actions/convites-equipe'
 import { PAPEIS_CONVITE, PAPEIS_EQUIPE } from '@/lib/equipe-papeis'
-import type { EquipeMembroRow, PapelOrganizacao } from '@/types/database'
+import type { ConviteOrganizacaoRow, EquipeMembroRow, PapelOrganizacao } from '@/types/database'
 
-type Props = { organizacaoId: string; nome: string; meuPapel: PapelOrganizacao; meuId: string; membros: EquipeMembroRow[] }
+type Props = { organizacaoId: string; nome: string; meuPapel: PapelOrganizacao; meuId: string; membros: EquipeMembroRow[]; convites: ConviteOrganizacaoRow[] }
 
-export function EquipeEstudio({ organizacaoId, nome, meuPapel, meuId, membros }: Props) {
+export function EquipeEstudio({ organizacaoId, nome, meuPapel, meuId, membros, convites }: Props) {
   const [email, setEmail] = useState('')
   const [papel, setPapel] = useState<(typeof PAPEIS_CONVITE)[number]>('editor')
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
   const [pendente, iniciar] = useTransition()
+  const [link, setLink] = useState('')
+  // A página já entrega só convites pendentes e não expirados (filtro no servidor).
+  const pendentes = convites
   const podeGerir = meuPapel === 'dono' || meuPapel === 'admin'
   const papeisPermitidos = meuPapel === 'dono' ? PAPEIS_CONVITE : PAPEIS_CONVITE.filter(p => p !== 'admin')
   const podeRemover = (m: EquipeMembroRow) => m.papel !== 'dono' && (m.user_id === meuId || meuPapel === 'dono' || (meuPapel === 'admin' && m.papel !== 'admin'))
@@ -57,6 +61,33 @@ export function EquipeEstudio({ organizacaoId, nome, meuPapel, meuId, membros }:
       </label>
       <button type="submit" disabled={pendente} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50">{pendente ? 'Salvando…' : 'Adicionar'}</button>
     </form>}
+    {podeGerir && <div className="space-y-3 border-t pt-4">
+      <div>
+        <h3 className="font-medium">Convidar por link</h3>
+        <p className="text-sm text-muted-foreground">Para quem ainda não tem conta. O link vale 7 dias, é de uso único e só funciona para o e-mail informado. Copie e envie você mesmo.</p>
+      </div>
+      <button type="button" disabled={pendente || !email} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50" onClick={() => {
+        setErro(''); setAviso(''); setLink('')
+        iniciar(async () => {
+          const r = await criarConviteEquipe(organizacaoId, email, papel)
+          if (!r.ok) setErro(r.erro)
+          else { setLink(`${window.location.origin}${r.caminho}`); setAviso('Convite criado. Copie o link abaixo: ele não será exibido de novo.') }
+        })
+      }}>Gerar link de convite para o e-mail acima</button>
+      {link && <div className="flex flex-wrap items-center gap-2">
+        <input readOnly aria-label="Link do convite" value={link} onFocus={e => e.currentTarget.select()} className="min-h-11 min-w-0 flex-1 rounded-lg border px-3 text-sm" />
+        <button type="button" className="min-h-11 rounded-lg border px-4 text-sm" onClick={() => { navigator.clipboard?.writeText(link).then(() => setAviso('Link copiado.'), () => setAviso('Não foi possível copiar; selecione o link e copie manualmente.')) }}>Copiar</button>
+      </div>}
+      {pendentes.length > 0 && <ul className="divide-y rounded-xl border" aria-label="Convites pendentes">
+        {pendentes.map(c => <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 p-3">
+          <p className="text-sm">{c.email} · {PAPEIS_EQUIPE[c.papel].rotulo} · expira em {new Date(c.expira_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
+          {(meuPapel === 'dono' || c.papel !== 'admin') && <button type="button" disabled={pendente} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50" onClick={() => {
+            setErro(''); setAviso('')
+            iniciar(async () => { const r = await revogarConviteEquipe(c.id); if (!r.ok) setErro(r.erro); else setAviso('Convite revogado.') })
+          }}>Revogar</button>}
+        </li>)}
+      </ul>}
+    </div>}
     <p className="text-xs text-muted-foreground">Clientes finais não fazem parte da equipe: eles acessam apenas as galerias que você compartilha.</p>
   </section>
 }

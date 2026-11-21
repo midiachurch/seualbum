@@ -279,6 +279,19 @@ export type OrganizacaoMembroRow = {
   created_at: string
   removido_em: string | null
 }
+/** Convite por link para a equipe (migration 0053). O token_hash nunca é legível pelo app. */
+export type ConviteOrganizacaoRow = {
+  id: string
+  organizacao_id: string
+  email: string
+  papel: Exclude<PapelOrganizacao, 'dono'>
+  criado_por: string | null
+  status: 'pendente' | 'aceito' | 'revogado'
+  aceito_por: string | null
+  aceito_em: string | null
+  expira_em: string
+  created_at: string
+}
 /** Linha da equipe devolvida por `listar_equipe_organizacao` (0051). */
 export type EquipeMembroRow = { user_id: string; nome: string; email: string; papel: PapelOrganizacao; status: 'ativo' | 'removido' }
 
@@ -895,6 +908,12 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      convites_organizacao: {
+        Row: ConviteOrganizacaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       organizacao_membros: {
         Row: OrganizacaoMembroRow
         Insert: never
@@ -1104,6 +1123,9 @@ export type Database = {
       diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
     }
     Functions: {
+      criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
+      revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
+      aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
       papel_na_organizacao: { Args: { p_org: string }; Returns: PapelOrganizacao | null }
       adicionar_membro_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'> }; Returns: string }
       remover_membro_organizacao: { Args: { p_org: string; p_user: string }; Returns: boolean }
