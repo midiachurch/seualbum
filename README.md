@@ -14,6 +14,8 @@ autoriza migrations, implementação ou deploy por si só.
 
 ## Rodando localmente
 
+Para a [operação digital sem integrações externas](docs/operacao-digital/OPERACAO-LOCAL.md), com as dependências já instaladas: execute `npm run dev:local` e abra `http://127.0.0.1:3121/operacao-local`. Os dados ficam no navegador; reconhecimento facial automático e pagamentos não são executados nessa central. A rota só existe em desenvolvimento.
+
 ```bash
 npm install
 cp .env.local.example .env.local   # preencha com as chaves do seu projeto Supabase
