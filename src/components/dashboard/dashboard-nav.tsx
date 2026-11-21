@@ -12,6 +12,7 @@ const NAV = [
   { href: '/dashboard/galerias', label: 'Galerias digitais' },
   { href: '/dashboard/orcamentos', label: 'Meus orçamentos' },
   { href: '/dashboard/agenda', label: 'Agenda' },
+  { href: '/dashboard/estudio', label: 'Estúdio' },
   { href: '/dashboard/equipe', label: 'Equipe' },
   { href: '/dashboard/store', label: 'Loja' },
   { href: '/dashboard/catalogo', label: 'Catálogo' },

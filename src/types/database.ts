@@ -474,6 +474,180 @@ export type AgendaReservaPublica = {
   sinal_status: AgendaSinalStatus
   cancelamento_antecedencia_h: number
 }
+/** Etapa COMERCIAL do negócio (0080); não é o status de produção do projeto. */
+export type StudioEtapa = 'lead' | 'contato' | 'proposta' | 'fechado' | 'perdido'
+export type StudioOrigem = 'indicacao' | 'instagram' | 'site' | 'google' | 'facebook' | 'whatsapp' | 'evento' | 'parceiro' | 'outro'
+export type StudioMotivoPerda = 'preco' | 'sem_resposta' | 'concorrente' | 'data_indisponivel' | 'desistiu' | 'outro'
+export type StudioPrioridade = 'baixa' | 'media' | 'alta'
+export type StudioStatusTarefa = 'aberta' | 'concluida' | 'cancelada'
+export type StudioFiltroTarefa = 'abertas' | 'minhas' | 'atrasadas' | 'hoje' | 'responsavel' | 'concluidas' | 'todas'
+export type StudioCanal = 'email' | 'whatsapp'
+export type StudioFinalidadeModelo = 'livre' | 'followup_proposta' | 'lembrete_tarefa'
+export type StudioOutboxStatus = 'pendente' | 'enviando' | 'enviada' | 'falhou' | 'cancelada'
+export type StudioOutboxOrigem = 'manual' | 'automacao_tarefa_atrasada' | 'automacao_followup_proposta'
+export type StudioTipoLinhaTempo = 'mensagem' | 'mensagem_sistema' | 'etapa' | 'tarefa_concluida' | 'orcamento' | 'comunicacao'
+
+/** Negócio comercial sobre um cliente existente (0080). Escrita só por RPC. */
+export type StudioNegocioRow = {
+  id: string
+  organizacao_id: string
+  cliente_id: string
+  projeto_id: string | null
+  orcamento_id: string | null
+  titulo: string
+  etapa: StudioEtapa
+  motivo_perda: StudioMotivoPerda | null
+  motivo_detalhe: string | null
+  origem: StudioOrigem
+  valor_estimado: number
+  responsavel_id: string | null
+  etapa_em: string
+  fechado_em: string | null
+  criado_por: string | null
+  chave_idem: string | null
+  created_at: string
+  updated_at: string
+}
+/** Histórico imutável de etapas (0080). */
+export type StudioNegocioHistoricoRow = {
+  id: string
+  negocio_id: string
+  organizacao_id: string
+  de_etapa: StudioEtapa | null
+  para_etapa: StudioEtapa
+  motivo: string | null
+  ator_id: string | null
+  chave_idem: string | null
+  created_at: string
+}
+/** Tarefa comercial da organização (0081). */
+export type StudioTarefaRow = {
+  id: string
+  organizacao_id: string
+  titulo: string
+  descricao: string | null
+  responsavel_id: string | null
+  prazo: string | null
+  prioridade: StudioPrioridade
+  status: StudioStatusTarefa
+  cliente_id: string | null
+  negocio_id: string | null
+  projeto_id: string | null
+  orcamento_id: string | null
+  concluida_em: string | null
+  concluida_por: string | null
+  criado_por: string | null
+  chave_idem: string | null
+  created_at: string
+  updated_at: string
+}
+/** Modelo de mensagem com variáveis (0082). */
+export type StudioModeloRow = {
+  id: string
+  organizacao_id: string
+  nome: string
+  finalidade: StudioFinalidadeModelo
+  canal: StudioCanal
+  assunto: string
+  corpo: string
+  ativo: boolean
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+export type StudioConfiguracaoRow = { organizacao_id: string; followup_dias: number; envio_externo: false; updated_at: string }
+export type StudioOptoutRow = { organizacao_id: string; cliente_id: string; canal: StudioCanal; created_at: string }
+/** Fila de comunicação (0083). Envio externo desligado: só simulação. */
+export type StudioOutboxRow = {
+  id: string
+  organizacao_id: string
+  destinatario_tipo: 'cliente' | 'membro'
+  cliente_id: string | null
+  membro_id: string | null
+  negocio_id: string | null
+  tarefa_id: string | null
+  modelo_id: string | null
+  canal: StudioCanal
+  destinatario: string
+  assunto: string
+  corpo: string
+  origem: StudioOutboxOrigem
+  chave_idem: string
+  status: StudioOutboxStatus
+  tentativas: number
+  max_tentativas: number
+  proxima_tentativa_em: string
+  reservada_em: string | null
+  ultimo_erro: string | null
+  adaptador: 'registro' | null
+  simulada: boolean
+  enviada_em: string | null
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+export type StudioOutboxRegistroRow = {
+  id: string
+  outbox_id: string
+  organizacao_id: string
+  canal: string
+  destinatario: string
+  assunto: string
+  corpo: string
+  tentativa: number
+  created_at: string
+}
+/** Linha do funil devolvida por `listar_funil_studio` (0081). */
+export type StudioFunilRow = {
+  id: string
+  cliente_id: string
+  cliente_nome: string
+  cliente_email: string | null
+  cliente_telefone: string | null
+  titulo: string
+  etapa: StudioEtapa
+  motivo_perda: StudioMotivoPerda | null
+  origem: StudioOrigem
+  valor_estimado: number
+  responsavel_id: string | null
+  responsavel_nome: string | null
+  projeto_id: string | null
+  projeto_nome: string | null
+  orcamento_id: string | null
+  etapa_em: string
+  dias_na_etapa: number
+  proxima_acao_titulo: string | null
+  proxima_acao_prazo: string | null
+  tarefas_abertas: number
+  tarefas_atrasadas: number
+}
+/** Linha de `listar_tarefas_studio` (0081). */
+export type StudioTarefaListaRow = {
+  id: string
+  titulo: string
+  descricao: string | null
+  responsavel_id: string | null
+  responsavel_nome: string | null
+  prazo: string | null
+  prioridade: StudioPrioridade
+  status: StudioStatusTarefa
+  cliente_id: string | null
+  cliente_nome: string | null
+  negocio_id: string | null
+  projeto_id: string | null
+  orcamento_id: string | null
+  atrasada: boolean
+  pode_editar: boolean
+  concluida_em: string | null
+}
+/** Resultado da prévia de um modelo (0082): nada é enviado. */
+export type StudioPreviaRow = { assunto: string; corpo: string; faltando: string[] }
+/** Item da linha do tempo do cliente (0084). */
+export type StudioLinhaTempoRow = { ocorrido_em: string; tipo: StudioTipoLinhaTempo; titulo: string; detalhe: string | null; ref_id: string }
+/** Linha de `listar_outbox_studio` (0083). */
+export type StudioOutboxListaRow = Pick<StudioOutboxRow, 'id' | 'canal' | 'destinatario' | 'destinatario_tipo' | 'cliente_id' | 'assunto' | 'corpo' | 'origem' | 'status' | 'tentativas' | 'max_tentativas' | 'proxima_tentativa_em' | 'ultimo_erro' | 'simulada' | 'enviada_em' | 'created_at'> & { cliente_nome: string | null }
+/** Item reservado para processamento (0083). */
+export type StudioOutboxReservaRow = Pick<StudioOutboxRow, 'id' | 'canal' | 'destinatario' | 'assunto' | 'corpo' | 'tentativas'>
 
 /** Catálogo de planos da galeria, hipóteses simuladas (migration 0050). */
 export type PlanoGaleriaRow = {
@@ -1114,6 +1288,14 @@ export type Database = {
       agenda_bloqueios: { Row: AgendaBloqueioRow; Insert: never; Update: never; Relationships: [] }
       agenda_reservas: { Row: AgendaReservaRow; Insert: never; Update: never; Relationships: [] }
       agenda_reserva_eventos: { Row: AgendaReservaEventoRow; Insert: never; Update: never; Relationships: [] }
+      studio_negocios: { Row: StudioNegocioRow; Insert: never; Update: never; Relationships: [] }
+      studio_negocio_historico: { Row: StudioNegocioHistoricoRow; Insert: never; Update: never; Relationships: [] }
+      studio_tarefas: { Row: StudioTarefaRow; Insert: never; Update: never; Relationships: [] }
+      studio_modelos: { Row: StudioModeloRow; Insert: never; Update: never; Relationships: [] }
+      studio_configuracao: { Row: StudioConfiguracaoRow; Insert: never; Update: never; Relationships: [] }
+      studio_optout: { Row: StudioOptoutRow; Insert: never; Update: never; Relationships: [] }
+      studio_outbox: { Row: StudioOutboxRow; Insert: never; Update: never; Relationships: [] }
+      studio_outbox_registro: { Row: StudioOutboxRegistroRow; Insert: never; Update: never; Relationships: [] }
       planos_galeria: {
         Row: PlanoGaleriaRow
         Insert: PlanoGaleriaRow
@@ -1368,6 +1550,28 @@ export type Database = {
       agenda_pagar_sinal_simulado: { Args: { p_id: string; p_token_hash: string }; Returns: string }
       agenda_cancelar_publica: { Args: { p_id: string; p_token_hash: string }; Returns: string }
       agenda_remarcar_publica: { Args: { p_id: string; p_token_hash: string; p_novo_inicio: string }; Returns: string }
+      criar_negocio_studio: { Args: { p_org: string; p_chave: string; p_titulo: string; p_nome: string | null; p_email: string | null; p_telefone: string | null; p_origem: StudioOrigem; p_valor: number; p_cliente_id?: string | null; p_responsavel?: string | null }; Returns: string }
+      mudar_etapa_negocio_studio: { Args: { p_negocio: string; p_para: StudioEtapa; p_chave: string; p_motivo?: StudioMotivoPerda | null; p_detalhe?: string | null }; Returns: boolean }
+      atualizar_negocio_studio: { Args: { p_negocio: string; p_titulo: string; p_valor: number; p_origem: StudioOrigem; p_responsavel: string; p_orcamento?: string | null }; Returns: boolean }
+      vincular_projeto_negocio_studio: { Args: { p_negocio: string; p_projeto: string | null }; Returns: boolean }
+      listar_funil_studio: { Args: { p_org: string }; Returns: StudioFunilRow[] }
+      criar_tarefa_studio: { Args: { p_org: string; p_chave: string; p_titulo: string; p_responsavel?: string | null; p_prazo?: string | null; p_prioridade?: StudioPrioridade; p_cliente?: string | null; p_negocio?: string | null; p_projeto?: string | null; p_orcamento?: string | null; p_descricao?: string | null }; Returns: string }
+      atualizar_tarefa_studio: { Args: { p_id: string; p_titulo: string; p_responsavel: string; p_prazo: string | null; p_prioridade: StudioPrioridade; p_descricao?: string | null }; Returns: boolean }
+      mudar_status_tarefa_studio: { Args: { p_id: string; p_status: StudioStatusTarefa }; Returns: boolean }
+      listar_tarefas_studio: { Args: { p_org: string; p_filtro?: StudioFiltroTarefa; p_responsavel?: string | null; p_cliente?: string | null }; Returns: StudioTarefaListaRow[] }
+      salvar_modelo_studio: { Args: { p_org: string; p_id: string | null; p_nome: string; p_finalidade: StudioFinalidadeModelo; p_canal: StudioCanal; p_assunto: string; p_corpo: string; p_ativo?: boolean }; Returns: string }
+      renderizar_modelo_studio: { Args: { p_org: string; p_modelo: string; p_cliente?: string | null; p_negocio?: string | null; p_tarefa?: string | null }; Returns: StudioPreviaRow[] }
+      linha_do_tempo_studio: { Args: { p_org: string; p_cliente: string; p_projeto?: string | null; p_limite?: number }; Returns: StudioLinhaTempoRow[] }
+      definir_followup_dias_studio: { Args: { p_org: string; p_dias: number }; Returns: number }
+      definir_optout_studio: { Args: { p_org: string; p_cliente: string; p_canal: StudioCanal; p_ativo: boolean }; Returns: boolean }
+      enfileirar_mensagem_studio: { Args: { p_org: string; p_chave: string; p_canal: StudioCanal; p_cliente: string; p_modelo?: string | null; p_assunto?: string | null; p_corpo?: string | null; p_negocio?: string | null; p_tarefa?: string | null }; Returns: string }
+      reservar_outbox_studio: { Args: { p_org: string; p_limite?: number }; Returns: StudioOutboxReservaRow[] }
+      concluir_outbox_studio: { Args: { p_id: string; p_ok: boolean; p_adaptador: string; p_erro?: string | null }; Returns: StudioOutboxStatus }
+      processar_outbox_studio: { Args: { p_org: string; p_limite?: number; p_adaptador?: string }; Returns: { processadas: number; simuladas: number; envio_externo: false } }
+      cancelar_outbox_studio: { Args: { p_id: string }; Returns: boolean }
+      reenfileirar_outbox_studio: { Args: { p_id: string }; Returns: boolean }
+      listar_outbox_studio: { Args: { p_org: string; p_status?: StudioOutboxStatus | null; p_limite?: number }; Returns: StudioOutboxListaRow[] }
+      rodar_automacoes_studio: { Args: { p_org: string }; Returns: { lembretes_tarefa: number; followups_proposta: number } }
       franquia_permite_envio: { Args: { p_projeto: string; p_bytes: number }; Returns: boolean }
       escolher_plano_galeria: { Args: { p_chave: string; p_plano: string }; Returns: string }
       consumo_franquia_galeria: { Args: Record<string, never>; Returns: ConsumoFranquiaGaleriaRow[] }
