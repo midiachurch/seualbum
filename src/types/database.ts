@@ -267,6 +267,21 @@ export type R2UploadPendenteRow = {
   created_at: string
 }
 
+/** Estúdio como unidade comercial (migration 0051). Escrita só pelo trigger/RPCs. */
+export type OrganizacaoRow = { id: string; nome: string; dono_id: string; created_at: string }
+export type PapelOrganizacao = 'dono' | 'admin' | 'editor' | 'visualizador'
+export type OrganizacaoMembroRow = {
+  organizacao_id: string
+  user_id: string
+  papel: PapelOrganizacao
+  status: 'ativo' | 'removido'
+  adicionado_por: string | null
+  created_at: string
+  removido_em: string | null
+}
+/** Linha da equipe devolvida por `listar_equipe_organizacao` (0051). */
+export type EquipeMembroRow = { user_id: string; nome: string; email: string; papel: PapelOrganizacao; status: 'ativo' | 'removido' }
+
 /** Catálogo de planos da galeria, hipóteses simuladas (migration 0050). */
 export type PlanoGaleriaRow = {
   slug: string
@@ -874,6 +889,18 @@ export type Database = {
         Update: Partial<EventoAnaliticoRow>
         Relationships: []
       }
+      organizacoes: {
+        Row: OrganizacaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      organizacao_membros: {
+        Row: OrganizacaoMembroRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       planos_galeria: {
         Row: PlanoGaleriaRow
         Insert: PlanoGaleriaRow
@@ -1077,6 +1104,11 @@ export type Database = {
       diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
     }
     Functions: {
+      papel_na_organizacao: { Args: { p_org: string }; Returns: PapelOrganizacao | null }
+      adicionar_membro_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'> }; Returns: string }
+      remover_membro_organizacao: { Args: { p_org: string; p_user: string }; Returns: boolean }
+      listar_equipe_organizacao: { Args: { p_org: string }; Returns: EquipeMembroRow[] }
+      franquia_permite_envio: { Args: { p_projeto: string; p_bytes: number }; Returns: boolean }
       escolher_plano_galeria: { Args: { p_chave: string; p_plano: string }; Returns: string }
       consumo_franquia_galeria: { Args: Record<string, never>; Returns: ConsumoFranquiaGaleriaRow[] }
       criar_galeria_digital: { Args: { p_id: string; p_nome: string; p_cliente_nome: string; p_cliente_email: string }; Returns: string }
