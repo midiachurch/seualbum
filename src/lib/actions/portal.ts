@@ -48,3 +48,17 @@ export async function entregarPortal(link: string, revisao: number, chave: strin
   if (error || !data) return { ok: false, erro: 'Não foi possível entregar. Atualize a galeria para conferir a revisão e tente novamente.' }
   return { ok: true }
 }
+
+export async function comentarProvaPortal(link: string, versaoId: string, laminaId: string | null, tipo: 'comentario' | 'ajustes', texto: string, chave: string): Promise<Resultado> {
+  const { comentarioProvaValido } = await import('@/lib/portal/prova')
+  if (!comentarioProvaValido(versaoId, laminaId, tipo, texto, chave)) return { ok: false, erro: 'Escolha uma lâmina e escreva até 2000 caracteres.' }
+  const naoRegistrado: Resultado = { ok: false, erro: 'Não foi possível registrar. Atualize para conferir se esta versão continua aberta.' }
+  try {
+    const hash = await sessaoPortal(link)
+    if (!hash) return falha()
+    const { data, error } = await createPublicClient().rpc('portal_comentar_prova', {
+      p_sessao_hash: hash, p_versao_id: versaoId, p_lamina_id: laminaId, p_tipo: tipo, p_texto: texto.trim(), p_chave: chave,
+    })
+    return error || !uuidValido(data) ? naoRegistrado : { ok: true }
+  } catch { return naoRegistrado }
+}
