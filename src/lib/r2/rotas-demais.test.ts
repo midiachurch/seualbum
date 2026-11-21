@@ -130,7 +130,11 @@ describe('fotos do projeto (/api/uploads/projeto-foto)', () => {
     expect(r2.metadadosDoObjeto).toHaveBeenCalledWith(KEY)
     expect(r2.urlDeEnvio).toHaveBeenCalledWith(KEY, 'image/jpeg', 2048)
     // A chave fica reservada para quem pediu, pelo servidor (não pela sessão do usuário).
-    expect(rpcs.chamadas).toEqual([{ quem: 'servidor', nome: 'reservar_upload_r2', args: { p_key: KEY, p_user_id: USER } }])
+    // Franquia (padrão ligado) é consultada pela sessão do usuário, antes de reservar a chave.
+    expect(rpcs.chamadas).toEqual([
+      { quem: 'usuario', nome: 'franquia_permite_envio', args: { p_projeto: PROJETO, p_bytes: 2048 } },
+      { quem: 'servidor', nome: 'reservar_upload_r2', args: { p_key: KEY, p_user_id: USER } },
+    ])
   })
 
   it('409 quando a chave já está reservada para outra pessoa (corrida antes do PUT)', async () => {
@@ -207,24 +211,23 @@ describe('fotos do projeto (/api/uploads/projeto-foto)', () => {
     expect(r2.metadadosDoObjeto).not.toHaveBeenCalled()
   })
 
-  describe('franquia de armazenamento (flag SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO)', () => {
+  describe('franquia de armazenamento (padrão ligado; SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO=0 desliga)', () => {
     const corpo = { projetoId: PROJETO, idArquivo: ARQ, nome: 'a.jpg', tipo: 'image/jpeg', tamanho: 2048 }
     const consultasFranquia = () => rpcs.chamadas.filter((c) => c.nome === 'franquia_permite_envio')
     beforeEach(() => {
       r2.metadadosDoObjeto.mockResolvedValue(null)
       r2.urlDeEnvio.mockResolvedValue({ url: 'https://r2/put', expiraEm: '2030-01-01T00:00:00.000Z' })
     })
-    it('desligada por padrão: nem consulta a franquia', async () => {
+    it('desligada com =0: nem consulta a franquia', async () => {
+      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '0')
       expect((await assinarFoto(req(corpo))).status).toBe(200)
       expect(consultasFranquia()).toHaveLength(0)
     })
-    it('ligada e dentro do limite: assina normalmente, consultando só projeto e bytes', async () => {
-      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '1')
+    it('ligada por padrão e dentro do limite: assina normalmente, consultando só projeto e bytes', async () => {
       expect((await assinarFoto(req(corpo))).status).toBe(200)
       expect(consultasFranquia()).toEqual([{ quem: 'usuario', nome: 'franquia_permite_envio', args: { p_projeto: PROJETO, p_bytes: 2048 } }])
     })
-    it('ligada e acima do limite: 403 explicativo, sem reservar chave nem assinar', async () => {
-      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '1')
+    it('acima do limite: 403 explicativo, sem reservar chave nem assinar', async () => {
       rpcs.franquia.data = false
       const r = await assinarFoto(req(corpo))
       expect(r.status).toBe(403)
@@ -232,8 +235,7 @@ describe('fotos do projeto (/api/uploads/projeto-foto)', () => {
       expect(rpcs.chamadas.filter((c) => c.nome === 'reservar_upload_r2')).toHaveLength(0)
       expect(r2.urlDeEnvio).not.toHaveBeenCalled()
     })
-    it('ligada e medição com erro: falha aberta, o envio continua', async () => {
-      vi.stubEnv('SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO', '1')
+    it('medição com erro: falha aberta, o envio continua', async () => {
       rpcs.franquia.data = null
       rpcs.franquia.error = { message: 'funcao ausente' }
       expect((await assinarFoto(req(corpo))).status).toBe(200)
