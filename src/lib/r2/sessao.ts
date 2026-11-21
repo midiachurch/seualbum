@@ -139,6 +139,20 @@ export async function estudioParaUploadDeLogo(): Promise<Acesso> {
 }
 
 /**
+ * Porta de entrada de /api/uploads/site-midia (bucket público do R2): quem é
+ * dono, admin ou editor da organização (papel conferido no banco, não pelo
+ * perfil global). A chave sempre nasce na pasta dessa organização.
+ */
+export async function membroParaUploadDeSite(organizacaoId: string): Promise<Acesso> {
+  if (isDemoMode() || !r2PublicoConfigurado()) return negado('Armazenamento de mídia não configurado.', 503)
+  const s = await sessaoComPapel()
+  if (!s) return negado('Faça login de novo.', 401)
+  const { data: papel, error } = await s.supabase.rpc('papel_na_organizacao', { p_org: organizacaoId })
+  if (error || !papel || !['dono', 'admin', 'editor'].includes(papel)) return negado('Sem permissão para enviar imagens do site.', 403)
+  return { ok: true, supabase: s.supabase, userId: s.userId }
+}
+
+/**
  * O rascunho já virou pedido? Depois disso as fotos ficam travadas (migration 0011).
  * Também conta como enviado o rascunho cujas fotos já estão num projeto: se o
  * pedido for apagado depois da conversão, o arquivo no R2 continua sendo a

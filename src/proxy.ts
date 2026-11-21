@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createMiddlewareClient } from '@/lib/supabase/middleware'
 import { DEMO_COOKIE, isDemoMode } from '@/lib/demo-mode'
 import { areaDoPapel, rotaDoPapel, type PlatformRole } from '@/types/platform'
+import { caminhoDoSite, ehRotaInternaDoNext, hostEhDoApp, hostRoutingAtivo } from '@/lib/sites/host'
+import { resolverSlugPorHost } from '@/lib/sites/proxy-host'
 
 /** Rotas que exigem sessão ativa. */
 const PROTECTED_PREFIXES = ['/dashboard', '/admin', '/cliente']
@@ -37,6 +39,23 @@ function matches(pathname: string, prefixes: string[]) {
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
+
+  // /site-host/* é interno (alvo do rewrite abaixo): pedido direto de fora nunca o alcança.
+  if (pathname === '/site-host' || pathname.startsWith('/site-host/')) {
+    return new NextResponse('Não encontrado.', { status: 404, headers: { 'X-Robots-Tag': 'noindex' } })
+  }
+
+  // Domínio próprio de site (SITES, 0071): só com SITES_HOST_ROUTING=1 e para
+  // hosts que não são do próprio app. Reescreve SEMPRE para /site-host/{slug}/…, então
+  // um host nunca alcança outra rota nem outro site. Host sem site publicado = 404.
+  const host = request.headers.get('host')
+  if (host && hostRoutingAtivo() && !hostEhDoApp(host) && !ehRotaInternaDoNext(pathname)) {
+    const slug = await resolverSlugPorHost(host)
+    if (!slug) return new NextResponse('Site não encontrado.', { status: 404, headers: { 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' } })
+    const url = request.nextUrl.clone()
+    url.pathname = caminhoDoSite(slug, pathname)
+    return NextResponse.rewrite(url)
+  }
 
   // Sem projeto Supabase configurado: sessão local via cookie de demo, sempre
   // com acesso equivalente a admin — não passa pelo Supabase em nenhum ponto.
