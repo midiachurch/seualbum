@@ -110,6 +110,11 @@ def main():
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             module.run_selection_concurrency(NAME, sql, OUTPUT)
+        if os.environ.get("SEUALBUM_BOOKING_CONCURRENCY") == "1":
+            spec = importlib.util.spec_from_file_location("booking_concurrency", ROOT / "scripts/booking-concorrencia.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.run_booking_concurrency(NAME, sql, OUTPUT)
         print("Resultados: " + str(OUTPUT), flush=True)
         if failed:
             raise SystemExit(1)
