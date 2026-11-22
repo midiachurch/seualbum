@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:local": "playwright test -c playwright.local.config.ts",
-    "test:e2e:editor": "playwright test -c playwright.editor.config.ts"
+    "test:e2e:editor": "playwright test -c playwright.editor.config.ts",
+    "test:e2e:modulos": "playwright test -c playwright.modulos.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-rekognition": "^3.1155.0",
