@@ -153,6 +153,13 @@ test('agenda: o visitante reserva um horário publicado e confirma, sem conta', 
   await visitante.waitForURL(/\/reserva\//)
   await visitante.getByRole('button', { name: 'Confirmar reserva' }).click()
   await expect(visitante.getByText('Reserva confirmada')).toBeVisible()
+  const ics = await visitante.request.get(await visitante.getByRole('link', { name: 'Adicionar ao calendário' }).getAttribute('href') as string)
+  expect(ics.status()).toBe(200)
+  expect(ics.headers()['content-type']).toContain('text/calendar')
+  expect(await ics.text()).toMatch(/BEGIN:VEVENT[\s\S]*SUMMARY:Ensaio de 1 hora[\s\S]*END:VEVENT/)
+  // Quem não é o dono da reserva (sem o cookie dela) não baixa o arquivo.
+  const intruso = await abrir(browser)
+  expect((await intruso.request.get(`/agendar/${slug}/reserva/${visitante.url().split('/reserva/')[1]}/calendario.ics`)).status()).toBe(404)
   await expect.poll(async () => (await db.from('agenda_reservas').select('status').eq('recurso_id', recurso)).data?.map(r => r.status)).toEqual(['confirmada'])
 
   // O estúdio vê a reserva no painel.

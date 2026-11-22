@@ -69,6 +69,7 @@ export function ReservaPublicaPainel({ slug, reserva }: { slug: string; reserva:
         <div className="space-y-3 border-t pt-4">
           {status === 'confirmada' && <p className="text-sm text-muted-foreground">Cancelar ou remarcar por aqui é possível até {reserva.cancelamento_antecedencia_h} h antes do horário.</p>}
           <div className="flex flex-wrap gap-2">
+            {status === 'confirmada' && <a className="inline-flex min-h-11 items-center rounded-lg border px-4 text-sm underline" href={`/agendar/${slug}/reserva/${reserva.id}/calendario.ics`}>Adicionar ao calendário</a>}
             {status === 'confirmada' && <button type="button" disabled={pendente} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50" onClick={carregarHorarios}>Remarcar</button>}
             <button type="button" disabled={pendente} className="min-h-11 rounded-lg border px-4 text-sm disabled:opacity-50"
               onClick={() => { if (window.confirm('Cancelar esta reserva?')) executar(() => cancelarReservaPublica(reserva.id), 'Reserva cancelada.') }}>Cancelar reserva</button>
