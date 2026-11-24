@@ -1,10 +1,12 @@
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
 import Link from 'next/link'
-import {notFound} from 'next/navigation'
+import {notFound, redirect} from 'next/navigation'
 import {requireUser} from '@/lib/supabase/queries'
 import {NewGallery} from '@/components/portal/new-gallery'
 import {SelectionNotification} from '@/components/portal/selection-notification'
 import {FranquiaGaleria} from '@/components/portal/franquia-galeria'
 export default async function GaleriasPage(){
+  if (previaLocalAtiva()) redirect('/operacao-local')
  const {user,profile,supabase}=await requireUser()
  if(profile?.role!=='fotografo')notFound()
  const avisos=supabase?await supabase.from('selecao_notificacoes').select('id,selecao_id,created_at,lida_em').order('created_at',{ascending:false}).limit(20):null

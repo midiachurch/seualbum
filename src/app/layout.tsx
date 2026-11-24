@@ -28,6 +28,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  robots: previaLocalAtiva() ? { index: false, follow: false } : undefined,
   title: {
     default: 'SeuÁlbum — Diagramação de álbuns para fotógrafos',
     template: '%s | SeuÁlbum',

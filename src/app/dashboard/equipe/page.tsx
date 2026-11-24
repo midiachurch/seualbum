@@ -1,9 +1,11 @@
-import { notFound } from 'next/navigation'
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
+import { notFound, redirect } from 'next/navigation'
 import { requireUser } from '@/lib/supabase/queries'
 import { EquipeEstudio } from '@/components/dashboard/equipe-estudio'
 import { PAPEIS_EQUIPE } from '@/lib/equipe-papeis'
 
 export default async function EquipePage() {
+  if (previaLocalAtiva()) redirect('/previa/equipe')
   const { user, profile, supabase } = await requireUser()
   if (profile?.role !== 'fotografo') notFound()
   const organizacoes = supabase ? await supabase.from('organizacoes').select('id,nome,dono_id,created_at').order('created_at') : null

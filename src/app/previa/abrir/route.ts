@@ -20,6 +20,6 @@ export function GET(request: NextRequest) {
   const response = new NextResponse(null, { status: 303, headers: { Location: area.caminho } })
   response.cookies.set(DEMO_COOKIE, encodeDemoSession({
     email: 'previa@example.invalid', nome_estudio: 'Estúdio demonstração', role: area.role,
-  }), { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 86400 })
+  }), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 86400 })
   return response
 }

@@ -1,4 +1,4 @@
-import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
+import { previaLocalAtiva, operacaoIndependenteDisponivel } from '@/lib/previa-local/ambiente'
 import { notFound } from 'next/navigation'
 import { CentralLocal } from '@/components/operacao-local/central-local'
 
@@ -8,8 +8,8 @@ export const metadata = {
 }
 
 export default function OperacaoLocalPage() {
-  // A bancada local nunca vira uma área pública ou um atalho de autorização.
-  if (process.env.NODE_ENV !== 'development' || process.env.SEUALBUM_OPERACAO_LOCAL !== '1') {
+  // A publicação independente só usa os arquivos e estados deste navegador.
+  if (!operacaoIndependenteDisponivel()) {
     notFound()
   }
   return <CentralLocal previaDisponivel={previaLocalAtiva()} />

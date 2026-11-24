@@ -1,5 +1,10 @@
 # Status da Operação Digital — Etapa 02
 
+## Navegação independente — 24/11/2026
+
+O escopo vigente é construir e disponibilizar a navegação e os fluxos agora, deixando apenas a conexão/operação de provedores para depois. A implementação publicável, limites e 59 acessos de navegador estão em [PREVIA-LOCAL](PREVIA-LOCAL.md). Testes: 1.068 aprovados/7 ignorados, TypeScript/lint/build aprovados. Migrations remotas não são requisito nem foram aplicadas para esta versão. Publicação independente em preparação; não confundir com homologação comercial conectada.
+
+
 ## Redesign dos painéis internos — 21/11/2026
 
 Layout aprovado aplicado aos workspaces de fotógrafo, administração, cliente, módulos de demonstração, central local e moldura do editor. Escopo e evidências em [REDESIGN-WORKSPACES](REDESIGN-WORKSPACES.md). Sem publicação externa ou alteração de autorização/banco.

@@ -1,5 +1,6 @@
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { SiteCriar } from '@/components/dashboard/site-criar'
 import { SiteEditor } from '@/components/dashboard/site-editor'
 import { urlPublica } from '@/lib/r2/cliente'
@@ -11,6 +12,7 @@ import { validarConteudoSite } from '@/lib/sites/validar'
 export const metadata: Metadata = { title: 'Site', robots: { index: false } }
 
 export default async function SitePage() {
+  if (previaLocalAtiva()) redirect('/previa/sites')
   const { profile, supabase } = await requireUser()
   if (profile?.role !== 'fotografo') notFound()
   const organizacoes = supabase ? await supabase.from('organizacoes').select('id,nome,dono_id,created_at').order('created_at') : null

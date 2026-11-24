@@ -1,8 +1,10 @@
-import { notFound } from 'next/navigation'
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
+import { notFound, redirect } from 'next/navigation'
 import { StoreEstudio } from '@/components/dashboard/store-estudio'
 import { requireUser } from '@/lib/supabase/queries'
 
 export default async function StorePage() {
+  if (previaLocalAtiva()) redirect('/previa/loja')
   const { profile, supabase } = await requireUser()
   if (profile?.role !== 'fotografo') notFound()
   const organizacoes = supabase ? await supabase.from('organizacoes').select('id,nome,created_at').order('created_at') : null

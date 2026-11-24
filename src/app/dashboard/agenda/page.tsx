@@ -1,9 +1,11 @@
-import { notFound } from 'next/navigation'
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
+import { notFound, redirect } from 'next/navigation'
 import { AgendaEstudio } from '@/components/dashboard/agenda-estudio'
 import { COLUNAS_RECURSO, COLUNAS_RESERVA, dataIsoHaDias } from '@/lib/agenda/colunas'
 import { requireUser } from '@/lib/supabase/queries'
 
 export default async function AgendaPage() {
+  if (previaLocalAtiva()) redirect('/previa/agenda')
   const { profile, supabase } = await requireUser()
   if (profile?.role !== 'fotografo') notFound()
   const organizacoes = supabase ? await supabase.from('organizacoes').select('id,nome,dono_id,created_at').order('created_at') : null

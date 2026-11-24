@@ -15,3 +15,17 @@ O launcher esvazia as configurações de provedores externos antes de iniciar Ne
 Verificação: 16 endereços visitados no Chromium; quatro perfis abriram diretamente após a correção do redirecionamento entre localhost e 127.0.0.1. Índice inspecionado em desktop e celular (390 px), sem transbordamento horizontal. Cinco testes cobrem a entrada fictícia, recusa em produção/com Supabase/sem flag e destinos inválidos. Ações da loja verificadas com aviso de demonstração; navegação da linha do tempo e link da prévia de site conferidos. TypeScript e lint dos arquivos alterados também verificados.
 
 Esta prévia serve para navegação local. O aceite funcional e as dependências externas continuam registrados em [REVISAO-LOCAL](REVISAO-LOCAL.md).
+
+
+## Navegação independente publicável — 24/11/2026
+
+Escopo corrigido pelo usuário: construir agora telas, fluxos e pontos de integração; conectar provedores depois. A falta de credenciais não bloqueia a navegação e não exige migrations remotas para esta entrega.
+
+- `SEUALBUM_NAVEGACAO_INDEPENDENTE=1` habilita o mesmo índice, visão geral, quatro perfis, módulos e central de fluxos em um build de produção desconectado. A flag sozinha não permite misturar a demonstração com serviços: se houver configuração de Supabase, Stripe, R2, reconhecimento facial, e-mail, webhooks, cron ou roteamento de domínio, as entradas independentes permanecem fechadas.
+- Sem a flag, a aplicação conectada e suas regras de autorização continuam operando. Cookies fictícios só são aceitos pelo modo de demonstração já existente quando não há Supabase. Cookies da entrada por perfil usam Secure em produção.
+- A home da versão independente abre a visão geral; a apresentação comercial permanece em `/?apresentacao=1`. Os atalhos reais de Galerias, Loja, Agenda, Estúdio, Equipe e Sites levam às respectivas telas independentes, preservando as abas do Estúdio.
+- Galerias e operação mantêm arquivos e fluxos em IndexedDB/localStorage do navegador: importação, seleção, prova/versionamento/aprovação, loja e assinatura simuladas. Esses dados não são enviados ao servidor e não migram automaticamente para os provedores.
+- Os módulos com fixtures oferecem as telas e formulários existentes; ações que gravariam no servidor informam o modo de demonstração. Isso não equivale a pagamento real nem a backend já conectado. Não foram removidos os adaptadores e contratos existentes.
+- Launcher reproduzível: `node scripts/navegacao-independente.mjs` para desenvolvimento; `--build` compila sem credenciais e `--start` serve esse artefato. Não usar o launcher como caminho de build da aplicação conectada.
+- Verificações: TypeScript e ESLint aprovados; 1.068 testes unitários aprovados/7 ignorados; build webpack de produção aprovado; 59 acessos de navegador com quatro perfis, módulos e redirecionamentos, sem erros de JavaScript, com solicitações externas bloqueadas. Índice em 390 px sem transbordamento e menu móvel conferido. A primeira suíte unitária concorria com o build e excedeu um orçamento de desempenho; repetição sem o build e suíte com dois workers aprovadas, sem relaxar os limites.
+- Nenhuma migration remota, conexão de provedor, exclusão ou cobrança faz parte desta publicação. Na Vercel, a versão independente deve receber variáveis vazias por deployment para serviços e a flag explícita, preservando os valores configurados no projeto para uma futura versão conectada. Cron não é incluído no deployment independente.

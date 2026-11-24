@@ -8,6 +8,7 @@ const abrir = (area = 'admin') => GET(new NextRequest(`http://127.0.0.1:3121/pre
 
 describe('acesso direto restrito à prévia local', () => {
   beforeEach(() => {
+    vi.stubEnv('SEUALBUM_NAVEGACAO_INDEPENDENTE', '')
     vi.stubEnv('NODE_ENV', 'development')
     vi.stubEnv('SEUALBUM_PREVIA_LOCAL', '1')
     vi.stubEnv('SEUALBUM_OPERACAO_LOCAL', '1')
@@ -36,6 +37,22 @@ describe('acesso direto restrito à prévia local', () => {
     vi.stubEnv('SEUALBUM_PREVIA_LOCAL', '')
     expect(abrir().status).toBe(404)
   })
+  it('permite publicação independente com cookie seguro e sem qualquer provedor', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('SEUALBUM_NAVEGACAO_INDEPENDENTE', '1')
+    const resposta = abrir('fotografo')
+    expect(resposta.status).toBe(303)
+    expect(resposta.cookies.get(DEMO_COOKIE)?.secure).toBe(true)
+  })
+  it.each(['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'STRIPE_SECRET_KEY', 'R2_ACCESS_KEY_ID', 'AWS_REKOGNITION_ACCESS_KEY_ID', 'WEBHOOK_SECRET', 'CRON_SECRET', 'SITES_HOST_ROUTING'])(
+    'recusa a publicação independente se %s estiver conectado', chave => {
+      vi.stubEnv('NODE_ENV', 'production')
+      vi.stubEnv('SEUALBUM_NAVEGACAO_INDEPENDENTE', '1')
+      vi.stubEnv(chave, 'synthetic-configured-provider')
+      expect(abrir().status).toBe(404)
+      expect(abrir().cookies.getAll()).toEqual([])
+    },
+  )
   it('não aceita destinos arbitrários ou papéis fora da lista', () => {
     for (const area of ['https://example.invalid', 'gestor', '__proto__', '']) {
       expect(abrir(encodeURIComponent(area)).status).toBe(404)

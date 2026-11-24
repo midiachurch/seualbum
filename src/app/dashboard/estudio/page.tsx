@@ -1,5 +1,6 @@
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { FunilStudio } from '@/components/studio/funil-studio'
 import { LinhaDoTempo } from '@/components/studio/linha-do-tempo'
@@ -23,6 +24,12 @@ type Busca = { aba?: string; org?: string; f?: string; r?: string; c?: string }
  * das RPCs; aqui a tela apenas esconde o que o papel não pode fazer.
  */
 export default async function EstudioPage({ searchParams }: { searchParams: Promise<Busca> }) {
+  if (previaLocalAtiva()) {
+    const busca = await searchParams
+    const query = new URLSearchParams()
+    for (const campo of ['aba', 'f', 'c'] as const) if (busca[campo]) query.set(campo, busca[campo]!)
+    redirect(`/previa/estudio${query.size ? `?${query}` : ''}`)
+  }
   const { user, profile, supabase } = await requireUser()
   if (profile?.role !== 'fotografo') notFound()
   const busca = await searchParams

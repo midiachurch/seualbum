@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+import { navegacaoIndependenteAtiva } from '@/lib/previa-local/ambiente'
 import type { Metadata } from 'next'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
@@ -24,7 +26,8 @@ export const metadata: Metadata = {
  */
 export const revalidate = 3600
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ apresentacao?: string }> }) {
+  if (navegacaoIndependenteAtiva() && (await searchParams).apresentacao !== '1') redirect('/previa/visao-geral')
   const [dbPlans, banners, collections] = await Promise.all([
     getActivePlans(),
     getPublicBanners(),
