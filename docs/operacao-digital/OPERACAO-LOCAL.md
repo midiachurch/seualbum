@@ -1,5 +1,9 @@
 # Operação local — 21/11/2026
 
+Prévia sem login para explorar as áreas: `npm run preview:local` → **http://127.0.0.1:3121/previa**. Modos de demonstração e limites em [PREVIA-LOCAL](PREVIA-LOCAL.md).
+
+> Revisão vigente após a continuação do Claude e a integração do Codex: [REVISAO-LOCAL](REVISAO-LOCAL.md). O registro abaixo preserva as primeiras rodadas; Docker/SQL, novas jornadas e aprovação guest foram validados posteriormente.
+
 Autoridade: pedido do usuário para construir localmente os fluxos de galerias de seleção e inteligentes e avançar eventos, produtos e serviços, sem depender de GitHub, Supabase ou outros serviços externos. Publicação fica para uma rodada posterior. Este ciclo não consulta contas, não aplica migrations remotas e não ativa cobrança.
 
 ## As três fases

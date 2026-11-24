@@ -1,11 +1,25 @@
 # Status da Operação Digital — Etapa 02
 
+## Redesign dos painéis internos — 21/11/2026
+
+Layout aprovado aplicado aos workspaces de fotógrafo, administração, cliente, módulos de demonstração, central local e moldura do editor. Escopo e evidências em [REDESIGN-WORKSPACES](REDESIGN-WORKSPACES.md). Sem publicação externa ou alteração de autorização/banco.
+
+## Revisão integrada do Codex — 21/11/2026
+
+Base `c44d7bf`, preservando os incrementos do Claude. Critérios e próximos gates em [REVISAO-LOCAL](REVISAO-LOCAL.md), que tem precedência sobre os próximos passos históricos abaixo.
+
+- Fechadas e verificadas as jornadas locais de prova/versionamento/aprovação, compra com recusa/entrega, assinatura com adicionais/renovação/nova contratação e mensagens/notificações. **14/14 Chromium** na central, incluindo mudança de rascunho entre abas durante confirmação.
+- Corrigidos reducers idempotentes e gravação desnecessária; cancelamento agora permite outro ciclo preservando contratos/faturas anteriores. A confirmação da prova fica presa à versão/revisão vistas ao abrir.
+- **0092 — aprovação final guest:** novo RPC/audit/action/UI, versão atual liberada e capacidade revalidadas, origem guest, retry e trilha imutáveis, sem identidade Auth fictícia e sem service role. O gatilho financeiro existente continua gerando fechamento de extras. O resumo de aprovação persiste após recarga. Migration somente local.
+- **SQL integrado:** 69 migrations, **1.773 verificações em 36 arquivos aprovadas**, mais **64 verificações HTTP** e **1/1 Chromium** com Next/PostgREST/SQL reais para seleção, aprovação, fatura de extras e revogação. Só a mídia foi substituída. Os testes Auth de módulos/editor executados pelo Claude não foram reexecutados nesta rodada.
+- **Unitários finais:** 1.048 aprovados/7 ignorados (82 arquivos aprovados/2 ignorados). TypeScript, ESLint e build webpack com exit 0, sem avisos de lint. Central local 404 em produção confirmada. Sem push, publicação, produção ou migration remota; referências e pesquisa preservadas.
+
 ## Retomada (Claude, 21/11/2026, após limite do Codex) — LEIA PRIMEIRO
 
 O Codex parou com três frentes locais ainda **não documentadas e sem commit**, na central `/operacao-local`:
 
 - **Loja com checkout simulado** (`src/lib/operacao-local/loja.ts`, `src/components/operacao-local/loja-local.tsx`): carrinho por galeria, compra idempotente por chave, conferência de total/comissão esperados, pago/recusado simulado. Sem pagamento real.
-- **Assinatura simulada** (`assinatura.ts` + teste, `assinatura-local.tsx`): ciclo, faturas, adicional de armazenamento (padrão R$19/100 MB-escala local), cálculo de consumo. Capacidade segue ilustrativa, sem bloqueio de upload.
+- **Assinatura simulada** (`assinatura.ts` + teste, `assinatura-local.tsx`): ciclo, faturas, adicional de armazenamento (padrão R$19/100 GB), cálculo de consumo. Capacidade segue ilustrativa, sem bloqueio de upload.
 - **Mensagens/notificações locais** (`mensagens-notificacoes.test.ts`) e produção local (`producao.ts`).
 
 **Correções feitas nesta retomada (mínimas, sem mudar comportamento):** `loja.ts` linha da compra usava `resumo.totalCentavos` (`number | null`) após o guard de nulo, que o TS não estreita com `falhar` inferido; aplicado `!` como nas linhas vizinhas. `loja-local.tsx` atualizava `estadoRef.current` durante o render (aviso `react-hooks/refs`); movido para `useEffect`.
@@ -75,7 +89,7 @@ Stack temporário em portas 564xx (`supabase init` em pasta temporária, migrati
 
 **Estado do Git:** commits locais feitos na branch de desenvolvimento (ver log); sem merge, produção ou migration remota. Antes disso nada estava commitado. Atenção ao commitar: `Projetos Rafael/` (projetos de referência do autor, fora do escopo do repositório), `docs/research/pixieset/investigation.cany/` e capturas de pesquisa são não rastreados e devem ser tratados à parte. Sem push, merge, migration remota ou produção.
 
-**Próximos passos sugeridos (alinhados à direção de plataforma recorrente):**
+**Próximos passos sugeridos naquela rodada (histórico; itens 1–4 foram atendidos nas rodadas posteriores):**
 1. Rodar `test:e2e:local` e incluir cenários de loja e assinatura; documentar resultado.
 2. Rodar pgTAP de 0048/0049 quando houver Docker.
 3. Persistir plano, franquia e consumo **no servidor** (RLS/RPC) em vez do navegador: contrato de entitlements separado dos contextos financeiros da ADR-004.

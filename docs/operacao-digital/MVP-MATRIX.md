@@ -1,3 +1,5 @@
+> Aceite atual em [REVISAO-LOCAL](REVISAO-LOCAL.md). A matriz abaixo é histórica e não descreve todos os incrementos posteriores de Store, equipe, assinatura, Booking, Sites, Studio e Design.
+
 > Atualização Etapa 02 (17/11/2026): esta matriz original foi elaborada em d7413a5. O estado incremental abaixo tem precedência; evidências em STATUS-OPERACAO.md. A estratégia reconstruída agora está em SEUALBUM-FASE-01.md com origem explícita, sem alegação de recuperação do original.
 
 | Requisito alterado | Estado atual | Evidência/limite |

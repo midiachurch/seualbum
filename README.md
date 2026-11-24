@@ -1,5 +1,7 @@
 # SeuÁlbum
 
+[Aceite local atual e dependências externas](docs/operacao-digital/REVISAO-LOCAL.md): revisão integrada dos incrementos do Claude e do Codex.
+
 Estratégia vigente: [Fase 01 — Operação Digital](docs/operacao-digital/MASTER-PLAN.md). [Execução e gates](docs/operacao-digital/EXECUTION-STATUS.md).
 
 Plataforma B2B de diagramação e design de álbuns para fotógrafos.

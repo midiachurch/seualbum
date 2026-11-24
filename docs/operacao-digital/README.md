@@ -1,5 +1,9 @@
 # Operação Digital — índice vigente
 
+> Redesign local dos painéis internos, após aprovação visual do usuário: [REDESIGN-WORKSPACES](REDESIGN-WORKSPACES.md). Navegação da prévia em http://127.0.0.1:3121/previa.
+
+> Revisão atual após os incrementos do Claude: [Aceite local e dependências externas](REVISAO-LOCAL.md). Este é o ponto de entrada para os resultados atuais; os registros anteriores mantêm seu valor histórico.
+
 > Ciclo local autorizado em 21/11/2026: [Operação local e três fases](OPERACAO-LOCAL.md). Construção e testes sem publicação ou dependência de serviços externos. O registro abaixo preserva a execução anterior.
 
 Etapa 02, execução incremental sobre `d03cf8d`, preservando histórico e produto existente. Fonte da nova autorização: comando Etapa 02 fornecido pelo usuário. Não autoriza migration remota, produção, merge, exclusão ou custo.
