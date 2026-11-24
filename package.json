@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:local": "node scripts/operacao-local.mjs",
+    "preview:local": "node scripts/operacao-local.mjs --previa",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

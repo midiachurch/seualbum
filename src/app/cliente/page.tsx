@@ -54,7 +54,7 @@ export default async function ClienteDashboardPage() {
   })
 
   return (
-    <div className="space-y-8">
+    <div className="workspace-client-home space-y-8">
       <section className="space-y-3">
         {estudioUnico ? (
           <div className="flex items-center gap-3">

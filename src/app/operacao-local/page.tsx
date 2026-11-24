@@ -1,3 +1,4 @@
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
 import { notFound } from 'next/navigation'
 import { CentralLocal } from '@/components/operacao-local/central-local'
 
@@ -11,5 +12,5 @@ export default function OperacaoLocalPage() {
   if (process.env.NODE_ENV !== 'development' || process.env.SEUALBUM_OPERACAO_LOCAL !== '1') {
     notFound()
   }
-  return <CentralLocal />
+  return <CentralLocal previaDisponivel={previaLocalAtiva()} />
 }

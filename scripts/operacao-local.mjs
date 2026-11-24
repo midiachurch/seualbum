@@ -33,7 +33,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }
   const child = spawn(process.execPath, [
     'node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', porta,
-  ], { cwd: fileURLToPath(new URL('..', import.meta.url)), env: ambienteLocal(process.env, porta), stdio: 'inherit' })
+  ], { cwd: fileURLToPath(new URL('..', import.meta.url)), env: {
+    ...ambienteLocal(process.env, porta),
+    SEUALBUM_PREVIA_LOCAL: process.argv.includes('--previa') ? '1' : '',
+  }, stdio: 'inherit' })
   for (const sinal of ['SIGINT', 'SIGTERM']) process.on(sinal, () => child.kill(sinal))
   child.on('error', () => { console.error('Não foi possível iniciar o servidor local.'); process.exitCode = 1 })
   child.on('exit', (codigo) => { process.exitCode = codigo ?? 1 })

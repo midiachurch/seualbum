@@ -1,6 +1,8 @@
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
 import type { Metadata } from 'next'
 import { Fraunces } from 'next/font/google'
 import { AlbumEditorPreview } from '@/components/editor/album-editor-preview'
+import { WorkspaceShell } from '@/components/workspace/workspace-shell'
 
 // Fonte de CONTEÚDO do álbum (opção "display" do bloco de texto), não da
 // interface — por isso carregada só nesta rota, não na raiz da aplicação.
@@ -10,8 +12,8 @@ export const metadata: Metadata = { title: 'Editor do álbum — prévia visual'
 
 export default function EditorPreviewPage() {
   return (
-    <div className={fraunces.variable}>
+    <WorkspaceShell previaDisponivel={previaLocalAtiva()} area="editor" nome="Estúdio demonstração" demonstracao ferramentas><div className={fraunces.variable}>
       <AlbumEditorPreview />
-    </div>
+    </div></WorkspaceShell>
   )
 }

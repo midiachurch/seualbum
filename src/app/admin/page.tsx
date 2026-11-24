@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { WorkspaceHeader } from '@/components/workspace/workspace-header'
 import Link from 'next/link'
 import { AlertTriangle, ArrowUpRight } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -17,7 +18,7 @@ import {
 } from '@/lib/supabase/queries'
 import { cn, formatBRL, formatRelativeDate } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'Dashboard' }
+export const metadata: Metadata = { title: 'Visão geral da operação' }
 
 const THIRTY_DAYS_MS = 30 * 86_400_000
 
@@ -68,10 +69,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-10">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Visão geral da operação da plataforma.</p>
-      </header>
+      <WorkspaceHeader titulo="Sua operação, em foco." descricao="Projetos, pessoas e próximas entregas. Veja o que precisa de atenção e mantenha cada história em movimento." />
 
       <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {cards.map((card) => (

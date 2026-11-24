@@ -24,6 +24,7 @@ export interface EstadoLocal {
   producao?: EstadoProducaoLocal
   loja?: EstadoLojaLocal
   cicloAssinatura?: CicloAssinaturaLocal
+  ciclosAssinaturaAnteriores?: CicloAssinaturaLocal[]
   notificacoes?: NotificacaoLocal[]
   mensagens?: MensagemLocal[]
 }
@@ -90,9 +91,9 @@ function aplicarComandoInterno(estado: EstadoLocal, comando: ComandoLocal, propr
   const galeria = 'galeriaId' in comando ? galeriaDoDono(novo, comando.galeriaId, proprietarioId) : null
   const registrar = (mensagem: string, galeriaId: string | null = galeria?.id ?? null) => novo.atividades.unshift({ id: id(), galeriaId, texto: mensagem, criadaEm: agora })
   switch (comando.tipo) {
-    case 'producao': return aplicarProducao(novo, comando.comando)
-    case 'loja': return aplicarLoja(novo, comando.comando)
-    case 'assinatura': return aplicarAssinatura(novo, comando.comando)
+    case 'producao': return aplicarProducao(estado, comando.comando)
+    case 'loja': return aplicarLoja(estado, comando.comando)
+    case 'assinatura': return aplicarAssinatura(estado, comando.comando)
     case 'ler_notificacao': {
       const notificacao = novo.notificacoes?.find(item => item.id === comando.id)
       if (!notificacao) falhar('notificacao_invalida', 'Notificação indisponível.')

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import { RetornoPrevia } from '@/components/previa-local/retorno-previa'
 import { Poppins, Open_Sans } from 'next/font/google'
 import './globals.css'
+import { previaLocalAtiva } from '@/lib/previa-local/ambiente'
 
 // Tipografia ÚNICA da aplicação (diretriz de marca do site-piloto): Poppins
 // nos títulos, Open Sans no corpo — site, login, painéis, admin, prova e
@@ -43,7 +45,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${poppins.variable} ${openSans.variable}`}>
-      <body className="min-h-screen font-sans">{children}</body>
+      <body className="min-h-screen font-sans">
+        {children}
+        {previaLocalAtiva() && <RetornoPrevia />}
+      </body>
     </html>
   )
 }

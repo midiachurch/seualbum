@@ -22,6 +22,7 @@ type Props = {
   dominios: DominioUI[]
   eventos: EventoUI[]
   midias: MidiaListaUI[]
+  hrefPrevia?: string
 }
 
 const slugDe = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 38)
@@ -34,7 +35,7 @@ function mover<T>(lista: T[], i: number, delta: -1 | 1): T[] {
   return c
 }
 
-export function SiteEditor({ nomeOrganizacao, meuPapel, site, rascunho, versoes, dominios, eventos, midias }: Props) {
+export function SiteEditor({ nomeOrganizacao, meuPapel, site, rascunho, versoes, dominios, eventos, midias, hrefPrevia }: Props) {
   const router = useRouter()
   const podeEditar = podeEditarSite(meuPapel)
   const podePublicar = podePublicarSite(meuPapel)
@@ -96,7 +97,7 @@ export function SiteEditor({ nomeOrganizacao, meuPapel, site, rascunho, versoes,
           <p className="text-sm text-muted-foreground">Seu papel: {meuPapel}. {podeEditar ? '' : 'Somente leitura.'}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a className={`${botao} inline-flex items-center`} href={`/dashboard/site/previa?site=${site.id}&pagina=${pagina.slug}`} target="_blank" rel="noopener noreferrer">Prévia privada</a>
+          <a className={`${botao} inline-flex items-center`} href={hrefPrevia ?? `/dashboard/site/previa?site=${site.id}&pagina=${pagina.slug}`} target="_blank" rel="noopener noreferrer">Prévia privada</a>
           {podeEditar && <button type="button" className={botao} disabled={pendente || !sujo} onClick={salvar}>{pendente ? 'Salvando…' : sujo ? 'Salvar rascunho' : 'Rascunho salvo'}</button>}
         </div>
       </div>

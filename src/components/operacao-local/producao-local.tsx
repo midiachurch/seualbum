@@ -23,6 +23,7 @@ export function ProducaoLocal({ estado, galeria, cliente, executar }: { estado: 
   const [marcando, setMarcando] = useState(false)
   const [aviso, setAviso] = useState('')
   const [confirmar, setConfirmar] = useState<'publicar' | 'aprovar' | 'solicitar_ajustes' | null>(null)
+  const [acaoConfirmada, setAcaoConfirmada] = useState<{ comando: ComandoProducaoLocal; numero: number } | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const tentativa = useRef<{ payload: string; chave: string } | null>(null)
@@ -92,10 +93,15 @@ export function ProducaoLocal({ estado, galeria, cliente, executar }: { estado: 
     const comando = { ...base, tipo: 'comentar' as const, versaoId: versao.id, laminaId: lamina.id, texto, x: ponto?.x, y: ponto?.y }
     if (enviar({ ...comando, chave: chavePara(comando) }, 'Comentário salvo na prova local.')) { setTexto(''); setPonto(null); setMarcando(false); tentativa.current = null }
   }
+  function abrirConfirmacao(tipo: 'publicar' | 'aprovar' | 'solicitar_ajustes') {
+    if (!versao) return
+    const comando = tipo === 'solicitar_ajustes' ? { ...base, tipo, versaoId: versao.id, texto } : { ...base, tipo, versaoId: versao.id }
+    setAcaoConfirmada({ comando: { ...comando, chave: chavePara(comando) }, numero: versao.numero })
+    setConfirmar(tipo)
+  }
   function decidir() {
-    if (!versao || !confirmar) return
-    const comando = confirmar === 'solicitar_ajustes' ? { ...base, tipo: confirmar, versaoId: versao.id, texto } : { ...base, tipo: confirmar, versaoId: versao.id }
-    if (enviar({ ...comando, chave: chavePara(comando) }, confirmar === 'publicar' ? 'Versão publicada para a prévia do cliente.' : confirmar === 'aprovar' ? 'Álbum aprovado no ambiente local.' : 'Pedido de ajustes enviado ao fotógrafo local.')) { tentativa.current = null; setConfirmar(null); dialog.current?.close(); setTexto(''); setPonto(null) }
+    if (!acaoConfirmada || !confirmar) return
+    if (enviar(acaoConfirmada.comando, confirmar === 'publicar' ? 'Versão publicada para a prévia do cliente.' : confirmar === 'aprovar' ? 'Álbum aprovado no ambiente local.' : 'Pedido de ajustes enviado ao fotógrafo local.')) { tentativa.current = null; setAcaoConfirmada(null); setConfirmar(null); dialog.current?.close(); setTexto(''); setPonto(null) }
   }
   function trocarVersao(id: string) { setVersaoVistaId(id); setLaminaVistaId(null); setPonto(null); setTexto(''); setMarcando(false) }
 
@@ -115,7 +121,7 @@ export function ProducaoLocal({ estado, galeria, cliente, executar }: { estado: 
     {!versao ? <p className={s.empty}>{cliente ? 'O fotógrafo está preparando a prova. Nenhum rascunho interno é exibido nesta prévia.' : 'Inicie uma versão para importar as lâminas diagramadas.'}</p> : <>
       <div className={s.toolbar}><label className={s.field}>Versão da prova<select value={versao.id} onChange={e => trocarVersao(e.target.value)}>{versoes.map(v => <option key={v.id} value={v.id}>Versão {v.numero} · {rotulos[v.status]}</option>)}</select></label><span className={`${s.badge} ${versao.status === 'aprovada' ? s.success : ''}`}>{rotulos[versao.status]}</span></div>
       {versao.id !== atual?.id && <p className={s.notice}>Você está consultando uma versão anterior. Seus arquivos, comentários e decisões permanecem preservados.</p>}
-      {podeEditar && <div className={s.toolbar}><input aria-label="Arquivos de lâminas" ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={e => void importar(e)} /><button className={s.secondary} disabled={enviando} onClick={() => input.current?.click()}><Upload size={18} />{enviando ? 'Importando lâminas…' : 'Importar lâminas diagramadas'}</button><button className={s.button} disabled={enviando || !versao.laminas.length} onClick={() => setConfirmar('publicar')}>Publicar versão para o cliente</button><span className={s.muted}>Até 100 imagens · 25 MB por lâmina</span></div>}
+      {podeEditar && <div className={s.toolbar}><input aria-label="Arquivos de lâminas" ref={input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={e => void importar(e)} /><button className={s.secondary} disabled={enviando} onClick={() => input.current?.click()}><Upload size={18} />{enviando ? 'Importando lâminas…' : 'Importar lâminas diagramadas'}</button><button className={s.button} disabled={enviando || !versao.laminas.length} onClick={() => abrirConfirmacao('publicar')}>Publicar versão para o cliente</button><span className={s.muted}>Até 100 imagens · 25 MB por lâmina</span></div>}
       <div className={s.review}>
         <div className={s.viewer}>
           {lamina ? <><div className={s.imageWrap} onClick={e => { if (!marcando || !podeRevisar) return; const r = e.currentTarget.getBoundingClientRect(); setPonto({ x: Math.round((e.clientX-r.left)/r.width*1000)/10, y: Math.round((e.clientY-r.top)/r.height*1000)/10 }); setMarcando(false) }} style={{ cursor: marcando ? 'crosshair' : undefined }}>
@@ -131,9 +137,9 @@ export function ProducaoLocal({ estado, galeria, cliente, executar }: { estado: 
       </div>
       {versao.mensagemDecisao && <div className={s.notice}><strong>Ajustes solicitados</strong><p>{versao.mensagemDecisao}</p></div>}
       {versao.decididaEm && <p className={s.muted}>Decisão registrada no modo cliente em {horario(versao.decididaEm)}.</p>}
-      {cliente && podeRevisar && <div className={s.decision}><p>Revise todas as lâminas antes de confirmar. A aprovação encerra a revisão desta versão.</p><div className={s.toolbar}><button className={s.button} onClick={() => setConfirmar('aprovar')}><Check size={18} />Aprovar álbum nesta versão</button><button className={s.secondary} disabled={!texto.trim()} onClick={() => setConfirmar('solicitar_ajustes')}>Solicitar ajustes com o texto acima</button></div></div>}
+      {cliente && podeRevisar && <div className={s.decision}><p>Revise todas as lâminas antes de confirmar. A aprovação encerra a revisão desta versão.</p><div className={s.toolbar}><button className={s.button} onClick={() => abrirConfirmacao('aprovar')}><Check size={18} />Aprovar álbum nesta versão</button><button className={s.secondary} disabled={!texto.trim()} onClick={() => abrirConfirmacao('solicitar_ajustes')}>Solicitar ajustes com o texto acima</button></div></div>}
     </>}
     <p role="status" className={s.muted}>{aviso}</p>
-    <dialog ref={dialog} className={s.dialog} onCancel={() => setConfirmar(null)} onClose={() => setConfirmar(null)}><h3>{confirmar === 'publicar' ? `Publicar versão ${versao?.numero}?` : confirmar === 'aprovar' ? `Aprovar álbum na versão ${versao?.numero}?` : 'Enviar solicitação de ajustes?'}</h3><p>{confirmar === 'publicar' ? 'As lâminas desta versão serão preservadas e disponibilizadas na prévia local do cliente.' : confirmar === 'aprovar' ? 'Esta decisão aprova o álbum completo nesta versão e encerra a revisão local. Não confirma pagamento ou produção física.' : 'A revisão será encerrada e o fotógrafo poderá preparar uma nova versão. O texto digitado será preservado como pedido de ajustes.'}</p><div className={s.toolbar}><button className={s.button} onClick={decidir}>Confirmar {confirmar === 'publicar' ? 'publicação' : confirmar === 'aprovar' ? 'aprovação' : 'ajustes'}</button><button className={s.secondary} onClick={() => { setConfirmar(null); dialog.current?.close() }}>Continuar revisando</button></div></dialog>
+    <dialog ref={dialog} className={s.dialog} onCancel={() => setConfirmar(null)} onClose={() => setConfirmar(null)}><h3>{confirmar === 'publicar' ? `Publicar versão ${acaoConfirmada?.numero}?` : confirmar === 'aprovar' ? `Aprovar álbum na versão ${acaoConfirmada?.numero}?` : 'Enviar solicitação de ajustes?'}</h3><p>{confirmar === 'publicar' ? 'As lâminas desta versão serão preservadas e disponibilizadas na prévia local do cliente.' : confirmar === 'aprovar' ? 'Esta decisão aprova o álbum completo nesta versão e encerra a revisão local. Não confirma pagamento ou produção física.' : 'A revisão será encerrada e o fotógrafo poderá preparar uma nova versão. O texto digitado será preservado como pedido de ajustes.'}</p><div className={s.toolbar}><button className={s.button} onClick={decidir}>Confirmar {confirmar === 'publicar' ? 'publicação' : confirmar === 'aprovar' ? 'aprovação' : 'ajustes'}</button><button className={s.secondary} onClick={() => { setConfirmar(null); dialog.current?.close() }}>Continuar revisando</button></div></dialog>
   </section>
 }

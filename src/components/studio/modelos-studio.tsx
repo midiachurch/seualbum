@@ -69,7 +69,7 @@ function FormModelo({ organizacaoId }: { organizacaoId: string }) {
   }}>
     <h3 className="text-lg font-semibold lg:col-span-2">Novo modelo</h3>
     <label className="grid gap-1 text-sm">Nome<input required minLength={2} maxLength={80} value={f.nome} onChange={campo('nome')} className="min-h-11 rounded-lg border px-3" /></label>
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid gap-3 sm:grid-cols-2">
       <label className="grid gap-1 text-sm">Canal<select value={f.canal} onChange={campo('canal')} className="min-h-11 rounded-lg border px-3">{CANAIS.map(c => <option key={c} value={c}>{CANAL_ROTULO[c]}</option>)}</select></label>
       <label className="grid gap-1 text-sm">Finalidade<select value={f.finalidade} onChange={campo('finalidade')} className="min-h-11 rounded-lg border px-3">{FINALIDADES.map(c => <option key={c} value={c}>{FINALIDADE_ROTULO[c]}</option>)}</select></label>
     </div>

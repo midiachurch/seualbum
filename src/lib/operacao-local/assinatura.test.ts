@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { criarEstadoInicial } from './modelo'
+import { validarEstadoLocal } from './repositorio'
 import { aplicarAssinatura, calcularConsumoAssinatura, proximaCompetencia, validarCicloAssinatura, type ComandoAssinaturaLocal } from './assinatura'
 
 const iniciar = () => aplicarAssinatura(criarEstadoInicial(), { acao: 'iniciar', planoId: 'profissional', chave: 'inicio' })
 const pagar = (estado: ReturnType<typeof iniciar>) => aplicarAssinatura(estado, { acao: 'simular_pagamento', faturaId: estado.cicloAssinatura!.faturas.at(-1)!.id })
 
 describe('assinatura local sem cobrança externa', () => {
+  it('contrata novamente após cancelamento preservando o contrato e faturas anteriores', () => {
+    let estado = iniciar()
+    estado = aplicarAssinatura(estado, { acao: 'cancelar' })
+    const cancelado = structuredClone(estado.cicloAssinatura)
+    estado = aplicarAssinatura(estado, { acao: 'iniciar', planoId: 'essencial', chave: 'novo-ciclo' })
+    expect(estado.ciclosAssinaturaAnteriores).toEqual([cancelado])
+    expect(estado.cicloAssinatura!.plano.id).toBe('essencial')
+    expect(estado.cicloAssinatura!.id).not.toBe(cancelado!.id)
+    expect(estado.galerias).toEqual(criarEstadoInicial().galerias.map((g, i) => ({ ...g, criadaEm: estado.galerias[i].criadaEm })))
+    expect(validarEstadoLocal(estado)).toBe(true)
+    estado.ciclosAssinaturaAnteriores![0].status = 'ativa_simulada'
+    expect(validarEstadoLocal(estado)).toBe(false)
+  })
   it('contrata plano pelo catálogo e registra fatura e atividade com datas reais', () => {
     const estado = iniciar(); const ciclo = estado.cicloAssinatura!
     expect(ciclo.status).toBe('ativa_simulada')

@@ -77,9 +77,10 @@ export function aplicarAssinatura(estado: EstadoLocal, comando: ComandoAssinatur
   const agora = new Date().toISOString()
   const registrar = (mensagem: string) => novo.atividades.unshift({ id: crypto.randomUUID(), galeriaId: null, texto: mensagem, criadaEm: agora })
   if (comando.acao === 'iniciar') {
-    if (novo.cicloAssinatura) throw new Error('Este estúdio já possui um ciclo registrado. O histórico será preservado.')
+    if (novo.cicloAssinatura && novo.cicloAssinatura.status !== 'cancelada') throw new Error('Este estúdio já possui um ciclo registrado. O histórico será preservado.')
     const plano = lerConfigComercial(novo).planos.find(item => item.id === comando.planoId)
     if (!plano) throw new Error('Plano indisponível nesta simulação.')
+    if (novo.cicloAssinatura) novo.ciclosAssinaturaAnteriores = [...(novo.ciclosAssinaturaAnteriores ?? []), structuredClone(novo.cicloAssinatura)]
     const competencia = competenciaHoje()
     const ciclo: CicloAssinaturaLocal = { id: crypto.randomUUID(), proprietarioId: novo.proprietarioId, plano: structuredClone(plano), status: 'ativa_simulada', competenciaAtual: competencia, iniciadoEm: agora, ofertaAdicional: { ...ADICIONAL_PADRAO }, adicionais: [], faturas: [], operacoes: [] }
     ciclo.faturas.push(criarFatura(ciclo, competencia, agora))

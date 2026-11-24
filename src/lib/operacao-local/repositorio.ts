@@ -51,6 +51,10 @@ export function validarEstadoLocal(valor: unknown): valor is EstadoLocal {
   if (valor.producao !== undefined && !validarProducao(valor.producao, estado)) return false
   if (valor.loja !== undefined && !validarLoja(valor.loja, estado)) return false
   if (valor.cicloAssinatura !== undefined && !validarCicloAssinatura(valor.cicloAssinatura, estado)) return false
+  if (valor.ciclosAssinaturaAnteriores !== undefined) {
+    if (!Array.isArray(valor.ciclosAssinaturaAnteriores) || !valor.ciclosAssinaturaAnteriores.every(item => validarCicloAssinatura(item, estado) && item.status === 'cancelada') || !idsUnicos(valor.ciclosAssinaturaAnteriores)) return false
+    if (estado.ciclosAssinaturaAnteriores!.some(item => item.id === estado.cicloAssinatura?.id)) return false
+  }
   if (valor.notificacoes !== undefined) {
     if (!arrayDe(valor.notificacoes, aviso => string(aviso.id) && string(aviso.atividadeId) && string(aviso.texto) && data(aviso.criadaEm) && (aviso.lidaEm === null || data(aviso.lidaEm)) && estado.atividades.some(item => item.id === aviso.atividadeId && item.galeriaId === aviso.galeriaId && item.texto === aviso.texto && item.criadaEm === aviso.criadaEm)) || !idsUnicos(valor.notificacoes as unknown[])) return false
     if (new Set(estado.notificacoes!.map(item => item.atividadeId)).size !== estado.notificacoes!.length) return false
