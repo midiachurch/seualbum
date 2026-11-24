@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { navegacaoIndependenteAtiva } from '@/lib/previa-local/ambiente'
 import type { Metadata } from 'next'
 import { SiteHeader } from '@/components/layout/site-header'
@@ -26,8 +25,8 @@ export const metadata: Metadata = {
  */
 export const revalidate = 3600
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ apresentacao?: string }> }) {
-  if (navegacaoIndependenteAtiva() && (await searchParams).apresentacao !== '1') redirect('/previa/visao-geral')
+export default async function HomePage() {
+  const independente = navegacaoIndependenteAtiva()
   const [dbPlans, banners, collections] = await Promise.all([
     getActivePlans(),
     getPublicBanners(),
@@ -49,11 +48,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <SiteHeader />
+      <SiteHeader navegacaoIndependente={independente} />
 
       <main className="flex-1">
         {/* Sem banner ativo cadastrado, cai no Hero estático — a home nunca fica sem herói. */}
-        {slides.length > 0 ? <HeroCarousel slides={slides} /> : <Hero />}
+        {slides.length > 0 ? <HeroCarousel slides={slides} navegacaoIndependente={independente} /> : <Hero navegacaoIndependente={independente} />}
         <HowItWorks />
         {collections.length > 0 ? <PortfolioShowcase collections={collections} mediaMap={mediaMap} /> : null}
         <PricingSection plans={plans} defaultCycle="avulso" />

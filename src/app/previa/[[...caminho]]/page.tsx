@@ -29,7 +29,7 @@ const areas = [
   ['Equipe', '/previa/equipe', 'Membros, papéis e convites da organização.'],
   ['Construtor de sites', '/previa/sites', 'Editor de blocos, páginas, tema, mídia e publicação.'],
   ['Site do estúdio', '/previa/portfolio', 'Visualização pública de um site montado com os blocos do construtor.'],
-  ['Site da plataforma', '/?apresentacao=1', 'A apresentação comercial do SeuÁlbum.'],
+  ['Site da plataforma', '/', 'A apresentação comercial do SeuÁlbum.'],
 ] as const
 const titulos: Record<string, string> = { loja: 'Loja', agenda: 'Agenda', estudio: 'Estúdio', equipe: 'Equipe', sites: 'Construtor de sites', portfolio: 'Site do estúdio' }
 const descricoes: Record<string, string> = {
