@@ -47,18 +47,21 @@ def run_portal_browser(db_name, secret, sql, output):
             self.wfile.write(content)
 
         def do_POST(self):
-            if self.path in ('/__test/state', '/__test/revoke'):
+            if self.path in ('/__test/state', '/__test/revoke', '/__test/proof'):
                 if not hmac.compare_digest(self.headers.get('x-test-control', ''), control):
                     self.respond(403, {'error': 'denied'})
                     return
-                if self.path == '/__test/revoke':
+                if self.path == '/__test/proof':
+                    state = sql("select json_build_object('status',p.status,'aprovacoes',(select count(*) from public.portal_prova_aprovacoes where projeto_id=p.id),'valor',(select sum(valor_total) from public.faturas where projeto_id=p.id),'origem_guest',(select bool_and(usuario_id is null) from public.aprovacoes where projeto_id=p.id)) from public.projetos p where p.id='"+PROJETO+"';")
+                    self.respond(200, json.loads(state))
+                elif self.path == '/__test/revoke':
                     sql("select set_config('request.jwt.claims','{\"sub\":\"f1000000-0000-4000-8000-000000000001\",\"role\":\"authenticated\"}',false); set role authenticated; select public.gerir_portal('" + PROJETO + "',null,null,true); reset role;")
                     self.respond(200, {'revoked': True})
                 else:
                     state = sql("select json_build_object('snapshots',count(*),'revisao',coalesce(max(revisao),0),'notificacoes',(select count(*) from public.selecao_notificacoes n join public.selecoes_entregues s on s.id=n.selecao_id where s.projeto_id='"+PROJETO+"')) from public.selecoes_entregues where projeto_id='"+PROJETO+"';")
                     self.respond(200, json.loads(state))
                 return
-            if not re.fullmatch(r'/rest/v1/rpc/(abrir_portal|portal_projeto|portal_favorito|portal_entregar|portal_foto)', self.path):
+            if not re.fullmatch(r'/rest/v1/rpc/(abrir_portal|portal_projeto|portal_favorito|portal_entregar|portal_foto|portal_prova|portal_lamina|portal_comentar_prova|portal_aprovar_prova)', self.path):
                 self.respond(404, {'error': 'unsupported'})
                 return
             try:
@@ -100,7 +103,7 @@ def run_portal_browser(db_name, secret, sql, output):
         (output / 'portal-browser.log').write_text(text)
         if process.returncode:
             raise RuntimeError('Navegador portal falhou; consulte portal-browser.log')
-        print('Portal navegador positivo aprovado: código, cookie, favorito/recarga, snapshot e revogação reais.', flush=True)
+        print('Portal navegador positivo aprovado: código, cookie, favorito/recarga, seleção, aprovação com fechamento de extras e revogação reais.', flush=True)
     finally:
         if server:
             server.shutdown()

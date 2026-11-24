@@ -1787,6 +1787,7 @@ export type Database = {
       portal_foto: { Args: { p_sessao_hash: string; p_foto_id: string }; Returns: Json }
       portal_favorito: { Args: { p_sessao_hash: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
       portal_prova: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_aprovar_prova: { Args: { p_sessao_hash: string; p_versao_id: string; p_chave: string }; Returns: Json }
       portal_lamina: { Args: { p_sessao_hash: string; p_lamina_id: string }; Returns: Json }
       portal_comentar_prova: { Args: { p_sessao_hash: string; p_versao_id: string; p_lamina_id: string | null; p_tipo: string; p_texto: string; p_chave: string }; Returns: string }
       portal_entregar: { Args: { p_sessao_hash: string; p_foto_ids: string[]; p_revisao: number; p_chave: string }; Returns: Json }

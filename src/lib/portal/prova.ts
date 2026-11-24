@@ -1,6 +1,7 @@
 import { uuidValido } from './segredos'
 export type PortalProva = {
   id: string; numero: number; aberta: boolean
+  aprovacao?: { data: string; aguardaFechamento: boolean } | null
   laminas: { id: string; ordem: number }[]
   comentarios: { id: string; lamina_id: string | null; tipo: 'comentario' | 'ajustes'; texto: string; data: string }[]
 }
@@ -30,5 +31,13 @@ export function lerContratoProva(valor: unknown): PortalProva | null {
     if (!uuidValido(c.id) || !(c.lamina_id === null || uuidValido(c.lamina_id)) || (c.tipo !== 'comentario' && c.tipo !== 'ajustes') || typeof c.texto !== 'string' || typeof c.data !== 'string' || !Number.isFinite(Date.parse(c.data))) return null
     comentarios.push({ id: c.id as string, lamina_id: c.lamina_id as string | null, tipo: c.tipo, texto: c.texto, data: c.data })
   }
-  return { id: p.id as string, numero: p.numero as number, aberta: p.aberta, laminas, comentarios }
+  let aprovacao: PortalProva['aprovacao']
+  if (p.aprovacao === null) aprovacao = null
+  else if (p.aprovacao !== undefined) {
+    if (typeof p.aprovacao !== 'object' || Array.isArray(p.aprovacao)) return null
+    const a = p.aprovacao as Record<string, unknown>
+    if (typeof a.data !== 'string' || !Number.isFinite(Date.parse(a.data)) || typeof a.aguardaFechamento !== 'boolean') return null
+    aprovacao = { data: a.data, aguardaFechamento: a.aguardaFechamento }
+  }
+  return { id: p.id as string, numero: p.numero as number, aberta: p.aberta, laminas, comentarios, ...(aprovacao === undefined ? {} : { aprovacao }) }
 }

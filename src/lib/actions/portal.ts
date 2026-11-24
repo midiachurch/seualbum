@@ -62,3 +62,15 @@ export async function comentarProvaPortal(link: string, versaoId: string, lamina
     return error || !uuidValido(data) ? naoRegistrado : { ok: true }
   } catch { return naoRegistrado }
 }
+
+export async function aprovarProvaPortal(link: string, versaoId: string, chave: string): Promise<Resultado & { aguardaFechamento?: boolean }> {
+  const erro: Resultado = { ok: false, erro: 'Não foi possível aprovar. Atualize e confira se esta versão continua aberta.' }
+  if (!uuidValido(versaoId) || !uuidValido(chave)) return erro
+  try {
+    const hash = await sessaoPortal(link)
+    if (!hash) return falha()
+    const { data, error } = await createPublicClient().rpc('portal_aprovar_prova', { p_sessao_hash: hash, p_versao_id: versaoId, p_chave: chave })
+    if (error || !data || typeof data !== 'object' || Array.isArray(data) || !uuidValido(data.id) || !['aprovado', 'aprovado_aguardando_pagamento'].includes(String(data.status))) return erro
+    return { ok: true, aguardaFechamento: data.status === 'aprovado_aguardando_pagamento' }
+  } catch { return erro }
+}
