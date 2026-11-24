@@ -15,6 +15,7 @@ import subprocess
 import threading
 import time
 import uuid
+import select
 
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT_IMAGE = 'public.ecr.aws/supabase/storage-api:v1.72.1'
@@ -72,18 +73,27 @@ def run_portal_browser(db_name, secret, sql, output):
                 body = self.rfile.read(size).decode()
                 headers = {k: self.headers[k] for k in ('Authorization', 'apikey', 'Content-Type') if k in self.headers}
                 request = {'url': 'http://127.0.0.1:3000' + self.path.removeprefix('/rest/v1'), 'headers': headers, 'body': body}
-                code = "let text='';for await(const chunk of process.stdin)text+=chunk;const p=JSON.parse(text);const r=await fetch(p.url,{method:'POST',headers:p.headers,body:p.body,signal:AbortSignal.timeout(5000)});process.stdout.write(JSON.stringify({status:r.status,body:await r.text()}));"
-                result = subprocess.run(['docker', 'exec', '-i', name, 'node', '--input-type=module', '-e', code], input=json.dumps(request), text=True, capture_output=True, timeout=10, check=True)
-                response = json.loads(result.stdout)
+                with bridge_lock:
+                    bridge.stdin.write(json.dumps(request) + '\n')
+                    bridge.stdin.flush()
+                    if not select.select([bridge.stdout], [], [], 15)[0]:
+                        bridge.terminate()  # Não reutilizar uma resposta atrasada em outra RPC.
+                        raise TimeoutError('Ponte local não respondeu em 15s')
+                    response = json.loads(bridge.stdout.readline())
+                print('RPC:', self.path.rsplit('/',1)[-1], response['status'], flush=True)
                 self.respond(response['status'], json.loads(response['body']))
             except Exception:
                 self.respond(502, {'error': 'local proxy failed'})
 
     server = None
+    bridge = None
+    bridge_lock = threading.Lock()
     try:
         sql((ROOT / 'supabase/tests/api/portal-browser.fixture.sql').read_text())
         subprocess.run(['docker', 'run', '-d', '--pull=never', '--name', name, '--network', 'container:' + db_name,
             '--entrypoint', 'node', CLIENT_IMAGE, '-e', 'setInterval(()=>{},1000)'], check=True, capture_output=True)
+        bridge_code = "import {createInterface} from 'node:readline';for await(const line of createInterface({input:process.stdin})){try{const p=JSON.parse(line);const r=await fetch(p.url,{method:'POST',headers:p.headers,body:p.body,signal:AbortSignal.timeout(10000)});process.stdout.write(JSON.stringify({status:r.status,body:await r.text()})+'\\n')}catch{process.stdout.write(JSON.stringify({status:502,body:'{}'})+'\\n')}}"
+        bridge = subprocess.Popen(['docker','exec','-i',name,'node','--input-type=module','-e',bridge_code],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,bufsize=1)
         server = ThreadingHTTPServer(('127.0.0.1', 3313), Proxy)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         env = os.environ.copy()
@@ -105,6 +115,10 @@ def run_portal_browser(db_name, secret, sql, output):
             raise RuntimeError('Navegador portal falhou; consulte portal-browser.log')
         print('Portal navegador positivo aprovado: código, cookie, favorito/recarga, seleção, aprovação com fechamento de extras e revogação reais.', flush=True)
     finally:
+        if bridge:
+            bridge.terminate()
+            try: bridge.wait(timeout=3)
+            except subprocess.TimeoutExpired: bridge.kill()
         if server:
             server.shutdown()
             server.server_close()

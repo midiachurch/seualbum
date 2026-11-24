@@ -44,3 +44,14 @@ O runner SQL faz limpeza somente dos próprios containers descartáveis. Não se
 5. **Comunicação e hospedagem:** conectar provedor de e-mail/SMS, cron/outbox, DNS/certificado e, se escolhido, OAuth de calendário. `.ics`, cópia de link e outbox de registro já existem localmente. LGPD/retenção e operação assistida precisam ser homologadas com o uso real.
 
 Itens de expansão, como transferência de titularidade e autorização financeira multi-org em sombra, continuam no roadmap. Não foram renomeados como dependências de conexão nem incluídos artificialmente no escopo já aceito de galerias/seleção e jornadas locais.
+
+
+## Preparação da publicação — 24/11/2026
+
+- PR aberto: Operação digital: novos módulos, aprovação no portal e redesign dos painéis. CI e Vercel Preview aprovados.
+- Consulta somente leitura do Supabase voltou a funcionar. Recuperado do histórico, sem alteração remota, o arquivo `20261117000400_0048_estado_portal.sql`, ausente no checkout. Há 22 migrations posteriores pendentes no remoto.
+- Regressão executada nesta retomada: 1.773 verificações SQL e 64 HTTP aprovadas. A primeira jornada Chromium excedeu tempo de resposta; uma repetição avançou por entrada/favorito/seleção e identificou timeout na ponte local.
+- A ponte do navegador iniciava um processo Node via Docker para cada RPC. Agora mantém um único processo durante a execução, com consultas serializadas, timeout de resposta e limpeza no encerramento. Não muda aplicação, banco ou permissões.
+- Jornada isolada aprovada em cópia descartável, com 70 migrations, limite total de 180 segundos, SQL/HTTP geral omitidos nessa execução focada: entrada por código, cookie, favorito após recarga, seleção, aprovação guest com extras e revogação. Todas as asserções do cenário existente foram preservadas; só a mídia permanece sintética. Os diagnósticos registram apenas nome da RPC/status HTTP, sem código, cookie ou JWT.
+- A cópia focada ficou em diretório temporário; não é um novo comando versionado. A execução integrada continua disponível pelo runner existente. Esse resultado não certifica R2, fornecedores externos ou produção.
+- Schema anterior salvo localmente, sem dados de clientes; dry-run remoto aprovado para exatamente 22 migrations, sem seeds/roles/Vault. Backfill de nomes de estúdio compatível por consulta agregada. Vercel Production tem Supabase/login configurados, mas não lista R2 nem STRIPE_SECRET_KEY; arquivos locais também não têm essas credenciais. Upload R2 e cobrança real continuam dependentes de configuração. Merge, aplicação remota e deploy ainda não realizados neste registro.
