@@ -26,6 +26,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Cópias de trabalho dos agentes e o site estático antigo.
     ".claude/**",
+    // Checkouts independentes locais não integram a aplicação SeuAlbum.
+    "Projetos Rafael/**",
     "site-piloto/**",
   ]),
 ]);

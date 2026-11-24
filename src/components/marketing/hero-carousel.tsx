@@ -25,7 +25,7 @@ export type HeroSlide = {
  * quando existe pelo menos um banner ativo cadastrado em `/admin/vitrine/banners`.
  * Gira sozinho a cada 6s; para no hover/foco para não atrapalhar quem está lendo.
  */
-export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
+export function HeroCarousel({ slides, navegacaoIndependente = false }: { slides: HeroSlide[]; navegacaoIndependente?: boolean }) {
   const [index, setIndex] = useState(0)
   const [paused, setPaused] = useState(false)
 
@@ -67,7 +67,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="btn-marketing border-2 border-[#171717] bg-[#171717] text-white hover:bg-[#2E2E2E]">
-              <Link href={slide.linkCta || '/auth/register'}>Começar agora</Link>
+              <Link href={navegacaoIndependente ? "/previa/visao-geral" : slide.linkCta || "/auth/register"}>{navegacaoIndependente ? "Explorar a plataforma" : "Começar agora"}</Link>
             </Button>
             <Button
               asChild

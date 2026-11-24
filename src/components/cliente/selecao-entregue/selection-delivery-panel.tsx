@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, startTransition } from 'react'
 import { consultarSelecoes, entregarSelecao, exportarSelecao } from '@/lib/actions/selecao-entregue'
+import { CriarAlbumDaSelecao } from '@/components/design/criar-album-da-selecao'
 
 type Resumo = Extract<Awaited<ReturnType<typeof consultarSelecoes>>, {ok:true}>
 export function SelectionDeliveryPanel({ projetoId }: { projetoId: string }) {
@@ -50,6 +51,7 @@ export function SelectionDeliveryPanel({ projetoId }: { projetoId: string }) {
       {resumo.podeEntregar?<button type="button" disabled={ocupado||!resumo.favoritas.length} className="ml-3 min-h-11 rounded-lg border px-3" onClick={()=>setConfirmando(true)}>Preparar entrega</button>:null}
       {confirmando?<div className="space-y-2 rounded-xl bg-secondary p-3"><p>Entregar exatamente as {resumo.favoritas.length} favoritas carregadas nesta lista como revisão {(resumo.entregas[0]?.revisao??0)+1}?</p><button type="button" disabled={ocupado} className="min-h-11 rounded-lg border px-3" onClick={()=>startTransition(async()=>{await confirmar()})}>{ocupado?'Entregando…':'Confirmar entrega'}</button><button type="button" disabled={ocupado} className="ml-3 min-h-11 underline" onClick={()=>setConfirmando(false)}>Cancelar</button></div>:null}
       {resumo.entregas.map((e)=><div key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-sm"><span>Revisão {e.revisao} · {e.total} fotos · {new Date(e.criadaEm).toLocaleString('pt-BR')}</span><button type="button" disabled={ocupado} className="min-h-11 underline" onClick={()=>startTransition(async()=>{await exportar(e.id)})}>Exportar manifesto e originais</button></div>)}
+      <CriarAlbumDaSelecao projetoId={projetoId} entregas={resumo.entregas} />
     </>}
     {downloads.length?<ul className="max-h-60 overflow-auto text-sm">{downloads.map((f)=><li key={f.fotoId}><a href={f.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center underline">{f.nomeOriginal??`Original sem nome registrado (${f.fotoId})`}</a></li>)}</ul>:null}
   </section>

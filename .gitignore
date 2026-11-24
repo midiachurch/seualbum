@@ -41,3 +41,6 @@ site-piloto/
 # Caches Python locais
 __pycache__/
 *.pyc
+
+# Resultados do E2E das jornadas dos modulos (capturas/traces)
+/e2e/modulos/.resultados/

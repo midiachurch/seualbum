@@ -8,7 +8,7 @@ const PROVAS = [
   { icon: ShieldCheck, label: 'Aprovação online com o seu cliente' },
 ]
 
-export function Hero() {
+export function Hero({ navegacaoIndependente = false }: { navegacaoIndependente?: boolean }) {
   return (
     <section className="font-marketing relative flex min-h-[85vh] items-center overflow-hidden bg-[#F5F5F5]">
       {/* eslint-disable-next-line @next/next/no-img-element -- next/image cache corrompe no volume externo (AppleDouble/exFAT), ver auditoria. */}
@@ -32,7 +32,7 @@ export function Hero() {
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="btn-marketing border-2 border-[#171717] bg-[#171717] text-white hover:bg-[#2E2E2E]">
-              <Link href="/auth/register">Começar agora</Link>
+              <Link href={navegacaoIndependente ? "/previa/visao-geral" : "/auth/register"}>{navegacaoIndependente ? "Explorar a plataforma" : "Começar agora"}</Link>
             </Button>
             <Button
               asChild

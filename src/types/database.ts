@@ -173,6 +173,8 @@ export type ProjetoRow = {
   nome: string
   cliente_id: string
   fotografo_id: string
+  /** Estúdio (organização) do projeto, imutável (migrations 0051/0054). Nulo só em dados anteriores ao backfill. */
+  organizacao_id?: string | null
   responsavel_id: string | null
   plano_id: string | null
   tipo_evento: string | null
@@ -267,6 +269,487 @@ export type R2UploadPendenteRow = {
   created_at: string
 }
 
+/** Coleção (set) de fotos de um projeto: visão sobre as mesmas fotos, sem duplicar mídia (migration 0056). */
+export type ColecaoFotoRow = { id: string; projeto_id: string; nome: string; ordem: number; criado_por: string | null; created_at: string }
+export type GaleriaDownloadConfigRow = {
+  projeto_id: string
+  liberado: boolean
+  expira_em: string | null
+  limite_fotos: number
+  atualizado_por: string | null
+  updated_at: string
+}
+export type PortalColecao = { id: string; nome: string; total: number }
+export type PortalDownloadConfig = { liberado: boolean; expira_em: string | null; limite: number; usados: number }
+
+/** Store (migration 0055): venda do estúdio ao cliente final, contexto financeiro próprio. */
+export type StoreProdutoTipo = 'colecao_digital' | 'foto_avulsa' | 'impressao' | 'servico'
+export type StoreProdutoRow = {
+  id: string
+  organizacao_id: string
+  nome: string
+  descricao: string | null
+  tipo: StoreProdutoTipo
+  preco_centavos: number
+  comissao_bps: number
+  ativo: boolean
+  criado_por: string | null
+  created_at: string
+}
+export type StorePedidoStatus = 'pendente' | 'pago' | 'recusado' | 'cancelado' | 'estornado'
+/** Colunas legíveis pelo app: o token_hash da entrega nunca é exposto. */
+export type StorePedidoRow = {
+  id: string
+  organizacao_id: string
+  projeto_id: string
+  chave: string
+  comprador_nome: string
+  comprador_email: string
+  contexto: 'venda_estudio'
+  status: StorePedidoStatus
+  moeda: 'BRL'
+  total_centavos: number
+  comissao_centavos: number
+  liquido_centavos: number
+  provedor: 'simulado'
+  created_at: string
+  pago_em: string | null
+  encerrado_em: string | null
+}
+export type StorePedidoItemRow = {
+  id: string
+  pedido_id: string
+  produto_id: string
+  nome: string
+  tipo: string
+  preco_centavos: number
+  comissao_bps: number
+  quantidade: number
+  foto_ids: string[]
+  total_centavos: number
+  comissao_centavos: number
+}
+export type StoreDivergenciaRow = {
+  id: string
+  organizacao_id: string | null
+  pedido_id: string | null
+  provedor: string
+  evento_id: string
+  tipo: 'pago' | 'recusado' | 'estornado'
+  valor_centavos: number
+  resultado: 'divergente' | 'fora_de_ordem' | 'pedido_inexistente'
+  detalhe: string | null
+  created_at: string
+}
+export type StoreCatalogoItem = { id: string; nome: string; descricao: string | null; tipo: StoreProdutoTipo; preco_centavos: number }
+export type StoreEntrega = {
+  pedido_id: string
+  status: StorePedidoStatus
+  itens: { nome: string; tipo: string; quantidade: number; fotos: { id: string; nome: string | null }[] }[]
+}
+
+/** Estúdio como unidade comercial (migration 0051). Escrita só pelo trigger/RPCs. */
+export type OrganizacaoRow = { id: string; nome: string; dono_id: string; created_at: string }
+export type PapelOrganizacao = 'dono' | 'admin' | 'editor' | 'visualizador'
+export type OrganizacaoMembroRow = {
+  organizacao_id: string
+  user_id: string
+  papel: PapelOrganizacao
+  status: 'ativo' | 'removido'
+  adicionado_por: string | null
+  created_at: string
+  removido_em: string | null
+}
+/** Convite por link para a equipe (migration 0053). O token_hash nunca é legível pelo app. */
+export type ConviteOrganizacaoRow = {
+  id: string
+  organizacao_id: string
+  email: string
+  papel: Exclude<PapelOrganizacao, 'dono'>
+  criado_por: string | null
+  status: 'pendente' | 'aceito' | 'revogado'
+  aceito_por: string | null
+  aceito_em: string | null
+  expira_em: string
+  created_at: string
+}
+/** Linha da equipe devolvida por `listar_equipe_organizacao` (0051). */
+export type EquipeMembroRow = { user_id: string; nome: string; email: string; papel: PapelOrganizacao; status: 'ativo' | 'removido' }
+
+/** Booking (migrations 0060-0062). Escrita só por RPC; token_hash nunca é legível. */
+export type AgendaTipoRecurso = 'pessoa' | 'equipamento' | 'espaco'
+export type AgendaRecursoRow = {
+  id: string
+  organizacao_id: string
+  nome: string
+  slug: string
+  tipo: AgendaTipoRecurso
+  descricao: string | null
+  fuso: string
+  duracao_min: number
+  buffer_min: number
+  intervalo_min: number
+  antecedencia_min_min: number
+  antecedencia_max_dias: number
+  cancelamento_antecedencia_h: number
+  /** Sinal SIMULADO em centavos; nulo = sem sinal. */
+  sinal_centavos: number | null
+  publicado: boolean
+  ativo: boolean
+  created_at: string
+  updated_at: string
+}
+export type AgendaDisponibilidadeRow = { id: string; recurso_id: string; dia_semana: number; inicio: string; fim: string }
+export type AgendaBloqueioRow = { id: string; recurso_id: string; periodo: string; motivo: string | null; criado_por: string | null; created_at: string }
+export type AgendaStatusReserva = 'hold' | 'confirmada' | 'cancelada' | 'expirada' | 'concluida'
+export type AgendaSinalStatus = 'nenhum' | 'pendente' | 'pago' | 'reembolso_pendente' | 'reembolsado'
+export type AgendaReservaRow = {
+  id: string
+  organizacao_id: string
+  recurso_id: string
+  status: AgendaStatusReserva
+  inicio: string
+  fim: string
+  ocupa_ate: string
+  contato_nome: string
+  contato_email: string
+  contato_telefone: string | null
+  expira_em: string | null
+  confirmada_em: string | null
+  cancelada_em: string | null
+  cancelada_por: 'cliente' | 'estudio' | null
+  motivo_cancelamento: string | null
+  concluida_em: string | null
+  cliente_id: string | null
+  sinal_centavos: number | null
+  sinal_status: AgendaSinalStatus
+  remarcacoes: number
+  created_at: string
+  updated_at: string
+}
+export type AgendaReservaEventoRow = {
+  id: string
+  reserva_id: string
+  tipo: AgendaStatusReserva | 'remarcada' | 'sinal' | 'cliente_vinculado' | 'reembolso'
+  ator: 'cliente' | 'estudio' | 'sistema'
+  ator_id: string | null
+  detalhes: Json
+  created_at: string
+}
+export type AgendaSlotRow = { slot_inicio: string; slot_fim: string }
+/** Resposta de `agenda_recurso_publico` (somente dados que o visitante pode ver). */
+export type AgendaRecursoPublico = {
+  slug: string
+  nome: string
+  tipo: AgendaTipoRecurso
+  descricao: string | null
+  estudio: string | null
+  fuso: string
+  duracao_min: number
+  sinal_centavos: number | null
+  cancelamento_antecedencia_h: number
+  antecedencia_max_dias: number
+}
+/** Resposta de `agenda_criar_hold`. */
+export type AgendaHoldPublico = {
+  id: string
+  status: AgendaStatusReserva
+  inicio: string
+  fim: string
+  expira_em: string | null
+  sinal_centavos: number | null
+  sinal_status: AgendaSinalStatus
+}
+/** Resposta de `agenda_reserva_publica` (a própria reserva, sem contato). */
+export type AgendaReservaPublica = {
+  id: string
+  status: AgendaStatusReserva
+  inicio: string
+  fim: string
+  expira_em: string | null
+  recurso: string
+  estudio: string | null
+  fuso: string
+  sinal_centavos: number | null
+  sinal_status: AgendaSinalStatus
+  cancelamento_antecedencia_h: number
+}
+/** Etapa COMERCIAL do negócio (0080); não é o status de produção do projeto. */
+export type StudioEtapa = 'lead' | 'contato' | 'proposta' | 'fechado' | 'perdido'
+export type StudioOrigem = 'indicacao' | 'instagram' | 'site' | 'google' | 'facebook' | 'whatsapp' | 'evento' | 'parceiro' | 'outro'
+export type StudioMotivoPerda = 'preco' | 'sem_resposta' | 'concorrente' | 'data_indisponivel' | 'desistiu' | 'outro'
+export type StudioPrioridade = 'baixa' | 'media' | 'alta'
+export type StudioStatusTarefa = 'aberta' | 'concluida' | 'cancelada'
+export type StudioFiltroTarefa = 'abertas' | 'minhas' | 'atrasadas' | 'hoje' | 'responsavel' | 'concluidas' | 'todas'
+export type StudioCanal = 'email' | 'whatsapp'
+export type StudioFinalidadeModelo = 'livre' | 'followup_proposta' | 'lembrete_tarefa'
+export type StudioOutboxStatus = 'pendente' | 'enviando' | 'enviada' | 'falhou' | 'cancelada'
+export type StudioOutboxOrigem = 'manual' | 'automacao_tarefa_atrasada' | 'automacao_followup_proposta'
+export type StudioTipoLinhaTempo = 'mensagem' | 'mensagem_sistema' | 'etapa' | 'tarefa_concluida' | 'orcamento' | 'comunicacao'
+
+/** Negócio comercial sobre um cliente existente (0080). Escrita só por RPC. */
+export type StudioNegocioRow = {
+  id: string
+  organizacao_id: string
+  cliente_id: string
+  projeto_id: string | null
+  orcamento_id: string | null
+  titulo: string
+  etapa: StudioEtapa
+  motivo_perda: StudioMotivoPerda | null
+  motivo_detalhe: string | null
+  origem: StudioOrigem
+  valor_estimado: number
+  responsavel_id: string | null
+  etapa_em: string
+  fechado_em: string | null
+  criado_por: string | null
+  chave_idem: string | null
+  created_at: string
+  updated_at: string
+}
+/** Histórico imutável de etapas (0080). */
+export type StudioNegocioHistoricoRow = {
+  id: string
+  negocio_id: string
+  organizacao_id: string
+  de_etapa: StudioEtapa | null
+  para_etapa: StudioEtapa
+  motivo: string | null
+  ator_id: string | null
+  chave_idem: string | null
+  created_at: string
+}
+/** Tarefa comercial da organização (0081). */
+export type StudioTarefaRow = {
+  id: string
+  organizacao_id: string
+  titulo: string
+  descricao: string | null
+  responsavel_id: string | null
+  prazo: string | null
+  prioridade: StudioPrioridade
+  status: StudioStatusTarefa
+  cliente_id: string | null
+  negocio_id: string | null
+  projeto_id: string | null
+  orcamento_id: string | null
+  concluida_em: string | null
+  concluida_por: string | null
+  criado_por: string | null
+  chave_idem: string | null
+  created_at: string
+  updated_at: string
+}
+/** Modelo de mensagem com variáveis (0082). */
+export type StudioModeloRow = {
+  id: string
+  organizacao_id: string
+  nome: string
+  finalidade: StudioFinalidadeModelo
+  canal: StudioCanal
+  assunto: string
+  corpo: string
+  ativo: boolean
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+export type StudioConfiguracaoRow = { organizacao_id: string; followup_dias: number; envio_externo: false; updated_at: string }
+export type StudioOptoutRow = { organizacao_id: string; cliente_id: string; canal: StudioCanal; created_at: string }
+/** Fila de comunicação (0083). Envio externo desligado: só simulação. */
+export type StudioOutboxRow = {
+  id: string
+  organizacao_id: string
+  destinatario_tipo: 'cliente' | 'membro'
+  cliente_id: string | null
+  membro_id: string | null
+  negocio_id: string | null
+  tarefa_id: string | null
+  modelo_id: string | null
+  canal: StudioCanal
+  destinatario: string
+  assunto: string
+  corpo: string
+  origem: StudioOutboxOrigem
+  chave_idem: string
+  status: StudioOutboxStatus
+  tentativas: number
+  max_tentativas: number
+  proxima_tentativa_em: string
+  reservada_em: string | null
+  ultimo_erro: string | null
+  adaptador: 'registro' | null
+  simulada: boolean
+  enviada_em: string | null
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+export type StudioOutboxRegistroRow = {
+  id: string
+  outbox_id: string
+  organizacao_id: string
+  canal: string
+  destinatario: string
+  assunto: string
+  corpo: string
+  tentativa: number
+  created_at: string
+}
+/** Linha do funil devolvida por `listar_funil_studio` (0081). */
+export type StudioFunilRow = {
+  id: string
+  cliente_id: string
+  cliente_nome: string
+  cliente_email: string | null
+  cliente_telefone: string | null
+  titulo: string
+  etapa: StudioEtapa
+  motivo_perda: StudioMotivoPerda | null
+  origem: StudioOrigem
+  valor_estimado: number
+  responsavel_id: string | null
+  responsavel_nome: string | null
+  projeto_id: string | null
+  projeto_nome: string | null
+  orcamento_id: string | null
+  etapa_em: string
+  dias_na_etapa: number
+  proxima_acao_titulo: string | null
+  proxima_acao_prazo: string | null
+  tarefas_abertas: number
+  tarefas_atrasadas: number
+}
+/** Linha de `listar_tarefas_studio` (0081). */
+export type StudioTarefaListaRow = {
+  id: string
+  titulo: string
+  descricao: string | null
+  responsavel_id: string | null
+  responsavel_nome: string | null
+  prazo: string | null
+  prioridade: StudioPrioridade
+  status: StudioStatusTarefa
+  cliente_id: string | null
+  cliente_nome: string | null
+  negocio_id: string | null
+  projeto_id: string | null
+  orcamento_id: string | null
+  atrasada: boolean
+  pode_editar: boolean
+  concluida_em: string | null
+}
+/** Resultado da prévia de um modelo (0082): nada é enviado. */
+export type StudioPreviaRow = { assunto: string; corpo: string; faltando: string[] }
+/** Item da linha do tempo do cliente (0084). */
+export type StudioLinhaTempoRow = { ocorrido_em: string; tipo: StudioTipoLinhaTempo; titulo: string; detalhe: string | null; ref_id: string }
+/** Linha de `listar_outbox_studio` (0083). */
+export type StudioOutboxListaRow = Pick<StudioOutboxRow, 'id' | 'canal' | 'destinatario' | 'destinatario_tipo' | 'cliente_id' | 'assunto' | 'corpo' | 'origem' | 'status' | 'tentativas' | 'max_tentativas' | 'proxima_tentativa_em' | 'ultimo_erro' | 'simulada' | 'enviada_em' | 'created_at'> & { cliente_nome: string | null }
+/** Item reservado para processamento (0083). */
+export type StudioOutboxReservaRow = Pick<StudioOutboxRow, 'id' | 'canal' | 'destinatario' | 'assunto' | 'corpo' | 'tentativas'>
+/** Sites por organização (migrations 0070/0071). Escrita só por RPC; `rascunho` nunca é público. */
+export type SiteStatus = 'rascunho' | 'publicado' | 'despublicado'
+export type SiteRow = {
+  id: string
+  organizacao_id: string
+  slug: string
+  nome: string
+  status: SiteStatus
+  rascunho: Json
+  rascunho_rev: number
+  versao_publicada_id: string | null
+  publicado_em: string | null
+  criado_por: string | null
+  created_at: string
+  updated_at: string
+}
+export type SiteVersaoRow = {
+  id: string
+  site_id: string
+  organizacao_id: string
+  numero: number
+  conteudo: Json
+  midias: Json
+  nota: string | null
+  chave_idempotencia: string
+  criado_por: string | null
+  created_at: string
+}
+export type SiteMidiaRow = {
+  id: string
+  organizacao_id: string
+  chave: string
+  nome: string
+  largura_px: number | null
+  altura_px: number | null
+  tamanho_kb: number | null
+  criado_por: string | null
+  created_at: string
+}
+export type SiteEventoRow = {
+  id: string
+  site_id: string
+  organizacao_id: string
+  ator: string | null
+  acao: string
+  versao_id: string | null
+  detalhe: string | null
+  created_at: string
+}
+export type SiteDominioStatus = 'pendente' | 'verificado' | 'falhou'
+export type SiteDominioRow = {
+  id: string
+  site_id: string
+  organizacao_id: string
+  dominio: string
+  status: SiteDominioStatus
+  token: string
+  ativo: boolean
+  verificacao_solicitada_em: string | null
+  verificado_em: string | null
+  falhou_em: string | null
+  falhou_motivo: 'registro_nao_encontrado' | 'dominio_verificado_por_outro' | 'dominio_em_uso' | null
+  criado_por: string | null
+  created_at: string
+}
+
+/** Catálogo de planos da galeria, hipóteses simuladas (migration 0050). */
+export type PlanoGaleriaRow = {
+  slug: string
+  nome: string
+  preco_mensal_centavos: number
+  armazenamento_bytes: number
+  ativo: boolean
+  ordem: number
+  created_at: string
+}
+/** Assinatura simulada da galeria, com snapshot do plano (migration 0050). Escrita só pela RPC. */
+export type AssinaturaGaleriaRow = {
+  id: string
+  fotografo_id: string
+  chave: string
+  plano_slug: string
+  plano_nome: string
+  preco_mensal_centavos: number
+  armazenamento_bytes: number
+  origem: 'simulada'
+  status: 'ativa' | 'substituida' | 'cancelada'
+  iniciada_em: string
+  encerrada_em: string | null
+}
+
+/** Consumo medido da franquia da galeria (migration 0050). Sem plano: capacidade/percentual nulos. */
+export type ConsumoFranquiaGaleriaRow = {
+  plano_slug: string | null
+  capacidade_bytes: number | null
+  usado_bytes: number
+  fotos_total: number
+  fotos_sem_medicao: number
+  percentual: number | null
+  situacao: 'sem_plano' | 'dentro' | 'alerta' | 'excedida'
+}
+
 export type FotoRow = {
   nome_original?: string | null;
   id: string
@@ -286,6 +769,8 @@ export type FotoRow = {
   /** EXIF (migration 0025): relógio da câmera, sem fuso ("2026-09-20T14:32:05.12"). */
   capturada_em: string | null
   camera: string | null
+  /** Bytes do original no R2, do HeadObject na confirmação (migration 0050). Nulo em fotos anteriores à medição. */
+  tamanho_bytes?: number | null
   created_at: string
 }
 
@@ -471,7 +956,17 @@ export type AlbumLayoutRow = {
    * Só álbuns independentes. `path` com prefixo `albuns/` está no Cloudflare R2;
    * sem ele, é um arquivo antigo do bucket `albuns_fotos` (ver `bucketDoArquivoAlbum`).
    */
-  fotos: { id: string; path: string; nome: string; largura: number | null; altura: number | null }[]
+  fotos: {
+    id: string
+    path: string
+    nome: string
+    largura: number | null
+    altura: number | null
+    /** Só referências (0090): bucket da chave original, que não está na pasta do álbum. */
+    bucket?: string
+    /** true = aponta o original de um projeto (seleção → álbum): sair do álbum NUNCA apaga o arquivo. */
+    referencia?: boolean
+  }[]
   /** Calculada no banco: quantidade de lâminas do documento. */
   laminas_qtd: number
   miniatura: string | null
@@ -486,6 +981,77 @@ export type AlbumLayoutRow = {
   em_espera_desde?: string | null
   created_at: string
   updated_at: string
+}
+
+/** Vínculo imutável álbum ↔ snapshot de seleção (migration 0090). */
+export type AlbumSelecaoVinculoRow = {
+  id: string
+  layout_id: string
+  selecao_id: string
+  projeto_id: string
+  revisao: number
+  destino: 'projeto' | 'avulso'
+  /** IDs de `fotos` do instante da criação; nunca mudam. */
+  foto_ids: string[]
+  chave: string
+  criado_por: string | null
+  created_at: string
+}
+
+/** Registro de uma restauração de versão do álbum (migration 0091). */
+export type AlbumRestauracaoRow = {
+  id: string
+  layout_id: string
+  versao_origem_id: string
+  versao_nova_id: string
+  versao_antes_id: string
+  chave: string
+  revisao: number
+  criado_por: string | null
+  created_at: string
+}
+
+export type PapelDesignNoProjeto = 'producao' | 'dono' | 'admin' | 'editor' | 'visualizador'
+
+/** Retorno de `design_selecao_resumo` (0090). */
+export type DesignSelecaoResumo = {
+  papel: PapelDesignNoProjeto
+  pode_criar: boolean
+  pode_abrir_editor: boolean
+  tem_album_projeto: boolean
+  albuns: { layout_id: string; selecao_id: string; revisao: number; destino: 'projeto' | 'avulso'; total: number; criado_em: string }[]
+}
+
+/** Retorno de `criar_album_da_selecao` (0090). `criado: false` = repetição idempotente. */
+export type CriarAlbumDaSelecaoResultado = {
+  layout_id: string
+  vinculo_id: string
+  revisao: number
+  total: number
+  destino: 'projeto' | 'avulso'
+  criado: boolean
+}
+
+/** Retorno de `restaurar_versao_album` (0091). */
+export type RestauracaoAlbumResultado = {
+  versao_id: string
+  versao_anterior_id: string
+  revisao: number
+  restaurada_de: string
+  repetida: boolean
+}
+
+/** Item de `design_historico_versoes` (0091): a assinatura prova que a versão é reproduzível. */
+export type DesignHistoricoVersao = {
+  versao_id: string
+  numero: number
+  status: string
+  base_versao_id: string | null
+  laminas: number
+  herdadas: number
+  alteradas: number
+  assinatura: string
+  criada_em: string
 }
 
 /** Lâmina (página/imagem) de uma versão da prova — migration 0018. */
@@ -748,7 +1314,7 @@ export type Database = {
         Insert: never; Update: never; Relationships: []
       }
       selecao_notificacoes: {
-        Row: { id: string; selecao_id: string; destinatario_id: string; created_at: string }
+        Row: { id: string; selecao_id: string; destinatario_id: string; created_at: string; lida_em: string | null }
         Insert: never; Update: never; Relationships: []
       }
 
@@ -836,6 +1402,88 @@ export type Database = {
         Update: Partial<EventoAnaliticoRow>
         Relationships: []
       }
+      colecoes_foto: { Row: ColecaoFotoRow; Insert: never; Update: never; Relationships: [] }
+      colecao_fotos: { Row: { colecao_id: string; foto_id: string }; Insert: never; Update: never; Relationships: [] }
+      galeria_download_config: { Row: GaleriaDownloadConfigRow; Insert: never; Update: never; Relationships: [] }
+      galeria_downloads: { Row: { acesso_id: string; foto_id: string; projeto_id: string; vezes: number; primeiro_em: string; ultimo_em: string }; Insert: never; Update: never; Relationships: [] }
+      store_produtos: { Row: StoreProdutoRow; Insert: never; Update: never; Relationships: [] }
+      store_projeto_produtos: { Row: { projeto_id: string; produto_id: string; created_at: string }; Insert: never; Update: never; Relationships: [] }
+      store_pedidos: { Row: StorePedidoRow; Insert: never; Update: never; Relationships: [] }
+      store_pedido_itens: { Row: StorePedidoItemRow; Insert: never; Update: never; Relationships: [] }
+      store_entrega_falhas: { Row: { id: string; pedido_id: string; foto_id: string | null; motivo: string; created_at: string }; Insert: never; Update: never; Relationships: [] }
+      organizacoes: {
+        Row: OrganizacaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      convites_organizacao: {
+        Row: ConviteOrganizacaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      organizacao_membros: {
+        Row: OrganizacaoMembroRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      agenda_recursos: { Row: AgendaRecursoRow; Insert: never; Update: never; Relationships: [] }
+      agenda_disponibilidade: { Row: AgendaDisponibilidadeRow; Insert: never; Update: never; Relationships: [] }
+      agenda_bloqueios: { Row: AgendaBloqueioRow; Insert: never; Update: never; Relationships: [] }
+      agenda_reservas: { Row: AgendaReservaRow; Insert: never; Update: never; Relationships: [] }
+      agenda_reserva_eventos: { Row: AgendaReservaEventoRow; Insert: never; Update: never; Relationships: [] }
+      studio_negocios: { Row: StudioNegocioRow; Insert: never; Update: never; Relationships: [] }
+      studio_negocio_historico: { Row: StudioNegocioHistoricoRow; Insert: never; Update: never; Relationships: [] }
+      studio_tarefas: { Row: StudioTarefaRow; Insert: never; Update: never; Relationships: [] }
+      studio_modelos: { Row: StudioModeloRow; Insert: never; Update: never; Relationships: [] }
+      studio_configuracao: { Row: StudioConfiguracaoRow; Insert: never; Update: never; Relationships: [] }
+      studio_optout: { Row: StudioOptoutRow; Insert: never; Update: never; Relationships: [] }
+      studio_outbox: { Row: StudioOutboxRow; Insert: never; Update: never; Relationships: [] }
+      studio_outbox_registro: { Row: StudioOutboxRegistroRow; Insert: never; Update: never; Relationships: [] }
+      sites: {
+        Row: SiteRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_versoes: {
+        Row: SiteVersaoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_midias: {
+        Row: SiteMidiaRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_eventos: {
+        Row: SiteEventoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      site_dominios: {
+        Row: SiteDominioRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      planos_galeria: {
+        Row: PlanoGaleriaRow
+        Insert: PlanoGaleriaRow
+        Update: Partial<PlanoGaleriaRow>
+        Relationships: []
+      }
+      assinaturas_galeria: {
+        Row: AssinaturaGaleriaRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       r2_uploads_pendentes: {
         Row: R2UploadPendenteRow
         Insert: Pick<R2UploadPendenteRow, 'r2_key' | 'user_id' | 'expira_em'> & Partial<Pick<R2UploadPendenteRow, 'created_at'>>
@@ -868,6 +1516,18 @@ export type Database = {
         Insert: Pick<AlbumLayoutRow, 'nome' | 'formato' | 'orientacao'> &
           Partial<Omit<AlbumLayoutRow, 'id' | 'created_at' | 'updated_at' | 'revisao' | 'laminas_qtd'>>
         Update: Partial<Omit<AlbumLayoutRow, 'id' | 'created_at' | 'revisao' | 'laminas_qtd'>>
+        Relationships: []
+      }
+      album_selecao_vinculos: {
+        Row: AlbumSelecaoVinculoRow
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      album_restauracoes: {
+        Row: AlbumRestauracaoRow
+        Insert: never
+        Update: never
         Relationships: []
       }
       album_layout_versoes: {
@@ -1025,18 +1685,126 @@ export type Database = {
     Views: {
       /** Centro de controle da diagramação (0038), security_invoker: só a equipe vê linhas. */
       diagramacao_itens: { Row: DiagramacaoItemRow; Relationships: [] }
+      store_divergencias: { Row: StoreDivergenciaRow; Relationships: [] }
     }
     Functions: {
+      criar_site: { Args: { p_org: string; p_nome: string; p_slug: string }; Returns: string }
+      atualizar_site_dados: { Args: { p_site: string; p_nome: string; p_slug: string }; Returns: boolean }
+      salvar_site_rascunho: { Args: { p_site: string; p_conteudo: Json; p_rev: number }; Returns: number }
+      registrar_site_midia: { Args: { p_org: string; p_chave: string; p_nome: string; p_largura: number | null; p_altura: number | null; p_tamanho_kb: number | null }; Returns: string }
+      remover_site_midia: { Args: { p_id: string }; Returns: string }
+      publicar_site: { Args: { p_site: string; p_chave: string; p_nota?: string | null }; Returns: string }
+      reverter_site_versao: { Args: { p_site: string; p_versao: string }; Returns: string }
+      despublicar_site: { Args: { p_site: string }; Returns: boolean }
+      restaurar_site_versao_no_rascunho: { Args: { p_site: string; p_versao: string }; Returns: number }
+      adicionar_site_dominio: { Args: { p_site: string; p_dominio: string }; Returns: { id: string; token: string }[] }
+      preparar_verificacao_dominio: { Args: { p_id: string }; Returns: { dominio: string; token: string; status: SiteDominioStatus }[] }
+      confirmar_verificacao_dominio: { Args: { p_id: string; p_registros: string[] }; Returns: string }
+      definir_site_dominio_ativo: { Args: { p_id: string; p_ativo: boolean }; Returns: boolean }
+      remover_site_dominio: { Args: { p_id: string }; Returns: boolean }
+      obter_site_publicado: { Args: { p_slug: string }; Returns: Json | null }
+      obter_site_publicado_por_host: { Args: { p_host: string }; Returns: Json | null }
+      resolver_site_por_host: { Args: { p_host: string }; Returns: string | null }
+      criar_convite_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'>; p_token_hash: string }; Returns: string }
+      revogar_convite_organizacao: { Args: { p_id: string }; Returns: boolean }
+      aceitar_convite_organizacao: { Args: { p_token_hash: string }; Returns: string }
+      salvar_colecao: { Args: { p_id: string; p_projeto: string; p_nome: string; p_ordem?: number }; Returns: string }
+      remover_colecao: { Args: { p_id: string }; Returns: boolean }
+      definir_fotos_colecao: { Args: { p_colecao: string; p_foto_ids: string[] }; Returns: number }
+      definir_download_galeria: { Args: { p_projeto: string; p_liberado: boolean; p_expira_em: string | null; p_limite: number }; Returns: boolean }
+      pode_gerir_galeria: { Args: { p_projeto: string }; Returns: boolean }
+      portal_colecoes: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_fotos_colecao: { Args: { p_sessao_hash: string; p_colecao: string; p_apos?: string }; Returns: Json }
+      portal_download_config: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_download_foto: { Args: { p_sessao_hash: string; p_foto_id: string }; Returns: Json }
+      store_salvar_produto: { Args: { p_id: string; p_org: string; p_nome: string; p_tipo: StoreProdutoTipo; p_preco: number; p_comissao_bps: number; p_ativo: boolean; p_descricao?: string | null }; Returns: string }
+      store_vincular_produto: { Args: { p_projeto: string; p_produto: string; p_vincular: boolean }; Returns: boolean }
+      store_catalogo_portal: { Args: { p_sessao_hash: string }; Returns: Json }
+      store_criar_pedido: { Args: { p_sessao_hash: string; p_chave: string; p_nome: string; p_email: string; p_itens: Json; p_token_hash: string }; Returns: Json }
+      store_cancelar_pedido: { Args: { p_sessao_hash: string; p_pedido: string }; Returns: boolean }
+      store_aplicar_evento: { Args: { p_provedor: string; p_evento_id: string; p_pedido: string; p_tipo: 'pago' | 'recusado' | 'estornado'; p_valor: number }; Returns: Json }
+      store_entrega: { Args: { p_token_hash: string }; Returns: Json }
+      store_entrega_foto: { Args: { p_token_hash: string; p_foto_id: string }; Returns: Json }
+      store_registrar_falha_entrega: { Args: { p_pedido: string; p_foto: string | null; p_motivo: string }; Returns: boolean }
+      papel_no_projeto_org: { Args: { p_projeto: string }; Returns: PapelOrganizacao | null }
+      pode_ler_projeto_org: { Args: { p_projeto: string }; Returns: boolean }
+      pode_editar_projeto_org: { Args: { p_projeto: string }; Returns: boolean }
+      papel_na_organizacao: { Args: { p_org: string }; Returns: PapelOrganizacao | null }
+      adicionar_membro_organizacao: { Args: { p_org: string; p_email: string; p_papel: Exclude<PapelOrganizacao, 'dono'> }; Returns: string }
+      remover_membro_organizacao: { Args: { p_org: string; p_user: string }; Returns: boolean }
+      listar_equipe_organizacao: { Args: { p_org: string }; Returns: EquipeMembroRow[] }
+      agenda_salvar_recurso: { Args: { p_org: string; p_id: string | null; p_nome: string; p_slug: string; p_tipo: AgendaTipoRecurso; p_descricao: string | null; p_fuso: string; p_duracao_min: number; p_buffer_min: number; p_intervalo_min: number; p_antecedencia_min_min: number; p_antecedencia_max_dias: number; p_cancelamento_antecedencia_h: number; p_sinal_centavos: number | null; p_publicado: boolean }; Returns: string }
+      agenda_arquivar_recurso: { Args: { p_recurso: string }; Returns: boolean }
+      agenda_definir_disponibilidade: { Args: { p_recurso: string; p_janelas: Json }; Returns: number }
+      agenda_criar_bloqueio: { Args: { p_recurso: string; p_inicio: string; p_fim: string; p_motivo: string | null }; Returns: string }
+      agenda_remover_bloqueio: { Args: { p_id: string }; Returns: boolean }
+      agenda_listar_slots_estudio: { Args: { p_recurso: string; p_de: string; p_ate: string }; Returns: AgendaSlotRow[] }
+      agenda_reservar_estudio: { Args: { p_recurso: string; p_inicio: string; p_nome: string; p_email: string; p_telefone: string | null; p_token_hash: string }; Returns: string }
+      agenda_confirmar: { Args: { p_id: string }; Returns: string }
+      agenda_cancelar: { Args: { p_id: string; p_motivo: string | null }; Returns: string }
+      agenda_concluir: { Args: { p_id: string }; Returns: string }
+      agenda_remarcar: { Args: { p_id: string; p_novo_inicio: string }; Returns: string }
+      agenda_registrar_sinal: { Args: { p_id: string }; Returns: string }
+      agenda_registrar_reembolso: { Args: { p_id: string }; Returns: boolean }
+      agenda_vincular_cliente: { Args: { p_id: string }; Returns: string }
+      agenda_recurso_publico: { Args: { p_slug: string }; Returns: AgendaRecursoPublico | null }
+      agenda_listar_slots: { Args: { p_slug: string; p_de: string; p_ate: string }; Returns: AgendaSlotRow[] }
+      agenda_criar_hold: { Args: { p_slug: string; p_inicio: string; p_nome: string; p_email: string; p_telefone: string | null; p_token_hash: string }; Returns: AgendaHoldPublico }
+      agenda_reserva_publica: { Args: { p_id: string; p_token_hash: string }; Returns: AgendaReservaPublica }
+      agenda_confirmar_publica: { Args: { p_id: string; p_token_hash: string }; Returns: string }
+      agenda_pagar_sinal_simulado: { Args: { p_id: string; p_token_hash: string }; Returns: string }
+      agenda_cancelar_publica: { Args: { p_id: string; p_token_hash: string }; Returns: string }
+      agenda_remarcar_publica: { Args: { p_id: string; p_token_hash: string; p_novo_inicio: string }; Returns: string }
+      criar_negocio_studio: { Args: { p_org: string; p_chave: string; p_titulo: string; p_nome: string | null; p_email: string | null; p_telefone: string | null; p_origem: StudioOrigem; p_valor: number; p_cliente_id?: string | null; p_responsavel?: string | null }; Returns: string }
+      mudar_etapa_negocio_studio: { Args: { p_negocio: string; p_para: StudioEtapa; p_chave: string; p_motivo?: StudioMotivoPerda | null; p_detalhe?: string | null }; Returns: boolean }
+      atualizar_negocio_studio: { Args: { p_negocio: string; p_titulo: string; p_valor: number; p_origem: StudioOrigem; p_responsavel: string; p_orcamento?: string | null }; Returns: boolean }
+      vincular_projeto_negocio_studio: { Args: { p_negocio: string; p_projeto: string | null }; Returns: boolean }
+      listar_funil_studio: { Args: { p_org: string }; Returns: StudioFunilRow[] }
+      criar_tarefa_studio: { Args: { p_org: string; p_chave: string; p_titulo: string; p_responsavel?: string | null; p_prazo?: string | null; p_prioridade?: StudioPrioridade; p_cliente?: string | null; p_negocio?: string | null; p_projeto?: string | null; p_orcamento?: string | null; p_descricao?: string | null }; Returns: string }
+      atualizar_tarefa_studio: { Args: { p_id: string; p_titulo: string; p_responsavel: string; p_prazo: string | null; p_prioridade: StudioPrioridade; p_descricao?: string | null }; Returns: boolean }
+      mudar_status_tarefa_studio: { Args: { p_id: string; p_status: StudioStatusTarefa }; Returns: boolean }
+      listar_tarefas_studio: { Args: { p_org: string; p_filtro?: StudioFiltroTarefa; p_responsavel?: string | null; p_cliente?: string | null }; Returns: StudioTarefaListaRow[] }
+      salvar_modelo_studio: { Args: { p_org: string; p_id: string | null; p_nome: string; p_finalidade: StudioFinalidadeModelo; p_canal: StudioCanal; p_assunto: string; p_corpo: string; p_ativo?: boolean }; Returns: string }
+      renderizar_modelo_studio: { Args: { p_org: string; p_modelo: string; p_cliente?: string | null; p_negocio?: string | null; p_tarefa?: string | null }; Returns: StudioPreviaRow[] }
+      linha_do_tempo_studio: { Args: { p_org: string; p_cliente: string; p_projeto?: string | null; p_limite?: number }; Returns: StudioLinhaTempoRow[] }
+      definir_followup_dias_studio: { Args: { p_org: string; p_dias: number }; Returns: number }
+      definir_optout_studio: { Args: { p_org: string; p_cliente: string; p_canal: StudioCanal; p_ativo: boolean }; Returns: boolean }
+      enfileirar_mensagem_studio: { Args: { p_org: string; p_chave: string; p_canal: StudioCanal; p_cliente: string; p_modelo?: string | null; p_assunto?: string | null; p_corpo?: string | null; p_negocio?: string | null; p_tarefa?: string | null }; Returns: string }
+      reservar_outbox_studio: { Args: { p_org: string; p_limite?: number }; Returns: StudioOutboxReservaRow[] }
+      concluir_outbox_studio: { Args: { p_id: string; p_ok: boolean; p_adaptador: string; p_erro?: string | null }; Returns: StudioOutboxStatus }
+      processar_outbox_studio: { Args: { p_org: string; p_limite?: number; p_adaptador?: string }; Returns: { processadas: number; simuladas: number; envio_externo: false } }
+      cancelar_outbox_studio: { Args: { p_id: string }; Returns: boolean }
+      reenfileirar_outbox_studio: { Args: { p_id: string }; Returns: boolean }
+      listar_outbox_studio: { Args: { p_org: string; p_status?: StudioOutboxStatus | null; p_limite?: number }; Returns: StudioOutboxListaRow[] }
+      rodar_automacoes_studio: { Args: { p_org: string }; Returns: { lembretes_tarefa: number; followups_proposta: number } }
+      franquia_permite_envio: { Args: { p_projeto: string; p_bytes: number }; Returns: boolean }
+      escolher_plano_galeria: { Args: { p_chave: string; p_plano: string }; Returns: string }
+      consumo_franquia_galeria: { Args: Record<string, never>; Returns: ConsumoFranquiaGaleriaRow[] }
       criar_galeria_digital: { Args: { p_id: string; p_nome: string; p_cliente_nome: string; p_cliente_email: string }; Returns: string }
       gerir_portal: { Args: { p_projeto_id: string; p_link_hash: string | null; p_codigo: string | null; p_revogar?: boolean }; Returns: string | null }
       abrir_portal: { Args: { p_link_hash: string; p_codigo: string; p_sessao_hash: string }; Returns: boolean }
       portal_projeto: { Args: { p_sessao_hash: string; p_apos?: string }; Returns: Json }
       portal_foto: { Args: { p_sessao_hash: string; p_foto_id: string }; Returns: Json }
       portal_favorito: { Args: { p_sessao_hash: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
+      portal_prova: { Args: { p_sessao_hash: string }; Returns: Json }
+      portal_aprovar_prova: { Args: { p_sessao_hash: string; p_versao_id: string; p_chave: string }; Returns: Json }
+      portal_lamina: { Args: { p_sessao_hash: string; p_lamina_id: string }; Returns: Json }
+      portal_comentar_prova: { Args: { p_sessao_hash: string; p_versao_id: string; p_lamina_id: string | null; p_tipo: string; p_texto: string; p_chave: string }; Returns: string }
       portal_entregar: { Args: { p_sessao_hash: string; p_foto_ids: string[]; p_revisao: number; p_chave: string }; Returns: Json }
 
       entregar_selecao: { Args: { p_projeto_id: string; p_foto_ids: string[]; p_revisao_esperada: number; p_chave: string }; Returns: { id: string; revisao: number; total: number } }
 
+      /** 0090: papel/permissão de design e álbuns já nascidos de seleções do projeto. */
+      design_selecao_resumo: { Args: { p_projeto: string }; Returns: DesignSelecaoResumo }
+      /** 0090: cria o documento de álbum a partir do snapshot, sem duplicar originais; idempotente por chave. */
+      criar_album_da_selecao: {
+        Args: { p_selecao_id: string; p_destino: 'projeto' | 'avulso'; p_chave: string; p_nome: string; p_formato: string; p_orientacao: string; p_documento?: unknown }
+        Returns: CriarAlbumDaSelecaoResultado
+      }
+      /** 0091: restaurar cria NOVA versão e guarda o estado de antes; idempotente por chave. */
+      restaurar_versao_album: { Args: { p_layout_id: string; p_versao_id: string; p_chave: string }; Returns: RestauracaoAlbumResultado }
+      design_versao_assinatura: { Args: { p_versao: string }; Returns: string }
+      design_historico_versoes: { Args: { p_projeto: string }; Returns: DesignHistoricoVersao[] }
       /** Grava o documento do editor se a revisão bater; null = conflito (0027). */
       salvar_album_layout: { Args: { p_id: string; p_documento: unknown; p_revisao: number }; Returns: number | null }
       /** Link de aprovação sem login (0027): tudo exige o token. */
@@ -1070,6 +1838,7 @@ export type Database = {
       registrar_busca_facial: { Args: { p_limite?: number }; Returns: boolean }
       /** Define favorito manual compartilhado, sem entregar seleção (0044). */
       definir_favorito_foto: { Args: { p_projeto_id: string; p_foto_id: string; p_favorita: boolean }; Returns: boolean }
+      marcar_notificacao_selecao_lida: { Args: { p_id: string }; Returns: boolean }
       /** Marca favoritas por selfie; comando unidirecional separado (0042). */
       favoritar_fotos: { Args: { p_projeto_id: string; p_foto_ids: string[] }; Returns: number }
       /** Reserva a chave de um envio do R2 para quem o pediu, por 24h (0040). Só service_role. */

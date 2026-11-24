@@ -1,5 +1,7 @@
 # SeuÁlbum
 
+[Aceite local atual e dependências externas](docs/operacao-digital/REVISAO-LOCAL.md): revisão integrada dos incrementos do Claude e do Codex.
+
 Estratégia vigente: [Fase 01 — Operação Digital](docs/operacao-digital/MASTER-PLAN.md). [Execução e gates](docs/operacao-digital/EXECUTION-STATUS.md).
 
 Plataforma B2B de diagramação e design de álbuns para fotógrafos.
@@ -13,6 +15,8 @@ Este README continua sendo o guia de operação do MVP. O planejamento não
 autoriza migrations, implementação ou deploy por si só.
 
 ## Rodando localmente
+
+Para a [operação digital sem integrações externas](docs/operacao-digital/OPERACAO-LOCAL.md), com as dependências já instaladas: execute `npm run dev:local` e abra `http://127.0.0.1:3121/operacao-local`. Os dados ficam no navegador; reconhecimento facial automático e pagamentos não são executados nessa central. A rota só existe em desenvolvimento.
 
 ```bash
 npm install
@@ -439,6 +443,37 @@ só para isso a partir de uma pasta temporária: `supabase init` nela, trocar
 `project_id` e as portas (ex.: API 56421, banco 56422) no `config.toml`,
 apontar `supabase/migrations` para as do repositório (symlink),
 `supabase start --workdir <pasta>` e passar `E2E_SUPABASE_URL=http://127.0.0.1:56421`.
+
+### Testes E2E das jornadas dos módulos (equipe, Loja, coleções/download, Agenda, Sites)
+
+`e2e/modulos/` roda no navegador contra o **mesmo Supabase local** e o R2 falso do
+editor (config própria: `playwright.modulos.config.ts`; portas separadas para não
+disputar com o E2E do editor). Cada jornada cria o próprio estúdio e confere a
+interface **e** o banco. A flag do pagamento simulado da Loja é ligada só nesta config.
+
+```bash
+# stack temporário (ver acima): API em 56421
+E2E_SUPABASE_URL=http://127.0.0.1:56421 E2E_PORTA_APP=3109 E2E_PORTA_R2_FALSO=56491 npm run test:e2e:modulos
+```
+
+Importante: a CLI do Supabase usa o prefixo de data do arquivo como **chave única**
+da migration. Nunca dê o mesmo prefixo a duas migrations (o teste
+`src/lib/migrations-versoes.test.ts` falha se acontecer).
+
+### Variáveis de ambiente das funcionalidades novas
+
+Nenhuma é obrigatória; os padrões são seguros.
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO` | ligado | `=0` desliga o bloqueio de **novos** envios quando a franquia do plano estoura (nunca bloqueia leitura/download; sem plano escolhido não bloqueia) |
+| `SEUALBUM_STORE_PAGAMENTO_SIMULADO` | desligado | `=1` habilita o pagamento **simulado** da Loja em dev/preview; **em produção (`VERCEL_ENV=production`) a Loja não cobra nada, mesmo com a flag** |
+| `SEUALBUM_STORE_PEPPER` | vazio | segredo opcional que entra na derivação do token do link de entrega da Loja |
+| `SITES_HOST_ROUTING` | desligado | `=1` ativa o roteamento de domínio próprio para os Sites (exige DNS e certificado na hospedagem) |
+| `SEUALBUM_OPERACAO_LOCAL` | desligado | habilita a bancada `/operacao-local` (somente desenvolvimento; em produção devolve 404) |
+
+Pagamento real, envio de e-mail/SMS e domínio próprio **não estão ligados**: dependem de
+contrato/provedor (ver `docs/operacao-digital/STATUS-OPERACAO.md`).
 O `global-setup` cria o admin `admin-editor@e2e.local` (service role local) e
 guarda a sessão em `e2e/editor/.auth/`; falhas ficam em `e2e/editor/.resultados/`.
 

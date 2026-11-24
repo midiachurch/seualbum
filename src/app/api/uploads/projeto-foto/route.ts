@@ -47,6 +47,16 @@ export async function POST(request: NextRequest) {
     if (await metadadosDoObjeto(key)) {
       return NextResponse.json({ erro: 'Este arquivo já foi enviado. Envie de novo.' }, { status: 409 })
     }
+    // Franquia (0050/0052): barra só NOVOS envios, e só de quem escolheu plano (sem plano
+    // o banco sempre permite). Padrão de mercado: ligada; SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO=0
+    // desliga. Falha de medição nunca derruba o upload — "falhar aberto" e registrar.
+    if (process.env.SEUALBUM_FRANQUIA_BLOQUEIA_ENVIO !== '0') {
+      const { data: cabe, error: franquiaError } = await acesso.supabase.rpc('franquia_permite_envio', { p_projeto: projetoId, p_bytes: tamanho })
+      if (franquiaError) console.error('[uploads:projeto-foto] franquia', franquiaError.message)
+      else if (cabe === false) {
+        return NextResponse.json({ erro: 'O armazenamento do estúdio atingiu o limite do plano. Suas fotos continuam disponíveis; para enviar mais, é preciso ampliar o plano.', codigo: 'franquia_excedida' }, { status: 403 })
+      }
+    }
     const { data: reservada, error } = await admin.rpc('reservar_upload_r2', { p_key: key, p_user_id: acesso.userId })
     if (error) throw error
     if (reservada !== true) {

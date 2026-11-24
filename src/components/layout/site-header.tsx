@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { href: '/precos', label: 'Preços' },
 ]
 
-export function SiteHeader() {
+export function SiteHeader({ navegacaoIndependente = false }: { navegacaoIndependente?: boolean }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -50,7 +50,7 @@ export function SiteHeader() {
               size="sm"
               className="btn-marketing border-2 border-[#444444]/40 bg-transparent text-[#444444] hover:border-[#444444] hover:bg-transparent"
             >
-              <Link href="/criar-album">Criar meu álbum</Link>
+              <Link href={navegacaoIndependente ? "/previa/visao-geral" : "/criar-album"}>{navegacaoIndependente ? "Explorar a plataforma" : "Criar meu álbum"}</Link>
             </Button>
           </div>
 
@@ -108,8 +108,8 @@ export function SiteHeader() {
               size="lg"
               className="btn-marketing border-2 border-[#444444]/40 bg-transparent text-[#444444] hover:border-[#444444] hover:bg-transparent"
             >
-              <Link href="/criar-album" onClick={() => setOpen(false)}>
-                Criar meu álbum
+              <Link href={navegacaoIndependente ? "/previa/visao-geral" : "/criar-album"} onClick={() => setOpen(false)}>
+                {navegacaoIndependente ? "Explorar a plataforma" : "Criar meu álbum"}
               </Link>
             </Button>
           </div>

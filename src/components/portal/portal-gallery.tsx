@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { entrarPortal, favoritoPortal, entregarPortal } from '@/lib/actions/portal'
 import type { PortalProjeto } from '@/lib/portal/servidor'
 
-export function PortalGallery({ link, projeto, paginada }: { link: string; projeto: PortalProjeto | null; paginada: boolean }) {
+export function PortalGallery({ link, projeto, paginada, colecao = null, download = false }: { link: string; projeto: PortalProjeto | null; paginada: boolean; colecao?: string | null; download?: boolean }) {
   const router = useRouter()
   const [codigo, setCodigo] = useState('')
   const [mensagem, setMensagem] = useState('')
@@ -70,8 +70,9 @@ export function PortalGallery({ link, projeto, paginada }: { link: string; proje
       </button>
       <button disabled={pendente} aria-pressed={f.favorita} aria-label={f.favorita ? 'Remover dos favoritos' : 'Marcar como favorita'} onClick={() => marcar(f.id, !f.favorita)} className="absolute right-2 top-2 min-h-11 min-w-11 rounded-full bg-black/70 text-xl text-white">{f.favorita ? '★' : '☆'}</button>
       {f.nome_original && <p className="truncate px-3 py-2 text-xs">{f.nome_original}</p>}
+      {download && <a className="block px-3 pb-3 text-xs underline" href={`/portal/${link}/download/${f.id}`} aria-label={`Baixar ${f.nome_original ?? 'foto'}`}>Baixar original</a>}
     </article>)}</div>
-    <nav className="flex gap-4">{paginada && <Link className="min-h-11 underline" href={`/portal/${link}`}>Primeira página</Link>}{projeto.fotos.length === 100 && <Link className="min-h-11 underline" href={`/portal/${link}?apos=${projeto.fotos[99].id}`}>Próxima página</Link>}</nav>
+    <nav className="flex gap-4">{paginada && <Link className="min-h-11 underline" href={colecao ? `/portal/${link}?colecao=${colecao}` : `/portal/${link}`}>Primeira página</Link>}{projeto.fotos.length === 100 && <Link className="min-h-11 underline" href={`/portal/${link}?${colecao ? `colecao=${colecao}&` : ''}apos=${projeto.fotos[99].id}`}>Próxima página</Link>}</nav>
     <section className="rounded-2xl border p-5"><h2 className="text-xl font-semibold">Histórico do projeto</h2><ol className="mt-3 space-y-3">{projeto.eventos.map((e,i) => <li key={i} className="text-sm"><strong>{e.tipo === 'projeto_criado' ? 'Projeto criado' : 'Seleção entregue'}</strong><span className="block text-muted-foreground">{new Date(e.data).toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'})} · {e.responsavel}</span></li>)}</ol></section>
     <dialog ref={dialog} aria-label="Foto ampliada" onCancel={() => setIndice(null)} onClose={() => setIndice(null)} onKeyDown={(e) => {
       if (e.key === 'ArrowRight' && indice !== null && indice < abertas.length - 1) setIndice(indice + 1)

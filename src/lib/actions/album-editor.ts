@@ -430,7 +430,8 @@ export async function removerFotoAlbum(id: string, fotoId: string): Promise<Resu
 
   const { error } = await supabase.from('album_layouts').update({ fotos: atual.fotos.filter((f) => f.id !== fotoId) }).eq('id', id)
   if (error) return { ok: false, erro: 'Não foi possível remover a foto.' }
-  await removerArquivosDoAlbum(supabase, [foto.path])
+  // Referência a original de projeto (seleção → álbum): sai do álbum, o arquivo continua no projeto.
+  if (!foto.referencia) await removerArquivosDoAlbum(supabase, [foto.path])
   return { ok: true }
 }
 
@@ -451,7 +452,7 @@ export async function renovarLinksDasFotos(id: string): Promise<Resultado<{ urls
 
   const pares: { id: string; bucket: string; path: string }[] = album.projeto_id
     ? (await fotosDoProjeto(supabase, album.projeto_id)).map((f) => ({ id: f.id, bucket: f.bucket ?? 'projetos_fotos', path: f.storage_path }))
-    : album.fotos.map((f) => ({ id: f.id, bucket: bucketDoArquivoAlbum(f.path), path: f.path }))
+    : album.fotos.map((f) => ({ id: f.id, bucket: f.bucket ?? bucketDoArquivoAlbum(f.path), path: f.path }))
 
   const urls: Record<string, string> = {}
   const porBucket = new Map<string, typeof pares>()
@@ -566,7 +567,7 @@ export async function duplicarAlbum(id: string): Promise<Resultado<{ id: string 
         largura: null,
         altura: null,
       }))
-    : origem.fotos.map((f) => ({ id: f.id, bucket: bucketDoArquivoAlbum(f.path), path: f.path, nome: f.nome, largura: f.largura, altura: f.altura }))
+    : origem.fotos.map((f) => ({ id: f.id, bucket: f.bucket ?? bucketDoArquivoAlbum(f.path), path: f.path, nome: f.nome, largura: f.largura, altura: f.altura }))
 
   // A cópia vai sempre para o R2, venha a foto de onde vier (R2 ou bucket antigo).
   const copiadas: AlbumLayoutRow['fotos'] = []
@@ -786,7 +787,8 @@ export async function excluirAlbumAvulso(id: string): Promise<Resultado> {
   const { error } = await supabase.from('album_layouts').delete().eq('id', id)
   if (error) return { ok: false, erro: 'Não foi possível excluir o álbum.' }
   const paths = [
-    ...atual.fotos.map((f) => f.path),
+    // Referências a originais de projeto (0090) nunca são apagadas junto com o álbum.
+    ...atual.fotos.filter((f) => !f.referencia).map((f) => f.path),
     ...Object.values(atual.derivados ?? {}).flatMap((d) => [d.mini, d.preview]),
     ...((aprovacoes ?? []) as { laminas: { path: string }[] }[]).flatMap((a) => a.laminas.map((l) => l.path)),
   ]
